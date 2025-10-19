@@ -1,35 +1,35 @@
-CREATE TABLE status(
-    id SMALLSERIAL PRIMARY KEY,
-    name VARCHAR(50) NOT NULL,
-    description VARCHAR(255),
-    type ENUM('user') NOT NULL
-);
+-- CREATE TABLE status(
+--     id SMALLSERIAL PRIMARY KEY,
+--     name VARCHAR(50) NOT NULL,
+--     description VARCHAR(255),
+--     type ENUM('user') NOT NULL
+-- );
 
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    first_name VARCHAR(50) NOT NULL,
-    last_name VARCHAR(50),
-    email VARCHAR(100) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status INT,
-    last_seen TIMESTAMP,
-    default_profile INT,
-    CONSTRAINT fk_user_status FOREIGN KEY(status) REFERENCES status(id)
-);
+-- CREATE TABLE users (
+--     id SERIAL PRIMARY KEY,
+--     username VARCHAR(50) UNIQUE NOT NULL,
+--     first_name VARCHAR(50) NOT NULL,
+--     last_name VARCHAR(50),
+--     email VARCHAR(100) UNIQUE NOT NULL,
+--     password VARCHAR(255) NOT NULL,
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     status INT,
+--     last_seen TIMESTAMP,
+--     default_profile INT,
+--     CONSTRAINT fk_user_status FOREIGN KEY(status) REFERENCES status(id)
+-- );
 
-CREATE TABLE mankind_users(
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    profile_picture VARCHAR(255),
-    birthdate DATE,
-    gender ENUM('m','f'),
-    balance DECIMAL(10,2) DEFAULT 0,
-    country VARCHAR(50),
-    state VARCHAR(50),
-    zip_code VARCHAR(20),
-    type ENUM('trainer' , 'trainee') NOT NULL,
-);
+-- CREATE TABLE mankind_users(
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     profile_picture VARCHAR(255),
+--     birthdate DATE,
+--     gender ENUM('m','f'),
+--     balance DECIMAL(10,2) DEFAULT 0,
+--     country VARCHAR(50),
+--     state VARCHAR(50),
+--     zip_code VARCHAR(20),
+--     type ENUM('trainer' , 'trainee') NOT NULL,
+-- );
 
 CREATE TABLE roles(
     id SMALLSERIAL PRIMARY KEY,
@@ -70,62 +70,87 @@ CREATE TABLE admin_phones(
     CONSTRAINT fk_admin_phone FOREIGN KEY(admin_id) REFERENCES admins(id)
 );
 
-CREATE TABLE sizes(
-    id SMALLSERIAL PRIMARY KEY,
-    name VARCHAR(50) NOT NULL,
-    description VARCHAR(255),
-    type ENUM('clothes', 'shoes','weight' ,'volume') NOT NULL
-);
+-- CREATE TABLE sizes(
+--     id SMALLSERIAL PRIMARY KEY,
+--     name VARCHAR(50) NOT NULL,
+--     description VARCHAR(255),
+--     type ENUM('clothes', 'shoes','weight' ,'volume') NOT NULL
+-- );
 
-CREATE TABLE stores(
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    profile_picture VARCHAR(255),
-    name VARCHAR(100) NOT NULL,
-    description VARCHAR(255),
-    store_type ENUM('supplements', 'clothes', 'both') NOT NULL
-);
+-- CREATE TABLE stores(
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     profile_picture VARCHAR(255),
+--     name VARCHAR(100) NOT NULL,
+--     description VARCHAR(255),
+--     store_type ENUM('supplements', 'clothes', 'both') NOT NULL
+-- );
 
-CREATE TABLE store_branches(
-    id SERIAL PRIMARY KEY,
-    store_id INT,
-    opening_time TIME,
-    closing_time TIME,
-    country VARCHAR(50),
-    state VARCHAR(50),
-    street VARCHAR(100),
-    zip_code VARCHAR(20),
-    CONSTRAINT fk_store_branch_store FOREIGN KEY(store_id) REFERENCES stores(id)
-);
+-- CREATE TABLE store_branches(
+--     id SERIAL PRIMARY KEY,
+--     store_id INT,
+--     opening_time TIME,
+--     closing_time TIME,
+--     country VARCHAR(50),
+--     state VARCHAR(50),
+--     street VARCHAR(100),
+--     zip_code VARCHAR(20),
+--     CONSTRAINT fk_store_branch_store FOREIGN KEY(store_id) REFERENCES stores(id)
+-- -- );
+-- CREATE TABLE items(
+--     id BIGSERIAL PRIMARY KEY,
+--     name VARCHAR(100) NOT NULL,
+--     description VARCHAR(255),
+--     price DECIMAL(10,2) NOT NULL,
+--     stock_quantity INT NOT NULL,
+--     category_id INT,
+--     brand VARCHAR(100),
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     size_id INT,
+--     expiry_date DATE,
+--     store_id UUID,
+--     branch_id INT
+--     CONSTRAINT fk_item_category FOREIGN KEY(category_id) REFERENCES item_categories(id),
+--     CONSTRAINT fk_item_size FOREIGN KEY(size_id) REFERENCES sizes(id),
+--     CONSTRAINT fk_item_store FOREIGN KEY(store_id) REFERENCES stores(id),
+--     CONSTRAINT fk_item_branch FOREIGN KEY(branch_id) REFERENCES store_branches(id)
+-- )
+-- CREATE TABLE item_categories(
+--     id SMALLSERIAL PRIMARY KEY,
+--     name VARCHAR(100) NOT NULL,
+--     description VARCHAR(255),
+--     type ENUM('items', 'courses') NOT NULL
+-- );
 
-CREATE TABLE gyms(
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    profile_picture VARCHAR(255),
-    name VARCHAR(100) NOT NULL,
-    description VARCHAR(255),
-    status INT,
-    CONSTRAINT fk_gym_status FOREIGN KEY(status) REFERENCES status(id)
-);
+-- CREATE TABLE gyms(
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     profile_picture VARCHAR(255),
+--     name VARCHAR(100) NOT NULL,
+--     description VARCHAR(255),
+--     status INT,
+--     CONSTRAINT fk_gym_status FOREIGN KEY(status) REFERENCES status(id)
+-- );
 
-CREATE TABLE gym_branches(
-    id SERIAL PRIMARY KEY,
-    gym_id INT,
-    country VARCHAR(50),
-    state VARCHAR(50),
-    street VARCHAR(100),
-    zip_code VARCHAR(20),
-    CONSTRAINT fk_gym_branch_gym FOREIGN KEY(gym_id) REFERENCES gyms(id)
-);
+-- CREATE TABLE gym_branches(
+--     id SERIAL PRIMARY KEY,
+--     gym_id INT,
+--     country VARCHAR(50),
+--     state VARCHAR(50),
+--     street VARCHAR(100),
+--     zip_code VARCHAR(20),
+--     CONSTRAINT fk_gym_branch_gym FOREIGN KEY(gym_id) REFERENCES gyms(id)
+-- );
 
-CREATE TABLE gym_slots(
-    id SERIAL PRIMARY KEY,
-    gym_id INT,
-    branch_id INT,
-    gender ENUM('m','f','mix') NOT NULL,
-    opening_time TIME,
-    closing_time TIME,
-    CONSTRAINT fk_gym_slot_gym FOREIGN KEY(gym_id) REFERENCES gyms(id),
-    CONSTRAINT fk_gym_slot_branch FOREIGN KEY(branch_id) REFERENCES gym_branches(id)
-);
+-- CREATE TABLE gym_slots(
+--     id SERIAL PRIMARY KEY,
+--     gym_id INT,
+--     branch_id INT,
+--     gender ENUM('m','f','mix') NOT NULL,
+--     opening_time TIME,
+--     closing_time TIME,
+--     CONSTRAINT fk_gym_slot_gym FOREIGN KEY(gym_id) REFERENCES gyms(id),
+--     CONSTRAINT fk_gym_slot_branch FOREIGN KEY(branch_id) REFERENCES gym_branches(id)
+-- );
 
 CREATE TABLE services(
     id SMALLSERIAL PRIMARY KEY,
