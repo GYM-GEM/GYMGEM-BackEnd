@@ -2,19 +2,27 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from rest_framework.views import APIView
 from accounts.models import Account
-
+from django.contrib.auth.hashers import make_password
 # Create your views here.
+
+
+
 class AccountsView(APIView):
 
     def post(self, request):
         # Create a new account
+        if request.data.get("password") == request.data.get("confirm_password"):
+            password = make_password(request.data.get("password"))
+        else:
+            return JsonResponse({"error": "Passwords do not match"}, status=400)
+        
         account = Account.objects.create(
             username=request.data.get("username"),
             email=request.data.get("email"),
-            password=request.data.get("password"),
+            password=password,
             first_name=request.data.get("first_name", ""),
             last_name=request.data.get("last_name", ""),
-            status =request.data.get("status", ""),
+            status=request.data.get("status", ""),
         )
         return JsonResponse({"id": account.id}, status=201)
     

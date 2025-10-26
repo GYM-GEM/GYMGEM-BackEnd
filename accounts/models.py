@@ -8,3 +8,6 @@ class Account(User):
     last_seen = models.DateTimeField(null=True, blank=True)
     default_profile = models.UUIDField(null=True, blank=True)
     status = models.CharField(max_length=20, null=True, blank=True)
+
+    def __str__(self):
+        return self.username
