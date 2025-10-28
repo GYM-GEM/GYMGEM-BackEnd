@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'profiles',
     'utils',
     'accounts',
@@ -140,9 +141,12 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
+'DEFAULT_AUTHENTICATION_CLASSES': (
+'rest_framework_simplejwt.authentication.JWTAuthentication',
+),
+'DEFAULT_PERMISSION_CLASSES': (
+'rest_framework.permissions.IsAuthenticated',
+),
 }
 SIMPLE_JWT = {
   # It will work instead of the default serializer(TokenObtainPairSerializer).
@@ -151,5 +155,8 @@ SIMPLE_JWT = {
     "ALGORITHM": "HS256",
     "AUTH_HEADER_TYPES": ("Bearer",),
   "TOKEN_OBTAIN_SERIALIZER": "authenticationAndAuthorization.serializers.MyTokenObtainPairSerializer",
+    # Enable token blacklisting support (install app + migrate)
+    "BLACKLIST_AFTER_ROTATION": False,
+    "ROTATE_REFRESH_TOKENS": False,
   # ... other settings can go here
 }
