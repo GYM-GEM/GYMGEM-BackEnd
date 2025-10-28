@@ -1,14 +1,22 @@
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenObtainPairView,TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
-from .serializers import MyTokenObtainPairSerializer
+from .serializers import MyTokenObtainPairSerializer, MyTokenRefreshSerializer
 from accounts.models import Account
 from rest_framework.permissions import AllowAny
 from rest_framework.decorators import permission_classes
+
+class MyTokenRefreshView(TokenRefreshView):
+    """Custom TokenRefreshView to use MyTokenRefreshSerializer."""
+    serializer_class = MyTokenRefreshSerializer
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.headers)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+
 
 @permission_classes([AllowAny])
 class AccountLoginView(TokenObtainPairView):
@@ -38,13 +46,10 @@ class AccountLoginView(TokenObtainPairView):
             'account': account_payload,
         }, status=status.HTTP_200_OK)
 
-
 class LogoutView(APIView):
-    """Blacklist the provided refresh token (logout current device)."""
-    permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        refresh_token = request.data.get('refresh')
+        refresh_token = request.headers.get('refresh')
         if not refresh_token:
             return Response({'detail': 'refresh token is required'}, status=status.HTTP_400_BAD_REQUEST)
         try:
@@ -58,7 +63,6 @@ class LogoutView(APIView):
 
 class LogoutAllView(APIView):
     """Blacklist all outstanding refresh tokens for the authenticated user (logout all devices)."""
-    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         user = request.user

@@ -25,14 +25,14 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class MyTokenRefreshSerializer(TokenRefreshSerializer):
-    def validate(self, attrs):
+    def validate(self, headers):
         # Validate refresh normally
-        refresh = RefreshToken(attrs['refresh'])
+        refresh = RefreshToken(headers['refresh'])
 
         # Rebuild access token from current DB state
         user_id = refresh.get('user_id') or refresh.get('sub')
         user = get_user_model().objects.get(pk=user_id)
-        account = getattr(user, 'account', None) or Account.objects.filter(pk=user.pk).first()
+        account = Account.objects.filter(pk=user.pk).first()
 
         access = AccessToken.for_user(user)
         access['username'] = user.username

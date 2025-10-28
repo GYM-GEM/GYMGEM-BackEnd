@@ -3,12 +3,13 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from accounts.models import Account
 from django.contrib.auth.hashers import make_password
+from rest_framework.permissions import AllowAny
+from rest_framework.decorators import permission_classes
 # Create your views here.
 
 
-
+@permission_classes([AllowAny])
 class AccountsView(APIView):
-
     def post(self, request):
         # Create a new account
         if request.data.get("password") == request.data.get("confirm_password"):
