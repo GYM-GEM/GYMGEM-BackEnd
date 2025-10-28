@@ -24,6 +24,7 @@ class AccountLoginView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
 
     def post(self, request, *args, **kwargs):
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -39,6 +40,17 @@ class AccountLoginView(TokenObtainPairView):
             'email': user.email,
             'profile_types': list(account.profiles.values_list('profile_type', flat=True)) if account else [],
         }
+
+        user = request.user
+        current_tokens = OutstandingToken.objects.filter(user=user)
+        if current_tokens.count() > 5:
+            # Blacklist oldest tokens beyond the 5 most recent
+            tokens_to_blacklist = current_tokens.order_by('created_at')[0]
+            try:
+                BlacklistedToken.objects.get_or_create(token=tokens_to_blacklist)
+            except Exception:
+                return Response({'detail': 'Error blacklisting old tokens'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
         return Response({
             'access': tokens.get('access'),
