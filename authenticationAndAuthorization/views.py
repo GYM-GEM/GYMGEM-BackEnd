@@ -9,6 +9,7 @@ from accounts.models import Account
 from rest_framework.permissions import AllowAny
 from rest_framework.decorators import permission_classes
 
+
 class MyTokenRefreshView(TokenRefreshView):
     """Custom TokenRefreshView to use MyTokenRefreshSerializer."""
     serializer_class = MyTokenRefreshSerializer
