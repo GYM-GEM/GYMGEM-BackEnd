@@ -25,8 +25,19 @@ class AccountLoginView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer
 
     def post(self, request, *args, **kwargs):
+        # Support login via email or username: if email is provided and username is not,
+        # resolve the username from the Account with that email.
+        data = request.data.copy()
+        if not data.get('username') and data.get('email'):
+            email = data.get('email')
+            qs = Account.objects.filter(email__iexact=email)
+            if not qs.exists():
+                return Response({'detail': 'Invalid credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
+            if qs.count() > 1:
+                return Response({'detail': 'Multiple accounts use this email. Please login with username.'}, status=status.HTTP_400_BAD_REQUEST)
+            data['username'] = qs.first().username
 
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
 
         # Tokens from SimpleJWT
