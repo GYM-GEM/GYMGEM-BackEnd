@@ -1,4 +1,6 @@
 from django.shortcuts import render
+
+from authenticationAndAuthorization.permissions import required_roles
 from .serializers import TrainerSerializer
 from .models import Trainer
 from rest_framework.views import APIView
@@ -11,14 +13,15 @@ class TrainerView(APIView):
         trainers = Trainer.objects.all()
         serializer = TrainerSerializer(trainers, many=True)
         return Response(serializer.data)
-    
+
+    @required_roles('trainer')
     def post(self, request):
         serializer = TrainerSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
-    
+
 class TrainerUpdateView(APIView):
     def put(self, request, trainer_id):
         try:

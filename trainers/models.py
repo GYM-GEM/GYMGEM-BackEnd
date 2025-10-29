@@ -1,3 +1,4 @@
+from django.utils.timezone import now
 from django.db import models
 from django.core.exceptions import ValidationError
 from profiles.models import Profile
@@ -7,23 +8,22 @@ from utils.models import Specialization
 class Trainer(models.Model):
     profile_id = models.OneToOneField(Profile, on_delete=models.CASCADE, primary_key=True)
     name = models.CharField(max_length=100)
-    age = models.IntegerField()
     profile_picture = models.ImageField(upload_to='trainee_profiles/', blank=True, null=True)
-    gender = models.CharField(max_length=10, choices=[('male', 'Male'), ('female', 'Female')])
-    birthdate = models.DateField()
-    country = models.CharField(max_length=100)
-    state = models.CharField(max_length=100)
-    zip_code = models.CharField(max_length=20)
-    phone_number = models.CharField(max_length=20)
+    gender = models.CharField(max_length=10, choices=[('male', 'Male'), ('female', 'Female')], default='male')
+    birthdate = models.DateField(default=now)
+    country = models.CharField(max_length=100, blank=True, null=True)
+    state = models.CharField(max_length=100, blank=True, null=True)
+    zip_code = models.CharField(max_length=20, blank=True, null=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
     balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Trainer<{self.name}> for Profile {self.profile_id_id}"
+        return f"Trainer<{self.name}> for Profile {self.profile_id}"
 
     def clean(self):
-        if not self.profile_id_id:
+        if not self.profile_id:
             raise ValidationError({'profile_id': 'Profile is required.'})
         if getattr(self.profile_id, 'profile_type', None) != 'trainer':
             raise ValidationError({'profile_id': 'Profile must have profile_type="trainer" to create a Trainer.'})

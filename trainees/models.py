@@ -1,18 +1,18 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 from profiles.models import Profile
+from django.utils.timezone import now
 # Create your models here.
 
 class Trainee(models.Model):
     profile_id = models.OneToOneField(Profile, on_delete=models.CASCADE, primary_key=True)
     name = models.CharField(max_length=100)
-    age = models.IntegerField()
     profile_picture = models.ImageField(upload_to='trainee_profiles/', blank=True, null=True)
-    gender = models.CharField(max_length=10, choices=[('male', 'Male'), ('female', 'Female')])
-    birthdate = models.DateField()
-    country = models.CharField(max_length=100)
-    state = models.CharField(max_length=100)
-    zip_code = models.CharField(max_length=20)
+    gender = models.CharField(max_length=10, choices=[('male', 'Male'), ('female', 'Female')],default='male')
+    birthdate = models.DateField(default=now)
+    country = models.CharField(max_length=100, blank=True, null=True)
+    state = models.CharField(max_length=100, blank=True, null=True)
+    zip_code = models.CharField(max_length=20, blank=True, null=True)
     balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
