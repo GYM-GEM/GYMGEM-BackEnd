@@ -8,7 +8,7 @@ from utils.models import Specialization
 class Trainer(models.Model):
     profile_id = models.OneToOneField(Profile, on_delete=models.CASCADE, primary_key=True)
     name = models.CharField(max_length=100)
-    profile_picture = models.ImageField(upload_to='trainee_profiles/', blank=True, null=True)
+    profile_picture = models.ImageField(upload_to='trainer_profiles/', blank=True, null=True)
     gender = models.CharField(max_length=10, choices=[('male', 'Male'), ('female', 'Female')], default='male')
     birthdate = models.DateField(default=now)
     country = models.CharField(max_length=100, blank=True, null=True)

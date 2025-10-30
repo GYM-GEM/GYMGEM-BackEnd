@@ -38,7 +38,10 @@ class AccountsView(APIView):
                     "firstName": account.first_name,
                     "lastName": account.last_name,
                     "lastSeen": account.last_seen,
-                    "defaultProfile": account.default_profile,
+                    "defaultProfile": {
+                    "id": account.default_profile.id,
+                    "profileType": account.default_profile.profile_type,
+                } if account.default_profile else None,
                     "createdAt": account.created_at,
                     "updatedAt": account.updated_at,
                 }

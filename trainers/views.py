@@ -14,7 +14,6 @@ class TrainerView(APIView):
         serializer = TrainerSerializer(trainers, many=True)
         return Response(serializer.data)
 
-    @required_roles('trainer')
     def post(self, request):
         serializer = TrainerSerializer(data=request.data)
         if serializer.is_valid():

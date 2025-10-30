@@ -153,7 +153,7 @@ REST_FRAMEWORK = {
 }
 SIMPLE_JWT = {
   # It will work instead of the default serializer(TokenObtainPairSerializer).
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=2),
     "ALGORITHM": "HS256",
     "AUTH_HEADER_TYPES": ("Bearer",),
