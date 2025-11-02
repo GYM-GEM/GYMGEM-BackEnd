@@ -6,7 +6,9 @@ from profiles.models import Profile
 class Store(models.Model):
     profile_id = models.OneToOneField(Profile, on_delete=models.CASCADE, primary_key=True)
     name = models.CharField(max_length=100)
-    location = models.CharField(max_length=255)
+    profile_picture = models.ImageField(upload_to='store_profiles/', blank=True, null=True)
+    description = models.CharField(max_length=255, blank=True, null=True)
+    store_type = models.CharField(max_length=100, choices=[('supplements', 'Supplements'), ('clothes', 'Clothes'), ('both', 'Both')], blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -29,3 +31,17 @@ class Store(models.Model):
         # Enforce validation at the model layer, even when not using serializers/forms
         self.full_clean()
         return super().save(*args, **kwargs)
+
+class StoreBranch(models.Model):
+    store_id = models.ForeignKey(Store, on_delete=models.CASCADE)
+    opening_time = models.TimeField()
+    closing_time = models.TimeField()
+    country = models.CharField(max_length=100, blank=True, null=True)
+    state = models.CharField(max_length=100, blank=True, null=True)
+    street = models.CharField(max_length=100, blank=True, null=True)
+    zip_code = models.CharField(max_length=20, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"StoreBranch<{self.branch_name}> of Store {self.store.name}"

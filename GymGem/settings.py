@@ -13,6 +13,9 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from datetime import timedelta
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -150,7 +153,7 @@ REST_FRAMEWORK = {
 }
 SIMPLE_JWT = {
   # It will work instead of the default serializer(TokenObtainPairSerializer).
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=2),
     "ALGORITHM": "HS256",
     "AUTH_HEADER_TYPES": ("Bearer",),

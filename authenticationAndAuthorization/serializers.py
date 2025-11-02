@@ -1,3 +1,4 @@
+from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from django.contrib.auth import get_user_model
@@ -26,8 +27,13 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class MyTokenRefreshSerializer(TokenRefreshSerializer):
     def validate(self, headers):
-        # Validate refresh normally
-        refresh = RefreshToken(headers['refresh'])
+        refresh_token = headers.get('refresh')
+        if not refresh_token:
+            raise serializers.ValidationError({'detail': 'refresh token is required'})
+        try:
+            refresh = RefreshToken(refresh_token)
+        except Exception:
+            raise serializers.ValidationError({'detail': 'Invalid or blacklisted token'})
 
         # Rebuild access token from current DB state
         user_id = refresh.get('user_id') or refresh.get('sub')
