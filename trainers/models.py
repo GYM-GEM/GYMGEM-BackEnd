@@ -42,18 +42,34 @@ class TrainerSpecialization(models.Model):
 
     def __str__(self):
         return f"TrainerSpecialization<{self.specialization}> for Trainer {self.trainer.name}"
+    
+    def clean(self):
+        if self.years_of_experience < 0:
+            raise ValidationError({'years_of_experience': 'Years of experience cannot be negative.'})
+        if self.hourly_rate < 0:
+            raise ValidationError({'hourly_rate': 'Hourly rate cannot be negative.'})
+        
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
 
 class TrainerExperience(models.Model):
     trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)
-    work_place = models.CharField(max_length=100)
-    position = models.CharField(max_length=100)
-    start_date = models.DateField()
+    work_place = models.CharField(max_length=100, blank=True, null=True)
+    position = models.CharField(max_length=100, blank=True, null=True)
+    start_date = models.DateField(blank=True, null=True)
     end_date = models.DateField(blank=True, null=True)
     description = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"TrainerExperience<{self.position} at {self.work_place}> for Trainer {self.trainer.name}"
+    def clean(self):
+        if self.end_date and self.end_date < self.start_date:
+            raise ValidationError({'end_date': 'End date cannot be earlier than start date.'})
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
     
 
 class TrainerCalendarSlot(models.Model):

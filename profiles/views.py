@@ -18,7 +18,7 @@ class ProfileView(APIView):
         my_profiles = Profile.objects.filter(account=request.data.get('account'))
         if serializer.is_valid():
             serializer.save()
-            if len(my_profiles) < 1:
+            if len(my_profiles) == 1:
                 Account.objects.filter(id=serializer.data.get('account')).update(default_profile=serializer.data.get("id"))
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)

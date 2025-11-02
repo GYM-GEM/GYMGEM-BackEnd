@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Trainer
+from .models import Trainer, TrainerSpecialization, TrainerExperience
 from profiles.models import Profile
 import re
 
@@ -49,6 +49,79 @@ class TrainerSerializer(serializers.ModelSerializer):
         trainer.save()
         return trainer
 
+    def update(self, instance, validated_data):
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.full_clean()
+        instance.save()
+        return instance
+    
+class TrainerSpecializationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TrainerSpecialization
+        fields = [
+            "trainer",
+            "specialization",
+            "years_of_experience",
+            "hourly_rate",
+            "service_location",
+        ]
+    def validate(self, data):
+        # Check if this trainer already has this specialization
+        trainer = data.get('trainer')
+        specialization = data.get('specialization')
+        if TrainerSpecialization.objects.filter(
+            trainer=trainer,
+            specialization=specialization
+        ).exists():
+            raise serializers.ValidationError({"specialization": "This trainer already has this specialization."})  
+        return data
+    def validate_years_of_experience(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Years of experience cannot be negative.")
+        return value
+    def validate_hourly_rate(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Hourly rate cannot be negative.")
+        return value
+    def create(self, validated_data):
+        specialization = TrainerSpecialization(**validated_data)
+        specialization.full_clean()
+        specialization.save()
+        return specialization
+    def update(self, instance, validated_data):
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.full_clean()
+        instance.save()
+        return instance
+    
+class TrainerExperienceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TrainerExperience
+        fields = [
+            "trainer",
+            "work_place",
+            "position",
+            "start_date",
+            "end_date",
+            "description",
+        ]
+    def validate(self, data):
+        start_date = data.get("start_date")
+        end_date = data.get("end_date")
+        if end_date and start_date and end_date < start_date:
+            raise serializers.ValidationError({"end_date": "End date cannot be earlier than start date."})
+        
+        trainer = data.get('trainer')
+        if TrainerExperience.objects.filter(trainer=trainer).exists():
+            raise serializers.ValidationError({"non_field_errors": "This trainer already has recorded experience at this workplace with this position."})
+        return data
+    def create(self, validated_data):
+        experience = TrainerExperience(**validated_data)
+        experience.full_clean()
+        experience.save()
+        return experience
     def update(self, instance, validated_data):
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
