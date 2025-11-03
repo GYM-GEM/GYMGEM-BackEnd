@@ -28,3 +28,26 @@ class IsAuthenticatedAndHasRole(BasePermission):
             pass
 
         return bool(user_roles.intersection(set(allowed_roles)))
+
+
+def HasRole(allowed_roles):
+    """
+    Factory function that returns a permission class for specific roles.
+    Usage: permission_classes=[HasRole(['trainer', 'gym'])]
+    """
+    class _HasRole(BasePermission):
+        def has_permission(self, request, view):
+            user = request.user
+            if not user or not user.is_authenticated:
+                return False
+
+            account = Account.objects.filter(pk=getattr(user, 'pk', None)).first()
+            if account:
+                user_roles = set(account.profiles.values_list('profile_type', flat=True))
+            else:
+                user_roles = set(user.groups.values_list('name', flat=True))
+            
+            roles = allowed_roles if isinstance(allowed_roles, list) else [allowed_roles]
+            return bool(user_roles.intersection(set(roles)))
+    
+    return _HasRole

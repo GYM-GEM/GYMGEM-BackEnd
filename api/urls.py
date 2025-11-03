@@ -5,4 +5,5 @@ urlpatterns = [
     path('auth/', include('authenticationAndAuthorization.urls')),
     path('profiles/', include('profiles.urls')),
     path('trainers/', include('trainers.urls')),
+    path('courses/', include('courses.urls')),
 ]

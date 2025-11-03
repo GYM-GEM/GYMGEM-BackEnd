@@ -1,6 +1,3 @@
-from django.shortcuts import render
-
-from authenticationAndAuthorization.permissions import required_roles
 from .serializers import TrainerSerializer , TrainerSpecializationSerializer, TrainerExperienceSerializer
 from .models import Trainer, TrainerSpecialization, TrainerExperience
 from rest_framework.views import APIView
