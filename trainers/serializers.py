@@ -160,6 +160,8 @@ class TrainerSpecializationSerializer(serializers.ModelSerializer):
         return instance
     
 class TrainerExperienceSerializer(serializers.ModelSerializer):
+    account_id = serializers.IntegerField(write_only=True)
+    
     class Meta:
         model = TrainerExperience
         fields = [
@@ -170,23 +172,50 @@ class TrainerExperienceSerializer(serializers.ModelSerializer):
             "end_date",
             "description",
         ]
+    
+    def validate_account_id(self, value):
+        # Get the account
+        try:
+            account = Account.objects.get(pk=value)
+        except Account.DoesNotExist:
+            raise serializers.ValidationError("Account does not exist.")
         
+        # Find trainer profile from the account
+        trainer_profile = account.profiles.filter(profile_type="trainer").first()
+        if not trainer_profile:
+            raise serializers.ValidationError('Account must have a profile with profile_type="trainer".')
+        
+        # Check if trainer exists for this profile
+        if not Trainer.objects.filter(profile_id=trainer_profile).exists():
+            raise serializers.ValidationError("Trainer does not exist for this account.")
+        
+        return value
+    
     def validate(self, data):
         start_date = data.get("start_date")
         end_date = data.get("end_date")
         if end_date and start_date and end_date < start_date:
             raise serializers.ValidationError({"end_date": "End date cannot be earlier than start date."})
-
-        account_id = data.get('account_id')
-        if TrainerExperience.objects.filter(trainer__profile_id__account=account_id).exists():
-            raise serializers.ValidationError({"non_field_errors": "This trainer already has recorded experience at this workplace with this position."})
+        
         return data
+    
     def create(self, validated_data):
-        experience = TrainerExperience(**validated_data)
+        # Get account_id and find the trainer
+        account_id = validated_data.pop("account_id")
+        account = Account.objects.get(pk=account_id)
+        trainer_profile = account.profiles.filter(profile_type="trainer").first()
+        trainer = Trainer.objects.get(profile_id=trainer_profile)
+        
+        # Create experience with the trainer
+        experience = TrainerExperience(trainer=trainer, **validated_data)
         experience.full_clean()
         experience.save()
         return experience
+    
     def update(self, instance, validated_data):
+        # Remove account_id if provided (shouldn't update the trainer relationship)
+        validated_data.pop("account_id", None)
+        
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.full_clean()
