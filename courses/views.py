@@ -100,7 +100,7 @@ class LessonsView(ViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(methods=['put'], detail=True, permission_classes=[HasRole(['trainer'])], url_path='lessons/update/(?P<lesson_pk>\d+)')
+    @action(methods=['put'], detail=True, permission_classes=[HasRole(['trainer'])], url_path=r'lessons/update/(?P<lesson_pk>\d+)')
     def update_lesson_for_course(self, request, pk=None, lesson_pk=None):
         try:
             course = CourseValidator.validate_course_exists(pk)
@@ -116,7 +116,7 @@ class LessonsView(ViewSet):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(methods=['delete'], detail=True, permission_classes=[HasRole(['trainer'])], url_path='lessons/delete/(?P<lesson_pk>\d+)')
+    @action(methods=['delete'], detail=True, permission_classes=[HasRole(['trainer'])], url_path=r'lessons/delete/(?P<lesson_pk>\d+)')
     def delete_lesson_for_course(self, request, pk=None, lesson_pk=None):
         try:
             course = CourseValidator.validate_course_exists(pk)
@@ -129,7 +129,7 @@ class LessonsView(ViewSet):
         lesson.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     
-    @action(methods=['get'], detail=True, permission_classes=[IsAuthenticated], url_path='lessons/detail/(?P<lesson_pk>\d+)')
+    @action(methods=['get'], detail=True, permission_classes=[IsAuthenticated], url_path=r'lessons/detail/(?P<lesson_pk>\d+)')
     def get_lesson_detail(self, request, pk=None, lesson_pk=None):
         try:
             course = CourseValidator.validate_course_exists(pk)
@@ -153,7 +153,7 @@ class LessonSectionsView(ViewSet):
         serializer = LessonSectionSerializer(sections, many=True)
         return Response(serializer.data)
     
-    @action(methods=['get'], detail=True, permission_classes=[IsAuthenticated], url_path='section/(?P<section_pk>\d+)')
+    @action(methods=['get'], detail=True, permission_classes=[IsAuthenticated], url_path=r'section/(?P<section_pk>\d+)')
     def get_section_detail(self, request, pk=None, section_pk=None):
         try:
             lesson = CourseValidator.validate_lesson_exists(pk)
@@ -181,7 +181,7 @@ class LessonSectionsView(ViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(methods=['put'], detail=True, permission_classes=[HasRole(['trainer'])], url_path='sections/update/(?P<section_pk>\d+)')
+    @action(methods=['put'], detail=True, permission_classes=[HasRole(['trainer'])], url_path=r'sections/update/(?P<section_pk>\d+)')
     def update_section_for_lesson(self, request, pk=None, section_pk=None):
         try:
             lesson = CourseValidator.validate_lesson_exists(pk)
@@ -197,7 +197,7 @@ class LessonSectionsView(ViewSet):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(methods=['delete'], detail=True, permission_classes=[HasRole(['trainer'])], url_path='sections/delete/(?P<section_pk>\d+)')
+    @action(methods=['delete'], detail=True, permission_classes=[HasRole(['trainer'])], url_path=r'sections/delete/(?P<section_pk>\d+)')
     def delete_section_for_lesson(self, request, pk=None, section_pk=None):
         try:
             lesson = CourseValidator.validate_lesson_exists(pk)
@@ -241,7 +241,7 @@ class CourseEnrollmentsView(ViewSet):
         serializer = CourseEnrollmentSerializer(enrollments, many=True)
         return Response(serializer.data)
 
-    @action(methods=['get'], detail=True, permission_classes=[HasRole(['trainee'])], url_path='my-enrollment-detail/(?P<enrollment_pk>\d+)')
+    @action(methods=['get'], detail=True, permission_classes=[HasRole(['trainee'])], url_path=r'my-enrollment-detail/(?P<enrollment_pk>\d+)')
     def get_my_enrollment_detail(self, request, pk=None, enrollment_pk=None):
         try:
             course = CourseValidator.validate_course_exists(pk)
@@ -254,7 +254,7 @@ class CourseEnrollmentsView(ViewSet):
         serializer = CourseEnrollmentSerializer(enrollment)
         return Response(serializer.data)
 
-    @action(methods=['delete'], detail=True, permission_classes=[HasRole(['trainee'])], url_path='un-enroll/(?P<enrollment_pk>\d+)')
+    @action(methods=['delete'], detail=True, permission_classes=[HasRole(['trainee'])], url_path=r'un-enroll/(?P<enrollment_pk>\d+)')
     def delete_my_enrollment(self, request, pk=None, enrollment_pk=None):
         try:
             course = CourseValidator.validate_course_exists(pk)
