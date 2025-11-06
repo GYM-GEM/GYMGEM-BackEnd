@@ -77,6 +77,8 @@ class TrainerSerializer(serializers.ModelSerializer):
         return instance
     
 class TrainerSpecializationSerializer(serializers.ModelSerializer):
+    account_id = serializers.IntegerField(write_only=True)
+    
     class Meta:
         model = TrainerSpecialization
         fields = [
@@ -86,40 +88,71 @@ class TrainerSpecializationSerializer(serializers.ModelSerializer):
             "hourly_rate",
             "service_location",
         ]
+    
+    def validate_account_id(self, value):
+        # Get the account
+        try:
+            account = Account.objects.get(pk=value)
+        except Account.DoesNotExist:
+            raise serializers.ValidationError("Account does not exist.")
+        
+        # Find trainer profile from the account
+        trainer_profile = account.profiles.filter(profile_type="trainer").first()
+        if not trainer_profile:
+            raise serializers.ValidationError('Account must have a profile with profile_type="trainer".')
+        
+        # Check if trainer exists for this profile
+        if not Trainer.objects.filter(profile_id=trainer_profile).exists():
+            raise serializers.ValidationError("Trainer does not exist for this account.")
+        
+        return value
+    
     def validate(self, data):
         # Check if any trainer under this account already has this specialization
-        account_id = data.get('account_id')  # Get account_id from frontend
+        account_id = data.get('account_id')
         specialization = data.get('specialization')
         
         if account_id and specialization:
-            # Get the account
-            try:
-                account = Account.objects.get(pk=account_id)
-            except Account.DoesNotExist:
-                raise serializers.ValidationError({"account_id": "Account does not exist."})
+            account = Account.objects.get(pk=account_id)
+            trainer_profile = account.profiles.filter(profile_type="trainer").first()
+            trainer = Trainer.objects.filter(profile_id=trainer_profile).first()
             
-            # Check if any trainer associated with this account has this specialization
+            # Check if this trainer already has this specialization
             if TrainerSpecialization.objects.filter(
-            trainer__profile_id__account=account,
-            specialization=specialization
+                trainer=trainer,
+                specialization=specialization
             ).exists():
-                raise serializers.ValidationError({"specialization": "This account already has a trainer with this specialization."})
+                raise serializers.ValidationError({"specialization": "This trainer already has this specialization."})
         
         return data
+    
     def validate_years_of_experience(self, value):
         if value < 0:
             raise serializers.ValidationError("Years of experience cannot be negative.")
         return value
+    
     def validate_hourly_rate(self, value):
         if value < 0:
             raise serializers.ValidationError("Hourly rate cannot be negative.")
         return value
+    
     def create(self, validated_data):
-        specialization = TrainerSpecialization(**validated_data)
+        # Get account_id and find the trainer
+        account_id = validated_data.pop("account_id")
+        account = Account.objects.get(pk=account_id)
+        trainer_profile = account.profiles.filter(profile_type="trainer").first()
+        trainer = Trainer.objects.get(profile_id=trainer_profile)
+        
+        # Create specialization with the trainer
+        specialization = TrainerSpecialization(trainer=trainer, **validated_data)
         specialization.full_clean()
         specialization.save()
         return specialization
+    
     def update(self, instance, validated_data):
+        # Remove account_id if provided (shouldn't update the trainer relationship)
+        validated_data.pop("account_id", None)
+        
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.full_clean()
