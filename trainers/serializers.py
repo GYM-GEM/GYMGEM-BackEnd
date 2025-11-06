@@ -87,14 +87,24 @@ class TrainerSpecializationSerializer(serializers.ModelSerializer):
             "service_location",
         ]
     def validate(self, data):
-        # Check if this trainer already has this specialization
-        trainer = data.get('trainer')
+        # Check if any trainer under this account already has this specialization
+        account_id = data.get('account_id')  # Get account_id from frontend
         specialization = data.get('specialization')
-        if TrainerSpecialization.objects.filter(
-            trainer=trainer,
+        
+        if account_id and specialization:
+            # Get the account
+            try:
+                account = Account.objects.get(pk=account_id)
+            except Account.DoesNotExist:
+                raise serializers.ValidationError({"account_id": "Account does not exist."})
+            
+            # Check if any trainer associated with this account has this specialization
+            if TrainerSpecialization.objects.filter(
+            trainer__profile_id__account=account,
             specialization=specialization
-        ).exists():
-            raise serializers.ValidationError({"specialization": "This trainer already has this specialization."})  
+            ).exists():
+                raise serializers.ValidationError({"specialization": "This account already has a trainer with this specialization."})
+        
         return data
     def validate_years_of_experience(self, value):
         if value < 0:
@@ -120,6 +130,7 @@ class TrainerExperienceSerializer(serializers.ModelSerializer):
     class Meta:
         model = TrainerExperience
         fields = [
+            "account_id",
             "trainer",
             "work_place",
             "position",
@@ -127,14 +138,15 @@ class TrainerExperienceSerializer(serializers.ModelSerializer):
             "end_date",
             "description",
         ]
+        
     def validate(self, data):
         start_date = data.get("start_date")
         end_date = data.get("end_date")
         if end_date and start_date and end_date < start_date:
             raise serializers.ValidationError({"end_date": "End date cannot be earlier than start date."})
-        
-        trainer = data.get('trainer')
-        if TrainerExperience.objects.filter(trainer=trainer).exists():
+
+        account_id = data.get('account_id')
+        if TrainerExperience.objects.filter(trainer__profile_id__account=account_id).exists():
             raise serializers.ValidationError({"non_field_errors": "This trainer already has recorded experience at this workplace with this position."})
         return data
     def create(self, validated_data):
