@@ -80,7 +80,7 @@ class TrainerSpecializationSerializer(serializers.ModelSerializer):
     class Meta:
         model = TrainerSpecialization
         fields = [
-            "trainer",
+            "account_id",
             "specialization",
             "years_of_experience",
             "hourly_rate",
@@ -131,7 +131,6 @@ class TrainerExperienceSerializer(serializers.ModelSerializer):
         model = TrainerExperience
         fields = [
             "account_id",
-            "trainer",
             "work_place",
             "position",
             "start_date",
