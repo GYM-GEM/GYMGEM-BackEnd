@@ -13,16 +13,17 @@ class Trainee(models.Model):
     country = models.CharField(max_length=100, blank=True, null=True)
     state = models.CharField(max_length=100, blank=True, null=True)
     zip_code = models.CharField(max_length=20, blank=True, null=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
     balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
 
     def __str__(self):
-        return f"Trainee<{self.name}> for Profile {self.profile_id_id}"
+        return f"Trainee<{self.name}> for Profile {self.profile_id}"
 
     def clean(self):
-        if not self.profile_id_id:
+        if not self.profile_id:
             raise ValidationError({'profile_id': 'Profile is required.'})
         if getattr(self.profile_id, 'profile_type', None) != 'trainee':
             raise ValidationError({'profile_id': 'Profile must have profile_type="trainee" to create a Trainee.'})
