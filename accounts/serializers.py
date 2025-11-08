@@ -13,7 +13,6 @@ class AccountSerializer(serializers.ModelSerializer):
             email=validated_data['email'],
             first_name=validated_data.get('firstName', ''),
             last_name=validated_data.get('lastName', ''),
-            status=validated_data.get('status', ''),
         )
         account.set_password(validated_data['password'])
         account.save()

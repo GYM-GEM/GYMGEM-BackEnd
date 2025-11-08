@@ -12,15 +12,13 @@ from rest_framework.decorators import permission_classes
 class AccountsView(APIView):
     def post(self, request):
         # Create a new account
-        if request.data.get("password") == request.data.get("confirmPassword"):
-            password = make_password(request.data.get("password"))
-        else:
+        if request.data.get("password") != request.data.get("confirmPassword"):
             return JsonResponse({"error": "Passwords do not match"}, status=400)
         
         account = Account.objects.create(
             username=request.data.get("username"),
             email=request.data.get("email"),
-            password=password,
+            password=make_password(request.data.get("password")),
             first_name=request.data.get("firstName", ""),
             last_name=request.data.get("lastName", ""),
         )

@@ -34,6 +34,7 @@ ALLOWED_HOSTS = []
 
 
 # Application definition
+AUTH_USER_MODEL = 'accounts.Account'
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -163,4 +164,3 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": False,
   # ... other settings can go here
 }
-AUTH_USER_MODEL = 'accounts.Account'
