@@ -32,6 +32,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Application definition
 AUTH_USER_MODEL = 'accounts.Account'
@@ -42,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'channels',
     'django.contrib.staticfiles',
     #external apps
     'rest_framework',
@@ -59,6 +62,7 @@ INSTALLED_APPS = [
     'stores',
     'api',
     'courses',
+    'chat',
 ]
 
 MIDDLEWARE = [
@@ -89,7 +93,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'GymGem.wsgi.application'
-
+ASGI_APPLICATION = "GymGem.asgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -182,6 +186,7 @@ SPECTACULAR_SETTINGS = {
     'TAGS': [
         {'name': 'Accounts', 'description': 'User account operations'},
         {'name': 'Authentication', 'description': 'Login, logout, token operations'},
+        {'name': 'Chat', 'description': 'Real-time chat and messaging operations'},
         {'name': 'Courses', 'description': 'Course management operations'},
         {'name': 'Trainers', 'description': 'Trainer profile and operations'},
         {'name': 'Profiles', 'description': 'User profile operations'},
@@ -200,3 +205,23 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": False,
   # ... other settings can go here
 }
+
+# Django Channels Configuration
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")],
+            # Optional configuration
+            "capacity": 1500,  # Max messages in channel before dropping
+            "expiry": 10,      # Message expiry time in seconds
+        },
+    }
+}
+
+# For development/testing without Redis, uncomment this instead:
+# CHANNEL_LAYERS = {
+#     "default": {
+#         "BACKEND": "channels.layers.InMemoryChannelLayer",
+#     }
+# }

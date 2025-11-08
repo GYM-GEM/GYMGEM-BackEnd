@@ -6,17 +6,9 @@ info:
 paths:
   /api/accounts/:
     get:
-      operationId: accounts_list_retrieve
-      description: Get all accounts when no ID provided, or specific account when
-        ID provided
-      summary: List all accounts or retrieve specific account
-      parameters:
-      - in: path
-        name: account_id
-        schema:
-          type: integer
-        description: Account ID for specific account retrieval
-        required: true
+      operationId: accounts_list
+      description: Get all user accounts
+      summary: List all accounts
       tags:
       - Accounts
       security:
@@ -27,7 +19,7 @@ paths:
           content:
             application/json:
               schema:
-                description: Account data
+                description: List of accounts
           description: ''
     post:
       operationId: accounts_create
@@ -54,6 +46,11 @@ paths:
                   type: string
                 lastName:
                   type: string
+              required:
+              - username
+              - email
+              - password
+              - confirmPassword
       security:
       - jwtAuth: []
       - {}
@@ -64,135 +61,23 @@ paths:
               schema:
                 description: Account created
           description: ''
-    put:
-      operationId: accounts_update_by_id
-      description: Update an existing account with new data
-      summary: Update account by ID
-      parameters:
-      - in: path
-        name: account_id
-        schema:
-          type: integer
-        description: Account ID
-        required: true
-      tags:
-      - Accounts
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                username:
-                  type: string
-                email:
-                  type: string
-                  format: email
-                firstName:
-                  type: string
-                lastName:
-                  type: string
-      security:
-      - jwtAuth: []
-      - {}
-      responses:
-        '200':
+        '400':
           content:
             application/json:
               schema:
-                description: Account updated
-          description: ''
-        '404':
-          content:
-            application/json:
-              schema:
-                description: Account not found
-          description: ''
-    patch:
-      operationId: accounts_partial_update_by_id
-      description: Partially update an existing account
-      summary: Partially update account by ID
-      parameters:
-      - in: path
-        name: account_id
-        schema:
-          type: integer
-        description: Account ID
-        required: true
-      tags:
-      - Accounts
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                username:
-                  type: string
-                email:
-                  type: string
-                  format: email
-                firstName:
-                  type: string
-                lastName:
-                  type: string
-      security:
-      - jwtAuth: []
-      - {}
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                description: Account updated
-          description: ''
-        '404':
-          content:
-            application/json:
-              schema:
-                description: Account not found
-          description: ''
-    delete:
-      operationId: accounts_delete_by_id
-      description: Delete an existing account
-      summary: Delete account by ID
-      parameters:
-      - in: path
-        name: account_id
-        schema:
-          type: integer
-        description: Account ID
-        required: true
-      tags:
-      - Accounts
-      security:
-      - jwtAuth: []
-      - {}
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                description: Account deleted
-          description: ''
-        '404':
-          content:
-            application/json:
-              schema:
-                description: Account not found
+                description: Bad request
           description: ''
   /api/accounts/{account_id}/:
     get:
-      operationId: accounts_list_retrieve_2
-      description: Get all accounts when no ID provided, or specific account when
-        ID provided
-      summary: List all accounts or retrieve specific account
+      operationId: accounts_retrieve
+      description: Get details of a specific account
+      summary: Retrieve account by ID
       parameters:
       - in: path
         name: account_id
         schema:
           type: integer
-        description: Account ID for specific account retrieval
+        description: Account ID
         required: true
       tags:
       - Accounts
@@ -206,51 +91,16 @@ paths:
               schema:
                 description: Account data
           description: ''
-    post:
-      operationId: accounts_create_2
-      description: Create a new user account with username, email and password
-      summary: Create new account
-      parameters:
-      - in: path
-        name: account_id
-        schema:
-          type: integer
-        required: true
-      tags:
-      - Accounts
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                username:
-                  type: string
-                email:
-                  type: string
-                  format: email
-                password:
-                  type: string
-                confirmPassword:
-                  type: string
-                firstName:
-                  type: string
-                lastName:
-                  type: string
-      security:
-      - jwtAuth: []
-      - {}
-      responses:
-        '201':
+        '404':
           content:
             application/json:
               schema:
-                description: Account created
+                description: Account not found
           description: ''
     put:
-      operationId: accounts_update_by_id_2
+      operationId: accounts_update
       description: Update an existing account with new data
-      summary: Update account by ID
+      summary: Update account
       parameters:
       - in: path
         name: account_id
@@ -292,9 +142,9 @@ paths:
                 description: Account not found
           description: ''
     patch:
-      operationId: accounts_partial_update_by_id_2
+      operationId: accounts_partial_update
       description: Partially update an existing account
-      summary: Partially update account by ID
+      summary: Partially update account
       parameters:
       - in: path
         name: account_id
@@ -336,9 +186,9 @@ paths:
                 description: Account not found
           description: ''
     delete:
-      operationId: accounts_delete_by_id_2
+      operationId: accounts_delete
       description: Delete an existing account
-      summary: Delete account by ID
+      summary: Delete account
       parameters:
       - in: path
         name: account_id
@@ -502,6 +352,560 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MyTokenRefresh'
+          description: ''
+  /api/chat/conversations/:
+    get:
+      operationId: chat_conversations_list
+      description: Retrieve all conversations where the authenticated user is a participant.
+        Supports filtering by participant username.
+      summary: List user's conversations
+      parameters:
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Search conversations by participant username (case-insensitive
+          partial match)
+        examples:
+          SearchByUsername:
+            value: john
+            summary: Search by username
+            description: Find conversations with users whose username contains "john"
+      tags:
+      - Chat
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Conversation'
+          description: ''
+    post:
+      operationId: chat_conversations_create
+      description: This endpoint is available but 'start' action is recommended for
+        creating conversations.
+      summary: Create conversation (use start action instead)
+      tags:
+      - Chat
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ConversationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ConversationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+          description: ''
+  /api/chat/conversations/{id}/:
+    get:
+      operationId: chat_conversations_retrieve
+      description: Retrieve details of a specific conversation. User must be a participant.
+      summary: Get conversation details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this conversation.
+        required: true
+      tags:
+      - Chat
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+          description: ''
+    put:
+      operationId: chat_conversations_update
+      description: Update conversation details. User must be a participant.
+      summary: Update conversation
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this conversation.
+        required: true
+      tags:
+      - Chat
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ConversationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ConversationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+          description: ''
+    patch:
+      operationId: chat_conversations_partial_update
+      description: Partially update conversation details. User must be a participant.
+      summary: Partially update conversation
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this conversation.
+        required: true
+      tags:
+      - Chat
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedConversationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedConversationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedConversationRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+          description: ''
+    delete:
+      operationId: chat_conversations_destroy
+      description: Delete a conversation. User must be a participant.
+      summary: Delete conversation
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this conversation.
+        required: true
+      tags:
+      - Chat
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/chat/conversations/start/:
+    post:
+      operationId: chat_conversations_start_create
+      description: Start a new conversation with another user. Returns existing conversation
+        if one already exists between the two users.
+      summary: Start a new conversation
+      tags:
+      - Chat
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user2:
+                  type: integer
+                  description: ID of the user to start conversation with
+                  example: 5
+              required:
+              - user2
+            examples:
+              StartConversationRequest:
+                value:
+                  user2: 5
+                summary: Start Conversation Request
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+              examples:
+                SuccessResponse:
+                  value:
+                    id: 1
+                    participants:
+                    - 1
+                    - 5
+                    created_at: '2025-11-09T12:00:00Z'
+                  summary: Success Response
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+              examples:
+                SuccessResponse:
+                  value:
+                    id: 1
+                    participants:
+                    - 1
+                    - 5
+                    created_at: '2025-11-09T12:00:00Z'
+                  summary: Success Response
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+              examples:
+                UserNotFoundError:
+                  value:
+                    error: User with ID 999 does not exist
+                  summary: User Not Found Error
+          description: ''
+  /api/chat/messages/:
+    get:
+      operationId: chat_messages_list
+      description: Retrieve all messages from conversations where the authenticated
+        user is a participant.
+      summary: List messages
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      tags:
+      - Chat
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMessageList'
+          description: ''
+    post:
+      operationId: chat_messages_create
+      description: Send a new message in a conversation. User must be a participant.
+        Supports file attachments.
+      summary: Send a message
+      tags:
+      - Chat
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MessageRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MessageRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+          description: ''
+  /api/chat/messages/{id}/:
+    get:
+      operationId: chat_messages_retrieve
+      description: Retrieve details of a specific message. User must be a participant
+        in the conversation.
+      summary: Get message details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this message.
+        required: true
+      tags:
+      - Chat
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+          description: ''
+    put:
+      operationId: chat_messages_update
+      description: Update a message. User must be the sender.
+      summary: Update message
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this message.
+        required: true
+      tags:
+      - Chat
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MessageRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MessageRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+          description: ''
+    patch:
+      operationId: chat_messages_partial_update
+      description: Partially update a message. User must be the sender.
+      summary: Partially update message
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this message.
+        required: true
+      tags:
+      - Chat
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMessageRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMessageRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+          description: ''
+    delete:
+      operationId: chat_messages_destroy
+      description: Delete a message. User must be the sender.
+      summary: Delete message
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this message.
+        required: true
+      tags:
+      - Chat
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/chat/messages/{id}/edit/:
+    patch:
+      operationId: chat_messages_edit_partial_update
+      description: Edit the content of a message. Only the sender can edit their own
+        messages. Cannot edit deleted messages.
+      summary: Edit message
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this message.
+        required: true
+      tags:
+      - Chat
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                  description: New message content
+                  example: This is the updated message content
+              required:
+              - content
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: message edited successfully
+                  edited_at:
+                    type: string
+                    format: date-time
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: You can only edit your own messages
+          description: ''
+  /api/chat/messages/{id}/mark_read/:
+    post:
+      operationId: chat_messages_mark_read_create
+      description: Mark a specific message as read. Updates the is_read flag and read_at
+        timestamp.
+      summary: Mark message as read
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this message.
+        required: true
+      tags:
+      - Chat
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MessageRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MessageRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: message marked as read
+              examples:
+                SuccessResponse:
+                  value:
+                    status: message marked as read
+                  summary: Success Response
+          description: ''
+  /api/chat/messages/{id}/soft_delete/:
+    delete:
+      operationId: chat_messages_soft_delete_destroy
+      description: Soft-delete a message. Only the sender can delete their own messages.
+        Message content is cleared and marked as deleted.
+      summary: Delete message
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this message.
+        required: true
+      tags:
+      - Chat
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: message deleted successfully
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: You can only delete your own messages
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Message is already deleted
           description: ''
   /api/courses/courses/{id}/delete/:
     delete:
@@ -1938,6 +2342,39 @@ components:
         * `doc` - Document
         * `ppt` - PowerPoint
         * `other` - Other
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        participants:
+          type: array
+          items:
+            type: integer
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - messages
+      - participants
+    ConversationRequest:
+      type: object
+      properties:
+        participants:
+          type: array
+          items:
+            type: integer
+      required:
+      - participants
     Course:
       type: object
       properties:
@@ -2230,6 +2667,77 @@ components:
       - lesson
       - order
       - title
+    Message:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        conversation:
+          type: integer
+        sender:
+          type: integer
+        sender_name:
+          type: string
+          readOnly: true
+        content:
+          type: string
+          nullable: true
+        attachment:
+          type: string
+          format: uri
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+          readOnly: true
+        is_read:
+          type: boolean
+        read_at:
+          type: string
+          format: date-time
+          nullable: true
+        is_deleted:
+          type: boolean
+        edited_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - conversation
+      - id
+      - sender
+      - sender_name
+      - timestamp
+    MessageRequest:
+      type: object
+      properties:
+        conversation:
+          type: integer
+        sender:
+          type: integer
+        content:
+          type: string
+          nullable: true
+        attachment:
+          type: string
+          format: binary
+          nullable: true
+        is_read:
+          type: boolean
+        read_at:
+          type: string
+          format: date-time
+          nullable: true
+        is_deleted:
+          type: boolean
+        edited_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - conversation
+      - sender
     MyTokenObtainPairRequest:
       type: object
       properties:
@@ -2263,6 +2771,62 @@ components:
           minLength: 1
       required:
       - refresh
+    PaginatedMessageList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+    PatchedConversationRequest:
+      type: object
+      properties:
+        participants:
+          type: array
+          items:
+            type: integer
+    PatchedMessageRequest:
+      type: object
+      properties:
+        conversation:
+          type: integer
+        sender:
+          type: integer
+        content:
+          type: string
+          nullable: true
+        attachment:
+          type: string
+          format: binary
+          nullable: true
+        is_read:
+          type: boolean
+        read_at:
+          type: string
+          format: date-time
+          nullable: true
+        is_deleted:
+          type: boolean
+        edited_at:
+          type: string
+          format: date-time
+          nullable: true
     PatchedProfileRequest:
       type: object
       properties:
@@ -2598,6 +3162,8 @@ tags:
   description: User account operations
 - name: Authentication
   description: Login, logout, token operations
+- name: Chat
+  description: Real-time chat and messaging operations
 - name: Courses
   description: Course management operations
 - name: Trainers
