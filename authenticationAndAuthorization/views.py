@@ -8,23 +8,56 @@ from .serializers import MyTokenObtainPairSerializer, MyTokenRefreshSerializer
 from accounts.models import Account
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.decorators import permission_classes
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, OpenApiExample, OpenApiTypes
 
 
 class MyTokenRefreshView(TokenRefreshView):
     """Custom TokenRefreshView to use MyTokenRefreshSerializer."""
     serializer_class = MyTokenRefreshSerializer
 
+    @extend_schema(
+        tags=['Authentication'],
+        summary='Refresh JWT token',
+        description='Refresh access token using refresh token from headers',
+        request=MyTokenRefreshSerializer,
+        responses={200: MyTokenRefreshSerializer}
+    )
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.headers)
         serializer.is_valid(raise_exception=True)
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
-
 
 @permission_classes([AllowAny])
 class AccountLoginView(TokenObtainPairView):
     """Login endpoint that returns JWT tokens plus basic account info."""
     serializer_class = MyTokenObtainPairSerializer
 
+    @extend_schema(
+        tags=['Authentication'],
+        summary='Login with credentials',
+        description='Login with username/email and password. Returns JWT tokens and account information.',
+        request=MyTokenObtainPairSerializer,
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'access': {'type': 'string', 'description': 'Access token'},
+                    'refresh': {'type': 'string', 'description': 'Refresh token'},
+                    'account': {
+                        'type': 'object',
+                        'properties': {
+                            'id': {'type': 'integer'},
+                            'username': {'type': 'string'},
+                            'email': {'type': 'string'},
+                            'profile_types': {'type': 'array', 'items': {'type': 'string'}}
+                        }
+                    }
+                }
+            },
+            400: {'description': 'Bad request'},
+            401: {'description': 'Invalid credentials'}
+        }
+    )
     def post(self, request, *args, **kwargs):
         # Support login via email or username: if email is provided and username is not,
         # resolve the username from the Account with that email.
@@ -74,6 +107,47 @@ class AccountLoginView(TokenObtainPairView):
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        tags=['Authentication'],
+        summary='Logout user',
+        description='Logout the current user by blacklisting their refresh token. Requires Authentication header with Bearer token and refresh token in custom header.',
+        parameters=[
+            OpenApiParameter(
+                name='Authorization',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.HEADER,
+                required=True,
+                description='Bearer token for authentication (e.g., "Bearer your_access_token")'
+            ),
+            OpenApiParameter(
+                name='refresh',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.HEADER,
+                required=True,
+                description='Refresh token to be blacklisted'
+            ),
+        ],
+        request=None,
+        responses={
+            205: OpenApiResponse(description='Successfully logged out'),
+            400: OpenApiResponse(description='Bad request - missing refresh token'),
+            401: OpenApiResponse(description='Unauthorized - invalid or missing access token'),
+        },
+        examples=[
+            OpenApiExample(
+                'Logout Request',
+                summary='Example logout request',
+                description='Headers required for logout',
+                value={
+                    'headers': {
+                        'Authorization': 'Bearer your_access_token_here',
+                        'refresh': 'your_refresh_token_here'
+                    }
+                },
+                request_only=True,
+            ),
+        ]
+    )
     def post(self, request):
         refresh_token = request.headers.get('refresh')
         if not refresh_token:
@@ -91,6 +165,38 @@ class LogoutAllView(APIView):
     """Blacklist all outstanding refresh tokens for the authenticated user (logout all devices)."""
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        tags=['Authentication'],
+        summary='Logout from all devices',
+        description='Logout the current user from all devices by blacklisting all their outstanding refresh tokens. Requires Authentication header with Bearer token.',
+        parameters=[
+            OpenApiParameter(
+                name='Authorization',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.HEADER,
+                required=True,
+                description='Bearer token for authentication (e.g., "Bearer your_access_token")'
+            ),
+        ],
+        request=None,
+        responses={
+            205: OpenApiResponse(description='Successfully logged out from all devices'),
+            401: OpenApiResponse(description='Unauthorized - invalid or missing access token'),
+        },
+        examples=[
+            OpenApiExample(
+                'Logout All Request',
+                summary='Example logout all devices request',
+                description='Header required for logout from all devices',
+                value={
+                    'headers': {
+                        'Authorization': 'Bearer your_access_token_here'
+                    }
+                },
+                request_only=True,
+            ),
+        ]
+    )
     def post(self, request):
         user = request.user
         # OutstandingToken has a FK to user when token_blacklist app is enabled

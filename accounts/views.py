@@ -5,11 +5,32 @@ from accounts.models import Account
 from django.contrib.auth.hashers import make_password
 from rest_framework.permissions import AllowAny
 from rest_framework.decorators import permission_classes
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
 # Create your views here.
 
 
 @permission_classes([AllowAny])
 class AccountsView(APIView):
+    
+    @extend_schema(
+        tags=['Accounts'],
+        operation_id='accounts_create',
+        summary='Create new account',
+        description='Create a new user account with username, email and password',
+        request={'application/json': {
+            'type': 'object',
+            'properties': {
+                'username': {'type': 'string'},
+                'email': {'type': 'string', 'format': 'email'},
+                'password': {'type': 'string'},
+                'confirmPassword': {'type': 'string'},
+                'firstName': {'type': 'string'},
+                'lastName': {'type': 'string'},
+            }
+        }},
+        responses={201: {'description': 'Account created'}}
+    )
     def post(self, request):
         # Create a new account
         if request.data.get("password") != request.data.get("confirmPassword"):
@@ -24,6 +45,22 @@ class AccountsView(APIView):
         )
         return JsonResponse({"id": account.id}, status=201)
     
+    @extend_schema(
+        tags=['Accounts'],
+        operation_id='accounts_list_retrieve',
+        summary='List all accounts or retrieve specific account',
+        description='Get all accounts when no ID provided, or specific account when ID provided',
+        parameters=[
+            OpenApiParameter(
+                name='account_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                required=False,
+                description='Account ID for specific account retrieval'
+            ),
+        ],
+        responses={200: {'description': 'Account data'}}
+    )
     def get(self, request, account_id=None):
         # Retrieve account(s)
         if account_id:
@@ -62,7 +99,31 @@ class AccountsView(APIView):
             ]
             return JsonResponse(data, safe=False)
         
-
+    @extend_schema(
+        tags=['Accounts'],
+        operation_id='accounts_update_by_id',
+        summary='Update account by ID',
+        description='Update an existing account with new data',
+        parameters=[
+            OpenApiParameter(
+                name='account_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                required=True,
+                description='Account ID'
+            ),
+        ],
+        request={'application/json': {
+            'type': 'object',
+            'properties': {
+                'username': {'type': 'string'},
+                'email': {'type': 'string', 'format': 'email'},
+                'firstName': {'type': 'string'},
+                'lastName': {'type': 'string'},
+            }
+        }},
+        responses={200: {'description': 'Account updated'}, 404: {'description': 'Account not found'}}
+    )
     def put(self, request, account_id):
         # Update an existing account
         try:
@@ -76,6 +137,31 @@ class AccountsView(APIView):
         except Account.DoesNotExist:
             return JsonResponse({"error": "Account not found"}, status=404)
         
+    @extend_schema(
+        tags=['Accounts'],
+        operation_id='accounts_partial_update_by_id',
+        summary='Partially update account by ID',
+        description='Partially update an existing account',
+        parameters=[
+            OpenApiParameter(
+                name='account_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                required=True,
+                description='Account ID'
+            ),
+        ],
+        request={'application/json': {
+            'type': 'object',
+            'properties': {
+                'username': {'type': 'string'},
+                'email': {'type': 'string', 'format': 'email'},
+                'firstName': {'type': 'string'},
+                'lastName': {'type': 'string'},
+            }
+        }},
+        responses={200: {'description': 'Account updated'}, 404: {'description': 'Account not found'}}
+    )
     def patch(self, request, account_id):
         # Partially update an existing account
         try:
@@ -93,7 +179,22 @@ class AccountsView(APIView):
         except Account.DoesNotExist:
             return JsonResponse({"error": "Account not found"}, status=404)
     
-    
+    @extend_schema(
+        tags=['Accounts'],
+        operation_id='accounts_delete_by_id',
+        summary='Delete account by ID',
+        description='Delete an existing account',
+        parameters=[
+            OpenApiParameter(
+                name='account_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                required=True,
+                description='Account ID'
+            ),
+        ],
+        responses={200: {'description': 'Account deleted'}, 404: {'description': 'Account not found'}}
+    )
     def delete(self, request, account_id):
         # Delete an existing account
         try:

@@ -1,0 +1,2606 @@
+openapi: 3.0.3
+info:
+  title: GymGem API
+  version: 1.0.0
+  description: API documentation for the GymGem application
+paths:
+  /api/accounts/:
+    get:
+      operationId: accounts_list_retrieve
+      description: Get all accounts when no ID provided, or specific account when
+        ID provided
+      summary: List all accounts or retrieve specific account
+      parameters:
+      - in: path
+        name: account_id
+        schema:
+          type: integer
+        description: Account ID for specific account retrieval
+        required: true
+      tags:
+      - Accounts
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                description: Account data
+          description: ''
+    post:
+      operationId: accounts_create
+      description: Create a new user account with username, email and password
+      summary: Create new account
+      tags:
+      - Accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                confirmPassword:
+                  type: string
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                description: Account created
+          description: ''
+    put:
+      operationId: accounts_update_by_id
+      description: Update an existing account with new data
+      summary: Update account by ID
+      parameters:
+      - in: path
+        name: account_id
+        schema:
+          type: integer
+        description: Account ID
+        required: true
+      tags:
+      - Accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                description: Account updated
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Account not found
+          description: ''
+    patch:
+      operationId: accounts_partial_update_by_id
+      description: Partially update an existing account
+      summary: Partially update account by ID
+      parameters:
+      - in: path
+        name: account_id
+        schema:
+          type: integer
+        description: Account ID
+        required: true
+      tags:
+      - Accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                description: Account updated
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Account not found
+          description: ''
+    delete:
+      operationId: accounts_delete_by_id
+      description: Delete an existing account
+      summary: Delete account by ID
+      parameters:
+      - in: path
+        name: account_id
+        schema:
+          type: integer
+        description: Account ID
+        required: true
+      tags:
+      - Accounts
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                description: Account deleted
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Account not found
+          description: ''
+  /api/accounts/{account_id}/:
+    get:
+      operationId: accounts_list_retrieve_2
+      description: Get all accounts when no ID provided, or specific account when
+        ID provided
+      summary: List all accounts or retrieve specific account
+      parameters:
+      - in: path
+        name: account_id
+        schema:
+          type: integer
+        description: Account ID for specific account retrieval
+        required: true
+      tags:
+      - Accounts
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                description: Account data
+          description: ''
+    post:
+      operationId: accounts_create_2
+      description: Create a new user account with username, email and password
+      summary: Create new account
+      parameters:
+      - in: path
+        name: account_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                confirmPassword:
+                  type: string
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                description: Account created
+          description: ''
+    put:
+      operationId: accounts_update_by_id_2
+      description: Update an existing account with new data
+      summary: Update account by ID
+      parameters:
+      - in: path
+        name: account_id
+        schema:
+          type: integer
+        description: Account ID
+        required: true
+      tags:
+      - Accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                description: Account updated
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Account not found
+          description: ''
+    patch:
+      operationId: accounts_partial_update_by_id_2
+      description: Partially update an existing account
+      summary: Partially update account by ID
+      parameters:
+      - in: path
+        name: account_id
+        schema:
+          type: integer
+        description: Account ID
+        required: true
+      tags:
+      - Accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                description: Account updated
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Account not found
+          description: ''
+    delete:
+      operationId: accounts_delete_by_id_2
+      description: Delete an existing account
+      summary: Delete account by ID
+      parameters:
+      - in: path
+        name: account_id
+        schema:
+          type: integer
+        description: Account ID
+        required: true
+      tags:
+      - Accounts
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                description: Account deleted
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Account not found
+          description: ''
+  /api/auth/login:
+    post:
+      operationId: auth_login_create
+      description: Login with username/email and password. Returns JWT tokens and
+        account information.
+      summary: Login with credentials
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MyTokenObtainPairRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MyTokenObtainPairRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MyTokenObtainPairRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access:
+                    type: string
+                    description: Access token
+                  refresh:
+                    type: string
+                    description: Refresh token
+                  account:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      username:
+                        type: string
+                      email:
+                        type: string
+                      profile_types:
+                        type: array
+                        items:
+                          type: string
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Bad request
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                description: Invalid credentials
+          description: ''
+  /api/auth/logout:
+    post:
+      operationId: auth_logout_create
+      description: Logout the current user by blacklisting their refresh token. Requires
+        Authentication header with Bearer token and refresh token in custom header.
+      summary: Logout user
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+        description: Bearer token for authentication (e.g., "Bearer your_access_token")
+        required: true
+      - in: header
+        name: refresh
+        schema:
+          type: string
+        description: Refresh token to be blacklisted
+        required: true
+      tags:
+      - Authentication
+      security:
+      - jwtAuth: []
+      responses:
+        '205':
+          description: Successfully logged out
+        '400':
+          description: Bad request - missing refresh token
+        '401':
+          description: Unauthorized - invalid or missing access token
+  /api/auth/logout-all:
+    post:
+      operationId: auth_logout_all_create
+      description: Logout the current user from all devices by blacklisting all their
+        outstanding refresh tokens. Requires Authentication header with Bearer token.
+      summary: Logout from all devices
+      parameters:
+      - in: header
+        name: Authorization
+        schema:
+          type: string
+        description: Bearer token for authentication (e.g., "Bearer your_access_token")
+        required: true
+      tags:
+      - Authentication
+      security:
+      - jwtAuth: []
+      responses:
+        '205':
+          description: Successfully logged out from all devices
+        '401':
+          description: Unauthorized - invalid or missing access token
+  /api/auth/refresh-token:
+    post:
+      operationId: auth_refresh_token_create
+      description: Refresh access token using refresh token from headers
+      summary: Refresh JWT token
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MyTokenRefreshRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MyTokenRefreshRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MyTokenRefreshRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyTokenRefresh'
+          description: ''
+  /api/courses/courses/{id}/delete/:
+    delete:
+      operationId: courses_courses_delete_destroy
+      description: Delete an existing course (trainer only, must own the course)
+      summary: Delete course
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this course.
+        required: true
+      tags:
+      - Courses
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          content:
+            application/json:
+              schema:
+                description: Course deleted
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Course not found
+          description: ''
+  /api/courses/courses/{id}/detail/:
+    get:
+      operationId: courses_courses_detail_retrieve
+      description: Get detailed information about a specific course
+      summary: Get course detail
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this course.
+        required: true
+      tags:
+      - Courses
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Course not found
+          description: ''
+  /api/courses/courses/{id}/update/:
+    put:
+      operationId: courses_courses_update_update
+      description: Update an existing course (trainer only, must own the course)
+      summary: Update course
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this course.
+        required: true
+      tags:
+      - Courses
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Validation error
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Course not found
+          description: ''
+  /api/courses/courses/create/:
+    post:
+      operationId: courses_courses_create_create
+      description: Create a new course (trainer only)
+      summary: Create new course
+      tags:
+      - Courses
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CourseRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Validation error
+          description: ''
+  /api/courses/courses/for-trainees/:
+    get:
+      operationId: courses_courses_for_trainees_list
+      description: Get all available courses for trainees to browse
+      summary: Get courses for trainees
+      tags:
+      - Courses
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Course'
+          description: ''
+  /api/courses/enrollments/{id}/enroll/:
+    post:
+      operationId: courses_enrollments_enroll_create
+      description: Enroll in a specific course (trainee only)
+      summary: Enroll in course
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this course.
+        required: true
+      tags:
+      - Course Enrollments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourseEnrollmentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CourseEnrollmentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CourseEnrollmentRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseEnrollment'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Validation error
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Course not found
+          description: ''
+  /api/courses/enrollments/{id}/enrollments/:
+    get:
+      operationId: courses_enrollments_enrollments_list
+      description: Get all enrollments for a specific course (trainer only, must own
+        the course)
+      summary: Get enrollments for course
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this course.
+        required: true
+      tags:
+      - Course Enrollments
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CourseEnrollment'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Course not found
+          description: ''
+  /api/courses/enrollments/{id}/my-enrollment-detail/{enrollment_pk}/:
+    get:
+      operationId: courses_enrollments_my_enrollment_detail_retrieve
+      description: Get detailed information about my specific enrollment (trainee
+        only)
+      summary: Get my enrollment detail
+      parameters:
+      - in: path
+        name: enrollment_pk
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this course.
+        required: true
+      tags:
+      - Course Enrollments
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseEnrollment'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Enrollment or course not found
+          description: ''
+  /api/courses/enrollments/{id}/my-enrollments/:
+    get:
+      operationId: courses_enrollments_my_enrollments_list
+      description: Get my enrollments for a specific course (trainee only)
+      summary: Get my enrollments for course
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this course.
+        required: true
+      tags:
+      - Course Enrollments
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CourseEnrollment'
+          description: ''
+  /api/courses/enrollments/{id}/un-enroll/{enrollment_pk}/:
+    delete:
+      operationId: courses_enrollments_un_enroll_destroy
+      description: Delete my enrollment from a course (trainee only)
+      summary: Un-enroll from course
+      parameters:
+      - in: path
+        name: enrollment_pk
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this course.
+        required: true
+      tags:
+      - Course Enrollments
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          content:
+            application/json:
+              schema:
+                description: Enrollment deleted
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Enrollment or course not found
+          description: ''
+  /api/courses/lessons/{id}/lessons/:
+    get:
+      operationId: courses_lessons_lessons_list
+      description: Get all lessons for a specific course
+      summary: Get lessons for course
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this course.
+        required: true
+      tags:
+      - Course Lessons
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CourseLesson'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Course not found
+          description: ''
+  /api/courses/lessons/{id}/lessons/create/:
+    post:
+      operationId: courses_lessons_lessons_create_create
+      description: Create a new lesson for a specific course (trainer only, must own
+        the course)
+      summary: Create lesson for course
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this course.
+        required: true
+      tags:
+      - Course Lessons
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourseLessonRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CourseLessonRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CourseLessonRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseLesson'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Validation error
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Course not found
+          description: ''
+  /api/courses/lessons/{id}/lessons/delete/{lesson_pk}/:
+    delete:
+      operationId: courses_lessons_lessons_delete_destroy
+      description: Delete an existing lesson (trainer only, must own the course)
+      summary: Delete lesson for course
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this course.
+        required: true
+      - in: path
+        name: lesson_pk
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Course Lessons
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          content:
+            application/json:
+              schema:
+                description: Lesson deleted
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Lesson or course not found
+          description: ''
+  /api/courses/lessons/{id}/lessons/detail/{lesson_pk}/:
+    get:
+      operationId: courses_lessons_lessons_detail_retrieve
+      description: Get detailed information about a specific lesson
+      summary: Get lesson detail
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this course.
+        required: true
+      - in: path
+        name: lesson_pk
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Course Lessons
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseLesson'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Lesson or course not found
+          description: ''
+  /api/courses/lessons/{id}/lessons/update/{lesson_pk}/:
+    put:
+      operationId: courses_lessons_lessons_update_update
+      description: Update an existing lesson (trainer only, must own the course)
+      summary: Update lesson for course
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this course.
+        required: true
+      - in: path
+        name: lesson_pk
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Course Lessons
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourseLessonRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CourseLessonRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CourseLessonRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseLesson'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Validation error
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Lesson or course not found
+          description: ''
+  /api/courses/sections/{id}/section/{section_pk}/:
+    get:
+      operationId: courses_sections_section_retrieve
+      description: Get detailed information about a specific section
+      summary: Get section detail
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this course.
+        required: true
+      - in: path
+        name: section_pk
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Lesson Sections
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonSection'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Section or lesson not found
+          description: ''
+  /api/courses/sections/{id}/sections/:
+    get:
+      operationId: courses_sections_sections_list
+      description: Get all sections for a specific lesson
+      summary: Get sections for lesson
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this course.
+        required: true
+      tags:
+      - Lesson Sections
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LessonSection'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Lesson not found
+          description: ''
+  /api/courses/sections/{id}/sections/create/:
+    post:
+      operationId: courses_sections_sections_create_create
+      description: Create a new section for a specific lesson (trainer only)
+      summary: Create section for lesson
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this course.
+        required: true
+      tags:
+      - Lesson Sections
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LessonSectionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LessonSectionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LessonSectionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonSection'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Validation error
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Lesson not found
+          description: ''
+  /api/courses/sections/{id}/sections/delete/{section_pk}/:
+    delete:
+      operationId: courses_sections_sections_delete_destroy
+      description: Delete an existing section (trainer only)
+      summary: Delete section for lesson
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this course.
+        required: true
+      - in: path
+        name: section_pk
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Lesson Sections
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          content:
+            application/json:
+              schema:
+                description: Section deleted
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Section or lesson not found
+          description: ''
+  /api/courses/sections/{id}/sections/update/{section_pk}/:
+    put:
+      operationId: courses_sections_sections_update_update
+      description: Update an existing section (trainer only)
+      summary: Update section for lesson
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this course.
+        required: true
+      - in: path
+        name: section_pk
+        schema:
+          type: string
+          pattern: ^\d+$
+        required: true
+      tags:
+      - Lesson Sections
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LessonSectionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LessonSectionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LessonSectionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonSection'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Validation error
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Section or lesson not found
+          description: ''
+  /api/profiles/create:
+    get:
+      operationId: profiles_create_list
+      description: Get all profiles
+      summary: List all profiles
+      tags:
+      - Profiles
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Profile'
+          description: ''
+    post:
+      operationId: profiles_create_create
+      description: Create a new profile for an account
+      summary: Create new profile
+      tags:
+      - Profiles
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProfileRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Validation error
+          description: ''
+  /api/profiles/update/{profile_id}:
+    put:
+      operationId: profiles_update_update
+      description: Update an existing profile
+      summary: Update profile
+      parameters:
+      - in: path
+        name: profile_id
+        schema:
+          type: integer
+        description: Profile ID
+        required: true
+      tags:
+      - Profiles
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProfileRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Profile not found
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Validation error
+          description: ''
+    patch:
+      operationId: profiles_update_partial_update
+      description: Partially update an existing profile
+      summary: Partially update profile
+      parameters:
+      - in: path
+        name: profile_id
+        schema:
+          type: integer
+        description: Profile ID
+        required: true
+      tags:
+      - Profiles
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProfileRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Profile not found
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Validation error
+          description: ''
+    delete:
+      operationId: profiles_update_destroy
+      description: Delete an existing profile
+      summary: Delete profile
+      parameters:
+      - in: path
+        name: profile_id
+        schema:
+          type: integer
+        description: Profile ID
+        required: true
+      tags:
+      - Profiles
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          content:
+            application/json:
+              schema:
+                description: Profile deleted
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Profile not found
+          description: ''
+  /api/trainers/create:
+    get:
+      operationId: trainers_create_list
+      summary: List all trainers
+      tags:
+      - Trainers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Trainer'
+          description: ''
+    post:
+      operationId: trainers_create_create
+      summary: Create new trainer
+      tags:
+      - Trainers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrainerRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TrainerRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TrainerRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trainer'
+          description: ''
+  /api/trainers/experiences:
+    get:
+      operationId: trainers_experiences_list
+      description: Get all trainer experiences
+      summary: List all trainer experiences
+      tags:
+      - Trainers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrainerExperience'
+          description: ''
+    post:
+      operationId: trainers_experiences_create
+      description: Create a new trainer experience
+      summary: Create new trainer experience
+      tags:
+      - Trainers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrainerExperienceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TrainerExperienceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TrainerExperienceRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainerExperience'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Validation error
+          description: ''
+  /api/trainers/experiences/{experience_id}:
+    put:
+      operationId: trainers_experiences_update
+      description: Update an existing trainer experience
+      summary: Update trainer experience
+      parameters:
+      - in: path
+        name: experience_id
+        schema:
+          type: integer
+        description: Experience ID
+        required: true
+      tags:
+      - Trainers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrainerExperienceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TrainerExperienceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TrainerExperienceRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainerExperience'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: TrainerExperience not found
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Validation error
+          description: ''
+    patch:
+      operationId: trainers_experiences_partial_update
+      description: Partially update an existing trainer experience
+      summary: Partially update trainer experience
+      parameters:
+      - in: path
+        name: experience_id
+        schema:
+          type: integer
+        description: Experience ID
+        required: true
+      tags:
+      - Trainers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTrainerExperienceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTrainerExperienceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTrainerExperienceRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainerExperience'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: TrainerExperience not found
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Validation error
+          description: ''
+    delete:
+      operationId: trainers_experiences_destroy
+      description: Delete an existing trainer experience
+      summary: Delete trainer experience
+      parameters:
+      - in: path
+        name: experience_id
+        schema:
+          type: integer
+        description: Experience ID
+        required: true
+      tags:
+      - Trainers
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          content:
+            application/json:
+              schema:
+                description: TrainerExperience deleted
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: TrainerExperience not found
+          description: ''
+  /api/trainers/specializations:
+    get:
+      operationId: trainers_specializations_list
+      description: Get all trainer specializations
+      summary: List all trainer specializations
+      tags:
+      - Trainers
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrainerSpecialization'
+          description: ''
+    post:
+      operationId: trainers_specializations_create
+      description: Create a new trainer specialization
+      summary: Create new trainer specialization
+      tags:
+      - Trainers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrainerSpecializationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TrainerSpecializationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TrainerSpecializationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainerSpecialization'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Validation error
+          description: ''
+  /api/trainers/specializations/{specialization_id}:
+    put:
+      operationId: trainers_specializations_update
+      description: Update an existing trainer specialization
+      summary: Update trainer specialization
+      parameters:
+      - in: path
+        name: specialization_id
+        schema:
+          type: integer
+        description: Specialization ID
+        required: true
+      tags:
+      - Trainers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrainerSpecializationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TrainerSpecializationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TrainerSpecializationRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainerSpecialization'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: TrainerSpecialization not found
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Validation error
+          description: ''
+    patch:
+      operationId: trainers_specializations_partial_update
+      description: Partially update an existing trainer specialization
+      summary: Partially update trainer specialization
+      parameters:
+      - in: path
+        name: specialization_id
+        schema:
+          type: integer
+        description: Specialization ID
+        required: true
+      tags:
+      - Trainers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTrainerSpecializationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTrainerSpecializationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTrainerSpecializationRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainerSpecialization'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: TrainerSpecialization not found
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Validation error
+          description: ''
+    delete:
+      operationId: trainers_specializations_destroy
+      description: Delete an existing trainer specialization
+      summary: Delete trainer specialization
+      parameters:
+      - in: path
+        name: specialization_id
+        schema:
+          type: integer
+        description: Specialization ID
+        required: true
+      tags:
+      - Trainers
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          content:
+            application/json:
+              schema:
+                description: TrainerSpecialization deleted
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: TrainerSpecialization not found
+          description: ''
+  /api/trainers/update/{trainer_id}:
+    put:
+      operationId: trainers_update_update
+      description: Update an existing trainer
+      summary: Update trainer
+      parameters:
+      - in: path
+        name: trainer_id
+        schema:
+          type: integer
+        description: Trainer ID
+        required: true
+      tags:
+      - Trainers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrainerRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TrainerRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TrainerRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trainer'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Trainer not found
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Validation error
+          description: ''
+    patch:
+      operationId: trainers_update_partial_update
+      description: Partially update an existing trainer
+      summary: Partially update trainer
+      parameters:
+      - in: path
+        name: trainer_id
+        schema:
+          type: integer
+        description: Trainer ID
+        required: true
+      tags:
+      - Trainers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTrainerRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTrainerRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTrainerRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trainer'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Trainer not found
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                description: Validation error
+          description: ''
+    delete:
+      operationId: trainers_update_destroy
+      description: Delete an existing trainer
+      summary: Delete trainer
+      parameters:
+      - in: path
+        name: trainer_id
+        schema:
+          type: integer
+        description: Trainer ID
+        required: true
+      tags:
+      - Trainers
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          content:
+            application/json:
+              schema:
+                description: Trainer deleted
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                description: Trainer not found
+          description: ''
+components:
+  schemas:
+    ContentTypeEnum:
+      enum:
+      - video
+      - article
+      - quiz
+      - pdf
+      - image
+      - audio
+      - doc
+      - ppt
+      - other
+      type: string
+      description: |-
+        * `video` - Video
+        * `article` - Article
+        * `quiz` - Quiz
+        * `pdf` - PDF
+        * `image` - Image
+        * `audio` - Audio
+        * `doc` - Document
+        * `ppt` - PowerPoint
+        * `other` - Other
+    Course:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 200
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+        cover:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 200
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        description:
+          type: string
+        preview_video:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 200
+        trainer_profile:
+          type: integer
+        category:
+          type: integer
+          nullable: true
+        level:
+          type: integer
+          nullable: true
+        language:
+          type: string
+          nullable: true
+      required:
+      - created_at
+      - description
+      - id
+      - price
+      - title
+      - trainer_profile
+      - updated_at
+    CourseEnrollment:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        enrollment_date:
+          type: string
+          format: date-time
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/EnrollmentStatusEnum'
+        rating:
+          type: integer
+          maximum: 100
+          minimum: 1
+          nullable: true
+        permanent_access:
+          type: boolean
+        due_date:
+          type: string
+          format: date-time
+          nullable: true
+        course:
+          type: integer
+        trainee_profile:
+          type: integer
+      required:
+      - course
+      - enrollment_date
+      - id
+      - trainee_profile
+    CourseEnrollmentRequest:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/EnrollmentStatusEnum'
+        rating:
+          type: integer
+          maximum: 100
+          minimum: 1
+          nullable: true
+        permanent_access:
+          type: boolean
+        due_date:
+          type: string
+          format: date-time
+          nullable: true
+        course:
+          type: integer
+        trainee_profile:
+          type: integer
+      required:
+      - course
+      - trainee_profile
+    CourseLesson:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+        cover:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 200
+        duration:
+          type: string
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        order:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        course:
+          type: integer
+      required:
+      - course
+      - duration
+      - id
+      - order
+      - title
+    CourseLessonRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+        cover:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 200
+        duration:
+          type: string
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        order:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        course:
+          type: integer
+      required:
+      - course
+      - duration
+      - order
+      - title
+    CourseRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,6}(?:\.\d{0,2})?$
+        cover:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 200
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        description:
+          type: string
+          minLength: 1
+        preview_video:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 200
+        trainer_profile:
+          type: integer
+        category:
+          type: integer
+          nullable: true
+        level:
+          type: integer
+          nullable: true
+        language:
+          type: string
+          minLength: 1
+          nullable: true
+      required:
+      - description
+      - price
+      - title
+      - trainer_profile
+    EnrollmentStatusEnum:
+      enum:
+      - in_progress
+      - completed
+      - dropped
+      type: string
+      description: |-
+        * `in_progress` - In Progress
+        * `completed` - Completed
+        * `dropped` - Dropped
+    GenderEnum:
+      enum:
+      - male
+      - female
+      type: string
+      description: |-
+        * `male` - Male
+        * `female` - Female
+    LessonSection:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 200
+        content_type:
+          $ref: '#/components/schemas/ContentTypeEnum'
+        content_url:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 200
+        content_text:
+          type: string
+          nullable: true
+        order:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        lesson:
+          type: integer
+      required:
+      - content_type
+      - id
+      - lesson
+      - order
+      - title
+    LessonSectionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        content_type:
+          $ref: '#/components/schemas/ContentTypeEnum'
+        content_url:
+          type: string
+          format: uri
+          nullable: true
+          maxLength: 200
+        content_text:
+          type: string
+          nullable: true
+        order:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        lesson:
+          type: integer
+      required:
+      - content_type
+      - lesson
+      - order
+      - title
+    MyTokenObtainPairRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          writeOnly: true
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - password
+      - username
+    MyTokenRefresh:
+      type: object
+      properties:
+        refresh:
+          type: string
+        access:
+          type: string
+          readOnly: true
+      required:
+      - access
+      - refresh
+    MyTokenRefreshRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+      required:
+      - refresh
+    PatchedProfileRequest:
+      type: object
+      properties:
+        account:
+          type: integer
+        profile_type:
+          $ref: '#/components/schemas/ProfileTypeEnum'
+    PatchedTrainerExperienceRequest:
+      type: object
+      properties:
+        account_id:
+          type: integer
+          writeOnly: true
+        work_place:
+          type: string
+          nullable: true
+          maxLength: 100
+        position:
+          type: string
+          nullable: true
+          maxLength: 100
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        description:
+          type: string
+          nullable: true
+    PatchedTrainerRequest:
+      type: object
+      properties:
+        account_id:
+          type: integer
+          writeOnly: true
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        profile_picture:
+          type: string
+          format: binary
+          nullable: true
+        gender:
+          $ref: '#/components/schemas/GenderEnum'
+        birthdate:
+          type: string
+          format: date
+        country:
+          type: string
+          nullable: true
+          maxLength: 100
+        state:
+          type: string
+          nullable: true
+          maxLength: 100
+        zip_code:
+          type: string
+          nullable: true
+          maxLength: 20
+        phone_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        balance:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+    PatchedTrainerSpecializationRequest:
+      type: object
+      properties:
+        account_id:
+          type: integer
+          writeOnly: true
+        specialization:
+          type: integer
+        years_of_experience:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+        hourly_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,5}(?:\.\d{0,2})?$
+        service_location:
+          $ref: '#/components/schemas/ServiceLocationEnum'
+    Profile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        account:
+          type: integer
+        profile_type:
+          $ref: '#/components/schemas/ProfileTypeEnum'
+      required:
+      - account
+      - id
+      - profile_type
+    ProfileRequest:
+      type: object
+      properties:
+        account:
+          type: integer
+        profile_type:
+          $ref: '#/components/schemas/ProfileTypeEnum'
+      required:
+      - account
+      - profile_type
+    ProfileTypeEnum:
+      enum:
+      - gym
+      - trainer
+      - store
+      - trainee
+      type: string
+      description: |-
+        * `gym` - Gym
+        * `trainer` - Trainer
+        * `store` - Store
+        * `trainee` - Trainee
+    ServiceLocationEnum:
+      enum:
+      - online
+      - offline
+      - both
+      type: string
+      description: |-
+        * `online` - Online
+        * `offline` - Offline
+        * `both` - Both
+    StatusEnum:
+      enum:
+      - draft
+      - published
+      type: string
+      description: |-
+        * `draft` - Draft
+        * `published` - Published
+    Trainer:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        profile_picture:
+          type: string
+          format: uri
+          nullable: true
+        gender:
+          $ref: '#/components/schemas/GenderEnum'
+        birthdate:
+          type: string
+          format: date
+        country:
+          type: string
+          nullable: true
+          maxLength: 100
+        state:
+          type: string
+          nullable: true
+          maxLength: 100
+        zip_code:
+          type: string
+          nullable: true
+          maxLength: 20
+        phone_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        balance:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - name
+      - updated_at
+    TrainerExperience:
+      type: object
+      properties:
+        work_place:
+          type: string
+          nullable: true
+          maxLength: 100
+        position:
+          type: string
+          nullable: true
+          maxLength: 100
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        description:
+          type: string
+          nullable: true
+    TrainerExperienceRequest:
+      type: object
+      properties:
+        account_id:
+          type: integer
+          writeOnly: true
+        work_place:
+          type: string
+          nullable: true
+          maxLength: 100
+        position:
+          type: string
+          nullable: true
+          maxLength: 100
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        description:
+          type: string
+          nullable: true
+      required:
+      - account_id
+    TrainerRequest:
+      type: object
+      properties:
+        account_id:
+          type: integer
+          writeOnly: true
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        profile_picture:
+          type: string
+          format: binary
+          nullable: true
+        gender:
+          $ref: '#/components/schemas/GenderEnum'
+        birthdate:
+          type: string
+          format: date
+        country:
+          type: string
+          nullable: true
+          maxLength: 100
+        state:
+          type: string
+          nullable: true
+          maxLength: 100
+        zip_code:
+          type: string
+          nullable: true
+          maxLength: 20
+        phone_number:
+          type: string
+          nullable: true
+          maxLength: 20
+        balance:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+      required:
+      - account_id
+      - name
+    TrainerSpecialization:
+      type: object
+      properties:
+        specialization:
+          type: integer
+        years_of_experience:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+        hourly_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,5}(?:\.\d{0,2})?$
+        service_location:
+          $ref: '#/components/schemas/ServiceLocationEnum'
+      required:
+      - hourly_rate
+      - service_location
+      - specialization
+      - years_of_experience
+    TrainerSpecializationRequest:
+      type: object
+      properties:
+        account_id:
+          type: integer
+          writeOnly: true
+        specialization:
+          type: integer
+        years_of_experience:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+        hourly_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,5}(?:\.\d{0,2})?$
+        service_location:
+          $ref: '#/components/schemas/ServiceLocationEnum'
+      required:
+      - account_id
+      - hourly_rate
+      - service_location
+      - specialization
+      - years_of_experience
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+tags:
+- name: Accounts
+  description: User account operations
+- name: Authentication
+  description: Login, logout, token operations
+- name: Courses
+  description: Course management operations
+- name: Trainers
+  description: Trainer profile and operations
+- name: Profiles
+  description: User profile operations

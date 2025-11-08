@@ -43,9 +43,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    #external apps
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
+    'drf_spectacular',
+    #internal apps
     'profiles',
     'utils',
     'accounts',
@@ -151,7 +154,40 @@ REST_FRAMEWORK = {
 'DEFAULT_PERMISSION_CLASSES': (
 'rest_framework.permissions.IsAuthenticated',
 ),
+'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'GymGem API',
+    'DESCRIPTION': 'API documentation for the GymGem application',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'ENUM_NAME_OVERRIDES': {
+        'StatusEnum': [
+            ('draft', 'Draft'), 
+            ('published', 'Published')
+        ],
+        'EnrollmentStatusEnum': [
+            ('in_progress', 'In Progress'), 
+            ('completed', 'Completed'), 
+            ('dropped', 'Dropped')
+        ],
+    },
+    # Auto-generate documentation for views without explicit serializers
+    'AUTO_SCHEMA': 'drf_spectacular.openapi.AutoSchema',
+    'SCHEMA_PATH_PREFIX': '/api/',
+    'DEFAULT_GENERATOR_CLASS': 'drf_spectacular.generators.SchemaGenerator',
+    # Group operations by tags
+    'TAGS': [
+        {'name': 'Accounts', 'description': 'User account operations'},
+        {'name': 'Authentication', 'description': 'Login, logout, token operations'},
+        {'name': 'Courses', 'description': 'Course management operations'},
+        {'name': 'Trainers', 'description': 'Trainer profile and operations'},
+        {'name': 'Profiles', 'description': 'User profile operations'},
+    ],
+}
+
 SIMPLE_JWT = {
   # It will work instead of the default serializer(TokenObtainPairSerializer).
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
