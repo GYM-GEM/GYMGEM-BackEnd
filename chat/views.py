@@ -20,7 +20,7 @@ class MessagePagination(PageNumberPagination):
     """
     page_size = 50
     page_size_query_param = 'page_size'  # Allow client to override: ?page_size=100
-    max_page_size = 200  # Maximum allowed page size to prevent abuse
+    max_page_size = 500  # Maximum allowed page size to prevent abuse
 
 @extend_schema_view(
     list=extend_schema(
@@ -206,6 +206,129 @@ class ConversationViewSet(viewsets.ModelViewSet):
             ConversationSerializer(convo).data,
             status=status.HTTP_201_CREATED
         )
+
+    @extend_schema(
+        tags=['Chat'],
+        summary="Get conversation messages",
+        description="Retrieve all messages for a specific conversation with pagination. User must be a participant.",
+        parameters=[
+            OpenApiParameter(
+                name='page',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description='Page number (default: 1)',
+                required=False,
+            ),
+            OpenApiParameter(
+                name='page_size',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description='Number of messages per page (default: 50, max: 500)',
+                required=False,
+            ),
+        ],
+        responses={
+            200: MessageSerializer(many=True),
+            403: {'description': 'Not a participant in this conversation'},
+            404: {'description': 'Conversation not found'},
+        },
+    )
+    @action(detail=True, methods=['get'])
+    def messages(self, request, pk=None):
+        """
+        Get all messages for a specific conversation.
+        Returns paginated results ordered by timestamp.
+        """
+        # Get the conversation
+        conversation = self.get_object()
+        
+        # Verify user is a participant
+        if not conversation.participants.filter(id=request.user.id).exists():
+            return Response(
+                {'error': 'You are not a participant in this conversation'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get messages for this conversation, exclude deleted messages
+        messages = Message.objects.filter(
+            conversation=conversation,
+            is_deleted=False
+        ).order_by('timestamp')
+        
+        # Apply pagination
+        paginator = MessagePagination()
+        paginated_messages = paginator.paginate_queryset(messages, request)
+        
+        # Serialize and return
+        serializer = MessageSerializer(paginated_messages, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+    @extend_schema(
+        tags=['Chat'],
+        summary="Send message to conversation",
+        description="Send a new message to a specific conversation. Supports text content and file attachments. User must be a participant.",
+        request={
+            'multipart/form-data': {
+                'type': 'object',
+                'properties': {
+                    'content': {
+                        'type': 'string',
+                        'description': 'Message text content',
+                        'example': 'Hello! How are you?'
+                    },
+                    'attachment': {
+                        'type': 'string',
+                        'format': 'binary',
+                        'description': 'Optional file attachment'
+                    }
+                }
+            }
+        },
+        responses={
+            201: MessageSerializer,
+            400: {'description': 'Bad request - content or attachment required'},
+            403: {'description': 'Not a participant in this conversation'},
+            404: {'description': 'Conversation not found'},
+        },
+    )
+    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    def send_message(self, request, pk=None):
+        """
+        Send a message to a specific conversation.
+        At least one of content or attachment must be provided.
+        """
+        # Get the conversation
+        conversation = self.get_object()
+        
+        # Verify user is a participant
+        if not conversation.participants.filter(id=request.user.id).exists():
+            return Response(
+                {'error': 'You are not a participant in this conversation'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get content and attachment
+        content = request.data.get('content', '').strip()
+        attachment = request.FILES.get('attachment')
+        
+        # Validate that at least one exists
+        if not content and not attachment:
+            return Response(
+                {'error': 'Either content or attachment must be provided'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create message
+        message = Message.objects.create(
+            conversation=conversation,
+            sender=request.user,
+            content=content,
+            attachment=attachment
+        )
+        
+        # Serialize and return
+        serializer = MessageSerializer(message)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 

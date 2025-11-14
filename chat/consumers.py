@@ -250,7 +250,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """
         try:
             message_id = data.get("message_id")
-            new_content = data.get("content")
+            # Accept both 'content' and 'new_content' for backward compatibility
+            new_content = data.get("content") or data.get("new_content")
             
             # Validate message_id
             if not message_id:
@@ -274,7 +275,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             if not new_content or not isinstance(new_content, str):
                 await self.send(json.dumps({
                     "type": "error",
-                    "message": "Valid content is required for editing"
+                    "message": "Valid 'content' or 'new_content' is required for editing"
                 }))
                 return
             

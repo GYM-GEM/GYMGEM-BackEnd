@@ -225,3 +225,25 @@ CHANNEL_LAYERS = {
 #         "BACKEND": "channels.layers.InMemoryChannelLayer",
 #     }
 # }
+
+# Celery Configuration
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://127.0.0.1:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://127.0.0.1:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+
+# Celery Beat Schedule - Periodic Tasks
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    'delete-old-messages-daily': {
+        'task': 'chat.cron.delete_old_messages',
+        # 'schedule': crontab(hour=2, minute=0),  # Run daily at 2:00 AM UTC
+        # Alternative schedules:
+        # 'schedule': crontab(minute='*/30'),  # Every 30 minutes
+        # 'schedule': crontab(hour='*/6'),     # Every 6 hours
+        'schedule': crontab(day_of_week=0, hour=3),  # Every Sunday at 3 AM
+    },
+}
