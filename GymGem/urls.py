@@ -17,6 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from authenticationAndAuthorization.google_callback import google_callback
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -24,6 +25,11 @@ urlpatterns = [
    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
    path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(), name='swagger-ui'),
    path('api/schema/redoc/', SpectacularRedocView.as_view(), name='redoc'),
+    # allauth URLs for Google OAuth
+    path('social/', include('allauth.urls')),
+
+    # Custom Google callback that returns JWT
+    path('google/callback/', google_callback),
 ]
 
 from django.conf import settings
