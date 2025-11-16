@@ -67,3 +67,4 @@ class TraineeSerializer(serializers.ModelSerializer):
         instance.full_clean()
         instance.save()
         return instance
+        
