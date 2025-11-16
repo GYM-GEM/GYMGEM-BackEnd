@@ -76,13 +76,12 @@ class TrainerCalendarSlot(models.Model):
     trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)
     slot_date = models.DateField()
     slot_start_time = models.TimeField()
-    slot_end_time = models.TimeField()
     is_booked = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"TrainerCalenderSlot<{self.slot_date} {self.slot_start_time}-{self.slot_end_time}> for Trainer {self.trainer_id.name}"
+        return f"TrainerCalenderSlot<{self.slot_date} {self.slot_start_time}> for Trainer {self.trainer.name}"
     
 class TrainerRecord(models.Model):
     trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)

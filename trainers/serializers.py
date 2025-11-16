@@ -1,8 +1,7 @@
 from rest_framework import serializers
 
 from accounts.models import Account
-from .models import Trainer, TrainerSpecialization, TrainerExperience
-from profiles.models import Profile
+from .models import Trainer, TrainerCalendarSlot, TrainerSpecialization, TrainerExperience
 import re
 
 class TrainerSerializer(serializers.ModelSerializer):
@@ -221,3 +220,34 @@ class TrainerExperienceSerializer(serializers.ModelSerializer):
         instance.full_clean()
         instance.save()
         return instance
+    
+class TrainerCalendarSlotSerializer(serializers.ModelSerializer):
+    account_id = serializers.IntegerField(write_only=True)
+    
+    class Meta:
+        model = TrainerCalendarSlot
+        fields = [
+            "account_id",
+            "slot_date",
+            "slot_start_time",
+            "is_booked",
+        ]
+        read_only_fields = ["is_booked"]
+    
+    def validate_account_id(self, value):
+        # Get the account
+        try:
+            account = Account.objects.get(pk=value)
+        except Account.DoesNotExist:
+            raise serializers.ValidationError("Account does not exist.")
+        
+        # Find trainer profile from the account
+        trainer_profile = account.profiles.filter(profile_type="trainer").first()
+        if not trainer_profile:
+            raise serializers.ValidationError('Account must have a profile with profile_type="trainer".')
+        
+        # Check if trainer exists for this profile
+        if not Trainer.objects.filter(profile_id=trainer_profile).exists():
+            raise serializers.ValidationError("Trainer does not exist for this account.")
+        
+        return value

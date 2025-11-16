@@ -1,5 +1,4 @@
 from rest_framework.viewsets import ViewSet
-
 from profiles.models import Profile
 from .models import Course
 from .serializers import CourseLessonSerializer, CourseSerializer, CourseEnrollmentSerializer, CourseEnrollment, LessonSectionSerializer
@@ -9,7 +8,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from authenticationAndAuthorization.permissions import HasRole
 from .validators import CourseValidator
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import extend_schema
 
 # Create your views here.
 class CoursesView(ViewSet):
@@ -38,7 +37,10 @@ class CoursesView(ViewSet):
     @action(methods=['post'], detail=False, permission_classes=[HasRole(['trainer'])], url_path='create')
     def create_course(self, request):
         try:
-            CourseValidator.validate_trainer_profile_belongs_to_user(request.data.get('trainer_profile'), request.user)
+            if self.request.user.is_superuser:
+                pass
+            else:
+                CourseValidator.validate_trainer_profile_belongs_to_user(request.data.get('trainer_profile'), request.user)
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
