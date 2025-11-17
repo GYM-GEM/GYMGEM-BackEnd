@@ -4,12 +4,11 @@ from django.conf import settings
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
-from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny
 from rest_framework.decorators import permission_classes
+from accounts.models import Account
 
-User = get_user_model()
 
 @permission_classes([AllowAny]) 
 class GoogleLoginView(APIView):
@@ -33,16 +32,16 @@ class GoogleLoginView(APIView):
         first_name = idinfo.get("given_name") or (name.split(" ", 1)[0] if name else "")
         last_name = idinfo.get("family_name") or (name.split(" ", 1)[1] if " " in name else "")
 
-        user = User.objects.filter(email=email).first()
+        user = Account.objects.filter(email=email).first()
         created = False
         if not user:
             # Prefer the manager create_user if available (handles hashing/flags)
-            create_user_fn = getattr(User.objects, "create_user", None)
+            create_user_fn = getattr(Account.objects, "create_user", None)
             try:
                 if callable(create_user_fn):
-                    user = User.objects.create_user(username=username, email=email, first_name=first_name, last_name=last_name)
+                    user = Account.objects.create_user(username=username, email=email, first_name=first_name, last_name=last_name)
                 else:
-                    user = User.objects.create(username=username, email=email, first_name=first_name, last_name=last_name)
+                    user = Account.objects.create(username=username, email=email, first_name=first_name, last_name=last_name)
                     user.set_unusable_password()
                     user.save()
                 created = True
