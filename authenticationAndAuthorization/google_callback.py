@@ -1,23 +1,62 @@
-from django.shortcuts import redirect
+from google.oauth2 import id_token
+from google.auth.transport import requests
+from django.conf import settings
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework import status
+from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.permissions import AllowAny
+from rest_framework.decorators import permission_classes
 
-def google_callback(request):
-    user = request.user
+User = get_user_model()
 
-    if not user.is_authenticated:
-        return redirect("http://localhost:3000/google-error")
+@permission_classes([AllowAny]) 
+class GoogleLoginView(APIView):
+    def post(self, request):
+        token = request.data.get("id_token")
+        if not token:
+            return Response({"error": "No ID token provided"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            idinfo = id_token.verify_oauth2_token(token, requests.Request(), settings.GOOGLE_CLIENT_ID)
+        except ValueError:
+            return Response({"error": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # generate JWT
-    refresh = RefreshToken.for_user(user)
-    access = refresh.access_token
+        email = idinfo.get("email")
+        if not email:
+            return Response({"error": "Email missing in token"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # redirect to React frontend with tokens
-    url = (
-        "http://localhost:3000/google-success"
-        f"?access={access}"
-        f"&refresh={refresh}"
-        f"&email={user.email}"
-        f"&username={user.username}"
-    )
+        # prepare sensible defaults
+        username = email.split("@")[0]
+        name = idinfo.get("name", "") or ""
+        first_name = idinfo.get("given_name") or (name.split(" ", 1)[0] if name else "")
+        last_name = idinfo.get("family_name") or (name.split(" ", 1)[1] if " " in name else "")
 
-    return redirect(url)
+        user = User.objects.filter(email=email).first()
+        created = False
+        if not user:
+            # Prefer the manager create_user if available (handles hashing/flags)
+            create_user_fn = getattr(User.objects, "create_user", None)
+            try:
+                if callable(create_user_fn):
+                    user = User.objects.create_user(username=username, email=email, first_name=first_name, last_name=last_name)
+                else:
+                    user = User.objects.create(username=username, email=email, first_name=first_name, last_name=last_name)
+                    user.set_unusable_password()
+                    user.save()
+                created = True
+            except Exception as exc:
+                return Response({"error": "Failed creating user", "detail": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # ensure user is actually saved (sanity)
+        if not user.pk:
+            return Response({"error": "User was not persisted to DB"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "user": {"id": user.id, "email": user.email, "username": getattr(user, "username", "")},
+            "created": created
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)

@@ -16,14 +16,9 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import include, path
-from authenticationAndAuthorization.google_callback import google_callback
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
-    # allauth URLs for Google OAuth
-    path('social/', include('allauth.urls')),
-
-    # Custom Google callback that returns JWT
-    path('google/callback/', google_callback),
+  
 ]
