@@ -30,6 +30,7 @@ urlpatterns = [
 
     # Custom Google callback that returns JWT
     path('google/callback/', google_callback),
+  
 ]
 
 from django.conf import settings

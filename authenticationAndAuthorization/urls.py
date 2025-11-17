@@ -1,4 +1,6 @@
 from django.urls import path
+
+from .google_callback import GoogleLoginView
 from .views import (
     MyTokenRefreshView,
     AccountLoginView,
@@ -8,6 +10,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path("social/google/login/", GoogleLoginView.as_view(), name="google_login"),
     # Rich login: returns tokens + account info
     path('login', AccountLoginView.as_view(), name='account_login'),
     path('switch-profile', SwitchProfileView.as_view(), name='switch_profile'),
