@@ -14,6 +14,8 @@ from datetime import timedelta
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from corsheaders.defaults import default_headers
+
 
 load_dotenv()
 
@@ -102,6 +104,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:4040",
 ]
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "refresh",
+]
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
