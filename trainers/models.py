@@ -3,13 +3,21 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from profiles.models import Profile
 from utils.models import Specialization
+
 # Create your models here.
 
+
 class Trainer(models.Model):
-    profile_id = models.OneToOneField(Profile, on_delete=models.CASCADE, primary_key=True)
+    profile_id = models.OneToOneField(
+        Profile, on_delete=models.CASCADE, primary_key=True
+    )
     name = models.CharField(max_length=100)
-    profile_picture = models.ImageField(upload_to='trainer_profiles/', blank=True, null=True)
-    gender = models.CharField(max_length=10, choices=[('male', 'Male'), ('female', 'Female')], default='male')
+    profile_picture = models.ImageField(
+        upload_to="trainer_profiles/", blank=True, null=True
+    )
+    gender = models.CharField(
+        max_length=10, choices=[("male", "Male"), ("female", "Female")], default="male"
+    )
     birthdate = models.DateField(default=now)
     country = models.CharField(max_length=100, blank=True, null=True)
     state = models.CharField(max_length=100, blank=True, null=True)
@@ -24,9 +32,13 @@ class Trainer(models.Model):
 
     def clean(self):
         if not self.profile_id:
-            raise ValidationError({'profile_id': 'Profile is required.'})
-        if getattr(self.profile_id, 'profile_type', None) != 'trainer':
-            raise ValidationError({'profile_id': 'Profile must have profile_type="trainer" to create a Trainer.'})
+            raise ValidationError({"profile_id": "Profile is required."})
+        if getattr(self.profile_id, "profile_type", None) != "trainer":
+            raise ValidationError(
+                {
+                    "profile_id": 'Profile must have profile_type="trainer" to create a Trainer.'
+                }
+            )
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -38,17 +50,22 @@ class TrainerSpecialization(models.Model):
     specialization = models.ForeignKey(Specialization, on_delete=models.CASCADE)
     years_of_experience = models.IntegerField()
     hourly_rate = models.DecimalField(max_digits=7, decimal_places=2)
-    service_location = models.CharField(max_length=100, choices=[("online", "Online"), ("offline", "Offline"), ("both", "Both")])
+    service_location = models.CharField(
+        max_length=100,
+        choices=[("online", "Online"), ("offline", "Offline"), ("both", "Both")],
+    )
 
     def __str__(self):
         return f"TrainerSpecialization<{self.specialization}> for Trainer {self.trainer.name}"
-    
+
     def clean(self):
         if self.years_of_experience < 0:
-            raise ValidationError({'years_of_experience': 'Years of experience cannot be negative.'})
+            raise ValidationError(
+                {"years_of_experience": "Years of experience cannot be negative."}
+            )
         if self.hourly_rate < 0:
-            raise ValidationError({'hourly_rate': 'Hourly rate cannot be negative.'})
-        
+            raise ValidationError({"hourly_rate": "Hourly rate cannot be negative."})
+
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
@@ -64,13 +81,17 @@ class TrainerExperience(models.Model):
 
     def __str__(self):
         return f"TrainerExperience<{self.position} at {self.work_place}> for Trainer {self.trainer.name}"
+
     def clean(self):
         if self.end_date and self.end_date < self.start_date:
-            raise ValidationError({'end_date': 'End date cannot be earlier than start date.'})
+            raise ValidationError(
+                {"end_date": "End date cannot be earlier than start date."}
+            )
+
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
-    
+
 
 class TrainerCalendarSlot(models.Model):
     trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)
@@ -83,7 +104,8 @@ class TrainerCalendarSlot(models.Model):
 
     def __str__(self):
         return f"TrainerCalenderSlot<{self.slot_date} {self.slot_start_time}-{self.slot_end_time}> for Trainer {self.trainer_id.name}"
-    
+
+
 class TrainerRecord(models.Model):
     trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)
     record_date = models.DateField()
