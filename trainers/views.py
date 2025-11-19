@@ -7,6 +7,7 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 # Create your views here.
 
+
 class TrainerView(APIView):
     
     @extend_schema(
@@ -32,6 +33,7 @@ class TrainerView(APIView):
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
 
+
 class TrainerUpdateView(APIView):
     
     @extend_schema(
@@ -55,7 +57,7 @@ class TrainerUpdateView(APIView):
             trainer = Trainer.objects.get(id=trainer_id)
         except Trainer.DoesNotExist:
             return Response({"error": "Trainer not found"}, status=404)
-        
+
         serializer = TrainerSerializer(trainer, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -82,7 +84,7 @@ class TrainerUpdateView(APIView):
             trainer = Trainer.objects.get(id=trainer_id)
         except Trainer.DoesNotExist:
             return Response({"error": "Trainer not found"}, status=404)
-        
+
         trainer.delete()
         return Response(status=204)
     
@@ -107,13 +109,14 @@ class TrainerUpdateView(APIView):
             trainer = Trainer.objects.get(id=trainer_id)
         except Trainer.DoesNotExist:
             return Response({"error": "Trainer not found"}, status=404)
-        
+
         serializer = TrainerSerializer(trainer, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
-    
+
+
 class TrainerSpecializationView(APIView):
     
     @extend_schema(
@@ -141,6 +144,7 @@ class TrainerSpecializationView(APIView):
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
 
+
 class TrainerSpecializationUpdateView(APIView):
     
     @extend_schema(
@@ -164,8 +168,10 @@ class TrainerSpecializationUpdateView(APIView):
             specialization = TrainerSpecialization.objects.get(id=specialization_id)
         except TrainerSpecialization.DoesNotExist:
             return Response({"error": "TrainerSpecialization not found"}, status=404)
-        
-        serializer = TrainerSpecializationSerializer(specialization, data=request.data, partial=True)
+
+        serializer = TrainerSpecializationSerializer(
+            specialization, data=request.data, partial=True
+        )
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -191,7 +197,7 @@ class TrainerSpecializationUpdateView(APIView):
             specialization = TrainerSpecialization.objects.get(id=specialization_id)
         except TrainerSpecialization.DoesNotExist:
             return Response({"error": "TrainerSpecialization not found"}, status=404)
-        
+
         specialization.delete()
         return Response(status=204)
     
@@ -216,13 +222,16 @@ class TrainerSpecializationUpdateView(APIView):
             specialization = TrainerSpecialization.objects.get(id=specialization_id)
         except TrainerSpecialization.DoesNotExist:
             return Response({"error": "TrainerSpecialization not found"}, status=404)
-        
-        serializer = TrainerSpecializationSerializer(specialization, data=request.data, partial=True)
+
+        serializer = TrainerSpecializationSerializer(
+            specialization, data=request.data, partial=True
+        )
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
-    
+
+
 class TrainerExperienceView(APIView):
     
     @extend_schema(
@@ -244,11 +253,20 @@ class TrainerExperienceView(APIView):
         responses={201: TrainerExperienceSerializer, 400: {'description': 'Validation error'}}
     )
     def post(self, request):
-        serializer = TrainerExperienceSerializer(data=request.data)
+
+        data = request.data
+        end_date = request.data.get("end_date")
+
+        if len(end_date) <= 0:
+            data["end_date"] = None
+
+        serializer = TrainerExperienceSerializer(data=data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=201)
+
         return Response(serializer.errors, status=400)
+
 
 class TrainerExperienceUpdateView(APIView):
     
@@ -274,7 +292,9 @@ class TrainerExperienceUpdateView(APIView):
         except TrainerExperience.DoesNotExist:
             return Response({"error": "TrainerExperience not found"}, status=404)
 
-        serializer = TrainerExperienceSerializer(experience, data=request.data, partial=True)
+        serializer = TrainerExperienceSerializer(
+            experience, data=request.data, partial=True
+        )
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -326,7 +346,9 @@ class TrainerExperienceUpdateView(APIView):
         except TrainerExperience.DoesNotExist:
             return Response({"error": "TrainerExperience not found"}, status=404)
 
-        serializer = TrainerExperienceSerializer(experience, data=request.data, partial=True)
+        serializer = TrainerExperienceSerializer(
+            experience, data=request.data, partial=True
+        )
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
