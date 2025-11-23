@@ -2,7 +2,7 @@ import jwt
 from django.conf import settings
 from accounts.models import Account
 from rest_framework.permissions import BasePermission
-
+from profiles.models import Profile
 class IsAuthenticatedAndHasRole(BasePermission):
     """
     DRF permission class to check if user is authenticated and has one of the required roles.
@@ -65,21 +65,10 @@ def HasRole(allowed_roles):
                 return False
             if user.is_superuser:
                 return True  # bypass role checks
+            
+            profile = payload.get("current_profile", None)
+            user_role = Profile.objects.filter(id=profile).first().profile_type if profile else None
 
-            if payload:
-                user_roles = set()
-                profiles = payload.get("profiles", [])
-                if isinstance(profiles, list):
-                    for profile in profiles:
-                        if isinstance(profile, dict):
-                            role = profile.get("profile_type")
-                            if role:
-                                user_roles.add(role)
-                        elif isinstance(profile, str):
-                            user_roles.add(profile)
-                else:
-                    user_roles = set()            
-            roles = allowed_roles if isinstance(allowed_roles, list) else [allowed_roles]
-            return bool(user_roles.intersection(set(roles)))
+            return bool(user_role in allowed_roles)
     
-    return _HasRole()
+    return _HasRole

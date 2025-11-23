@@ -1,24 +1,15 @@
-from urllib import request
 from rest_framework import serializers
 
 from accounts.models import Account
 from .models import Trainer, TrainerCalendarSlot, TrainerSpecialization, TrainerExperience
 import re
-
+from utils.views import get_account_from_token, get_profile_id_from_token
 
 class TrainerSerializer(serializers.ModelSerializer):
     # Accept account_id from frontend, convert to profile_id internally
-    account_id = serializers.IntegerField(write_only=True)
-    profile_picture = serializers.ImageField(
-        required=False, allow_null=True, allow_empty_file=True
-    )
-    birthdate = serializers.DateField(required=False)
-    balance = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
-
     class Meta:
         model = Trainer
         fields = [
-            "account_id",
             "name",
             "profile_picture",
             "gender",
@@ -33,22 +24,6 @@ class TrainerSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["created_at", "updated_at", "balance"]
 
-    def validate_account_id(self, value):
-        # Get the account
-        try:
-            account = Account.objects.get(pk=value)
-        except Account.DoesNotExist:
-            raise serializers.ValidationError("Account does not exist.")
-
-        # Find trainer profile from the account
-        trainer_profile = account.profiles.filter(profile_type="trainer").first()
-        if not trainer_profile:
-            raise serializers.ValidationError(
-                'Account must have a profile with profile_type="trainer".'
-            )
-
-        return value
-
     def validate_phone_number(self, value):
         if value:
             if not re.match(r"^\+?\d{7,20}$", value):
@@ -59,26 +34,24 @@ class TrainerSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         # Get account_id and find the trainer profile
-        account_id = validated_data.pop("account_id")
-        account = Account.objects.get(pk=account_id)
-        trainer_profile = account.profiles.filter(profile_type="trainer").first()
-
+        account = get_account_from_token(self.context.get("request"))
         # Check if trainer already exists for this profile
+        profile_id = get_profile_id_from_token(self.context.get("request"))
+        trainer_profile = account.profiles.filter(profile_type="trainer", id=profile_id).first()
+
         if Trainer.objects.filter(profile_id=trainer_profile).exists():
             raise serializers.ValidationError(
-                {"account_id": "Trainer already exists for this account."}
+                "Trainer already exists for this account."
             )
-
-        # Create trainer with the found profile
+        
         trainer = Trainer(profile_id=trainer_profile, **validated_data)
         trainer.full_clean()
         trainer.save()
         return trainer
 
-    def update(self, instance, validated_data):
-        # Remove account_id if provided (shouldn't update the profile relationship)
-        validated_data.pop("account_id", None)
 
+    def update(self, instance, validated_data):
+        
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.full_clean()

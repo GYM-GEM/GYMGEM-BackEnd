@@ -1,15 +1,36 @@
 from time import timezone
+
+from authenticationAndAuthorization.permissions import HasRole
+from profiles.models import Profile
+from utils.views import get_profile_id_from_token
 from .serializers import TrainerCalendarSlotSerializer, TrainerSerializer , TrainerSpecializationSerializer, TrainerExperienceSerializer
 from .models import Trainer, TrainerCalendarSlot, TrainerSpecialization, TrainerExperience
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
+from django.shortcuts import get_object_or_404
 # Create your views here.
 
 
 class TrainerView(APIView):
     
+    permission_classes = [HasRole(['trainer'])]
+    @extend_schema(
+        tags=['Trainers'],
+        summary='Create new trainer',
+        request=TrainerSerializer,
+        responses=TrainerSerializer
+    )
+    def post(self, request):
+        serializer = TrainerSerializer(data=request.data,  context={"request": request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
+    
+class TrainerList(APIView):
+    permission_classes = [HasRole(['trainer', 'trainee'])]
     @extend_schema(
         tags=['Trainers'],
         summary='List all trainers',
@@ -20,22 +41,8 @@ class TrainerView(APIView):
         serializer = TrainerSerializer(trainers, many=True)
         return Response(serializer.data)
 
-    @extend_schema(
-        tags=['Trainers'],
-        summary='Create new trainer',
-        request=TrainerSerializer,
-        responses=TrainerSerializer
-    )
-    def post(self, request):
-        serializer = TrainerSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=201)
-        return Response(serializer.errors, status=400)
-
-
 class TrainerUpdateView(APIView):
-    
+    permission_classes = [HasRole(['trainer'])]
     @extend_schema(
         tags=['Trainers'],
         summary='Update trainer',
@@ -52,13 +59,15 @@ class TrainerUpdateView(APIView):
         request=TrainerSerializer,
         responses={200: TrainerSerializer, 404: {'description': 'Trainer not found'}, 400: {'description': 'Validation error'}}
     )
-    def put(self, request, trainer_id):
+    def put(self, request):
         try:
-            trainer = Trainer.objects.get(id=trainer_id)
+            profile_id = get_profile_id_from_token(request)
+            my_profile = Profile.objects.get(id=profile_id)
+            trainer = Trainer.objects.get(profile_id=my_profile)
         except Trainer.DoesNotExist:
             return Response({"error": "Trainer not found"}, status=404)
 
-        serializer = TrainerSerializer(trainer, data=request.data, partial=True)
+        serializer = TrainerSerializer(trainer, data=request.data, context={"request": request},partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)

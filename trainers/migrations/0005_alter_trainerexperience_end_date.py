@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('trainers', '0004_alter_trainerexperience_position_and_more'),
+        ('trainers', '0002_remove_trainercalendarslot_slot_end_time'),
     ]
 
     operations = [
