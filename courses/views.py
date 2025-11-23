@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from authenticationAndAuthorization.permissions import HasRole
+from authenticationAndAuthorization.permissions import HasRole, IsAuthenticatedAndHasRole
 from .validators import CourseValidator
 from drf_spectacular.utils import extend_schema
 
@@ -14,7 +14,7 @@ from drf_spectacular.utils import extend_schema
 class CoursesView(ViewSet):
     serializer_class = CourseSerializer
     queryset = Course.objects.all()
-
+    
     @extend_schema(
         tags=['Courses'],
         summary='Get courses for trainees',
@@ -107,6 +107,7 @@ class CoursesView(ViewSet):
 class LessonsView(ViewSet):
     serializer_class = CourseLessonSerializer
     queryset = Course.objects.all()
+
     
     @extend_schema(
         tags=['Course Lessons'],

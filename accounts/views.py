@@ -219,3 +219,43 @@ class AccountsDetailView(APIView):
         except Account.DoesNotExist:
             return JsonResponse({"error": "Account not found"}, status=404)
 
+
+class CurrentAccountView(APIView):
+    """Handles retrieval of the current authenticated user's account"""
+    
+    @extend_schema(
+        tags=['Accounts'],
+        operation_id='current_account_retrieve',
+        summary='Retrieve current user account',
+        description='Get details of the currently authenticated user account',
+        responses={200: {'description': 'Current account data'}, 401: {'description': 'Unauthorized'}}
+    )
+    def get(self, request):
+        """Retrieve the current authenticated user's account"""
+        user = request.user
+        if not user.is_authenticated:
+            return JsonResponse({"error": "Unauthorized"}, status=401)
+        
+        try:
+            account = Account.objects.get(id=user.id)
+            data = {
+                "id": account.id,
+                "username": account.username,
+                "email": account.email,
+                "firstName": account.first_name,
+                "lastName": account.last_name,
+                "defaultProfile": {
+                    "id": account.default_profile.id,
+                    "profileType": account.default_profile.profile_type,
+                } if account.default_profile else None,
+                "profiles": [
+                    {
+                        "id": profile.id,
+                        "profileType": profile.profile_type,
+                    }
+                    for profile in account.profiles.all()
+                ],
+            }
+            return JsonResponse(data)
+        except Account.DoesNotExist:
+            return JsonResponse({"error": "Account not found"}, status=404)

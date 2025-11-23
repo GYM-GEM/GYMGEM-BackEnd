@@ -10,18 +10,13 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token = super().get_token(user)
 
         # Resolve Account from the authenticated user (Account extends User via multi-table inheritance)
-        account = Account.objects.filter(pk=user.pk).first()
-
+        try:
+            account = Account.objects.get(pk=user.pk)
+        except Account.DoesNotExist:
+            return ({'detail': 'Account not found'})  # fallback: return token without extra claims
         # Add custom claims
-        token['username'] = user.username
-        token['email'] = user.email
-        if account is not None:
-            token['account_id'] = account.pk
-            token['profile_types'] = list(account.profiles.values_list('profile_type', flat=True))
-        else:
-            token['account_id'] = None
-            token['profile_types'] = []
-
+        token['account_id'] = account.pk
+        token['current_profile'] = account.default_profile.id if account and account.default_profile else None
         return token
 
 
@@ -41,11 +36,8 @@ class MyTokenRefreshSerializer(TokenRefreshSerializer):
         account = Account.objects.filter(pk=user.pk).first()
 
         access = AccessToken.for_user(user)
-        access['username'] = user.username
-        access['email'] = user.email
-        access['account_id'] = account.pk if account else None
-        access['profile_types'] = list(account.profiles.values_list('profile_type', flat=True)) if account else []
-
+        access['account_id'] = account.pk 
+        access['current_profile'] = refresh.get('current_profile', None)
         return {
             'access': str(access),
             'refresh': str(refresh)  # include this only if you want to echo it back

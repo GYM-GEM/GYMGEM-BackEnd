@@ -1,31 +1,31 @@
-
 from rest_framework import serializers
 from interactive_sessions.models import InteractiveSession
+from trainers.models import TrainerCalendarSlot
+from profiles.models import Profile
 
 
 class InteractiveSessionSerializer(serializers.ModelSerializer):
+    scheduled_at = serializers.PrimaryKeyRelatedField(
+        queryset=TrainerCalendarSlot.objects.all()
+    )
+    first_participant = serializers.PrimaryKeyRelatedField(
+        queryset=Profile.objects.all(), many=True, required=False
+    )
+    second_participant = serializers.PrimaryKeyRelatedField(
+        queryset=Profile.objects.all(), many=True, required=False
+    )
+
     class Meta:
         model = InteractiveSession
         fields = [
-            "id",
-            "session_title",
-            "description",
-            "scheduled_at",
-            "first_participant",
-            "second_participant",
-            "created_at",
-            "updated_at",
+            'id',
+            'session_title',
+            'description',
+            'status',
+            'scheduled_at',
+            'first_participant',
+            'second_participant',
+            'created_at',
+            'updated_at',
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
-    
-    def create(self, validated_data):
-        first_participant = validated_data.pop("first_participant", None)
-        second_participant = validated_data.pop("second_participant", None)
-        session = InteractiveSession.objects.create(**validated_data)
-        if first_participant:
-            session.participants.add(first_participant)
-        if second_participant:
-            session.participants.add(second_participant)
-        session.full_clean()
-        session.save()
-        return session
+        read_only_fields = ['created_at', 'updated_at']

@@ -1,7 +1,7 @@
-from django.urls import path
-from . import views
+from rest_framework.routers import DefaultRouter
+from .views import InteractiveSessionView
 
-urlpatterns = [
-    path('interactive-sessions/', views.InteractiveSessionView.as_view(), name='interactive-sessions-create'),
-    path('interactive-sessions/<int:pk>/', views.InteractiveSessionView.as_view(), name='interactive-sessions-detail'),
-]
+router = DefaultRouter()
+router.register(r'', InteractiveSessionView, basename='interactive-sessions')
+
+urlpatterns = router.urls

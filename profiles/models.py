@@ -19,6 +19,5 @@ class Profile(models.Model):
                 fields=['account', 'profile_type'], name='uniq_account_profiletype'
             )
         ]
-    
     def __str__(self):
         return f"{self.profile_type} Profile for {self.account.username}"

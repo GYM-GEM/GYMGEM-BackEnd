@@ -1,107 +1,103 @@
 from authenticationAndAuthorization.permissions import HasRole
-from interactive_sessions.models import InteractiveSession
-from interactive_sessions.serializers import InteractiveSessionSerializer
-from rest_framework.response import Response
-from rest_framework.viewsets import ViewSet
-from rest_framework.decorators import action
-from .validators import InteractiveSessionValidator
-from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import viewsets, permissions
 from rest_framework.filters import SearchFilter, OrderingFilter
-# Create your views here.
+from rest_framework.pagination import PageNumberPagination
+from interactive_sessions.models import InteractiveSession
+from .serializers import InteractiveSessionSerializer
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+import django_filters.rest_framework as filters
 
-class InteractiveSessionView(ViewSet):
+class InteractiveSessionFilter(filters.FilterSet):
+    status = filters.CharFilter(field_name='status', lookup_expr='exact')
+    first_participant = filters.NumberFilter(field_name='first_participant__id')
+    second_participant = filters.NumberFilter(field_name='second_participant__id')
+    scheduled_slot = filters.NumberFilter(field_name='scheduled_at__id')
+    created_from = filters.DateTimeFilter(field_name='created_at', lookup_expr='gte')
+    created_to = filters.DateTimeFilter(field_name='created_at', lookup_expr='lte')
+
+    class Meta:
+        model = InteractiveSession
+        fields = ['status', 'first_participant', 'second_participant', 'scheduled_slot', 'created_from', 'created_to']
+
+class InteractiveSessionPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+class InteractiveSessionView(viewsets.ModelViewSet):
+    """
+    ViewSet for managing interactive sessions between trainers and trainees.
     
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['status', 'trainer', 'trainee']
-    search_fields = ['title', 'description', 'trainer__name', 'trainee__name']
-    ordering_fields = ['created_at', 'updated_at', 'start_time']
-    ordering = ['-created_at']  # default ordering
+    list: Get all interactive sessions with optional filtering, searching, and ordering.
+    create: Create a new interactive session (trainer only).
+    retrieve: Get details of a specific interactive session.
+    update: Update an interactive session (trainer only).
+    partial_update: Partially update an interactive session (trainer only).
+    destroy: Delete an interactive session (trainer only).
+    """
+    queryset = InteractiveSession.objects.all().order_by('id')
+    serializer_class = InteractiveSessionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = InteractiveSessionPagination
+    filter_backends = [filters.DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = InteractiveSessionFilter
+    search_fields = [
+        'session_title',
+        'description',
+        'status',
+        'first_participant__account__username',
+        'second_participant__account__username',
+    ]
+    ordering_fields = ['created_at', 'updated_at', 'scheduled_at']
+    ordering = ['-created_at']
 
+    def get_permissions(self):
+        perms = super().get_permissions()
+        if self.action in {"create", "update", "partial_update", "destroy"}:
+            perms.insert(0, HasRole(['trainer']))  # remove the trailing ()
+        return perms
 
-    @action(methods=['post'], detail=False, permission_classes=[HasRole(['trainer', 'trainee'])],url_name='create-session', url_path='create')
-    def post(self, request):
-        serializer = InteractiveSessionSerializer(data=request.data)
-        if serializer.is_valid():
-            session = serializer.save()
-            return Response(InteractiveSessionSerializer(session).data, status=201)
-        return Response(serializer.errors, status=400)
-    
-    @action(methods=['delete'], detail=True,url_name='delete-session', url_path='delete')
-    def delete(self, request, pk):
-        try:
-            session = InteractiveSession.objects.get(pk=pk)
-        except InteractiveSession.DoesNotExist:
-            return Response({"error": "Interactive session not found."}, status=404)
-        serializer = InteractiveSessionSerializer()
-        serializer.delete(session)
-        return Response(status=204)
-    
-    @action(methods=['get'], detail=True,permission_classes=[HasRole(['trainer', 'trainee'])], url_name='get-session', url_path='detail')
-    def get(self, request, pk):
-        try:
-            if self.request.user.is_superuser:
-                pass
-            else:
-                InteractiveSessionValidator.validate_participant_belongs_to_session(request.data.get('first_participant'),request.data.get('second_participant'), request.user)
-        except ValueError as e: 
-            return Response({"error": str(e)}, status=400)
-        try:
-            session = InteractiveSession.objects.get(pk=pk)
-        except InteractiveSession.DoesNotExist:
-            return Response({"error": "Interactive session not found."}, status=404)
-        
-        serializer = InteractiveSessionSerializer(session)
-        return Response(serializer.data, status=200)
-    
-    @action(methods=['put'], detail=True, url_name='update-session', url_path='update')
-    def put(self, request, pk):
-        try:
-            if self.request.user.is_superuser:
-                pass
-            else:
-                InteractiveSessionValidator.validate_participant_belongs_to_session(request.data.get('first_participant'),request.data.get('second_participant'), request.user)
-        except ValueError as e: 
-            return Response({"error": str(e)}, status=400)
-        try:
-            session = InteractiveSession.objects.get(pk=pk)
-        except InteractiveSession.DoesNotExist:
-            return Response({"error": "Interactive session not found."}, status=404)
-        
-        serializer = InteractiveSessionSerializer(session, data=request.data)
-        if serializer.is_valid():
-            updated_session = serializer.save()
-            return Response(InteractiveSessionSerializer(updated_session).data, status=200)
-        return Response(serializer.errors, status=400)
-    
-    @action(methods=['get'], detail=False, permission_classes=[HasRole(['trainer', 'trainee'])], url_name='list-sessions', url_path='list')
-    def list(self, request):
-        try:
-            user_participants = request.user.get_all_participant_profiles()
-            sessions = InteractiveSession.objects.filter(participants__in=user_participants).distinct()
-        except ValueError as e:
-            return Response({"error": str(e)}, status=400)
-        page = self.paginate_queryset(sessions)
-        if page is not None:
-            serializer = InteractiveSessionSerializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-        serializer = InteractiveSessionSerializer(sessions, many=True)
-        return Response(serializer.data, status=200)
-    
+    @swagger_auto_schema(
+        operation_description="Get a list of interactive sessions",
+        manual_parameters=[
+            openapi.Parameter('status', openapi.IN_QUERY, description="Filter by status", type=openapi.TYPE_STRING),
+            openapi.Parameter('first_participant', openapi.IN_QUERY, description="Filter by first participant ID", type=openapi.TYPE_INTEGER),
+            openapi.Parameter('second_participant', openapi.IN_QUERY, description="Filter by second participant ID", type=openapi.TYPE_INTEGER),
+            openapi.Parameter('search', openapi.IN_QUERY, description="Search in title, description, trainer name, trainee name", type=openapi.TYPE_STRING),
+            openapi.Parameter('ordering', openapi.IN_QUERY, description="Order by: created_at, updated_at, start_time (prefix with '-' for descending)", type=openapi.TYPE_STRING),
+        ]
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
+    @swagger_auto_schema(
+        operation_description="Create a new interactive session (trainer only)"
+    )
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
 
-    @action(methods=['get'], detail=False, url_name='list-all-sessions', url_path='list-all')
-    def list_all_sessions(self, request):
-        if not request.user.is_superuser:
-            return Response({"error": "Only superadmins can access all sessions."}, status=403)
+    @swagger_auto_schema(
+        operation_description="Retrieve a specific interactive session"
+    )
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
 
-        sessions = InteractiveSession.objects.all()
-        sessions = self.filter_queryset(sessions)
-        page = self.paginate_queryset(sessions)
+    @swagger_auto_schema(
+        operation_description="Update an interactive session (trainer only)"
+    )
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
 
-        if page is not None:
-            serializer = InteractiveSessionSerializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+    @swagger_auto_schema(
+        operation_description="Partially update an interactive session (trainer only)"
+    )
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
 
-        serializer = InteractiveSessionSerializer(sessions, many=True)
-
-        return Response(serializer.data, status=200)
+    @swagger_auto_schema(
+        operation_description="Delete an interactive session (trainer only)"
+    )
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)

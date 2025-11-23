@@ -25,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-=f*+*kfh7n+#nov+##(@1nwe+_#$ux_tr=@@cku&(jlkzx4@1g'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'your-default-secret-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -45,6 +45,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'channels',
+    'django_filters',
+    'channels_redis',
     'django.contrib.staticfiles',
     #external apps
     'rest_framework',
@@ -63,6 +65,7 @@ INSTALLED_APPS = [
     'api',
     'courses',
     'chat',
+    'interactive_sessions',
 ]
 
 MIDDLEWARE = [
@@ -157,6 +160,7 @@ REST_FRAMEWORK = {
 ),
 'DEFAULT_PERMISSION_CLASSES': (
 'rest_framework.permissions.IsAuthenticated',
+            "utils.permissions.AllowSuperuserBypass",
 ),
 'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 
@@ -204,9 +208,9 @@ SPECTACULAR_SETTINGS = {
 
 SIMPLE_JWT = {
   # It will work instead of the default serializer(TokenObtainPairSerializer).
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=2),
-    "ALGORITHM": "HS256",
+    "ACCESS_TOKEN_LIFETIME": timedelta(seconds=int(os.environ.get('JWT_ACCESS_TOKEN_LIFETIME', 6000))),
+    "REFRESH_TOKEN_LIFETIME": timedelta(seconds=int(os.environ.get('JWT_REFRESH_TOKEN_LIFETIME', 86400))),
+    "ALGORITHM": os.environ.get('JWT_ALGORITHM', 'HS256'),
     "AUTH_HEADER_TYPES": ("Bearer",),
   "TOKEN_OBTAIN_SERIALIZER": "authenticationAndAuthorization.serializers.MyTokenObtainPairSerializer",
     # Enable token blacklisting support (install app + migrate)

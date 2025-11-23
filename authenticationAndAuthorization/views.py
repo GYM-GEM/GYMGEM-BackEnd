@@ -1,3 +1,4 @@
+import jwt
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
@@ -9,7 +10,7 @@ from accounts.models import Account
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.decorators import permission_classes
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, OpenApiExample, OpenApiTypes
-
+from profiles.models import Profile
 
 class MyTokenRefreshView(TokenRefreshView):
     """Custom TokenRefreshView to use MyTokenRefreshSerializer."""
@@ -84,7 +85,7 @@ class AccountLoginView(TokenObtainPairView):
             'id': account.pk if account else None,
             'username': user.username,
             'email': user.email,
-            'profile_types': list(account.profiles.values_list('profile_type', flat=True)) if account else [],
+            'current_profile': account.default_profile.id if account and account.default_profile else None,
         }
 
         if request.user.is_authenticated:
@@ -97,13 +98,72 @@ class AccountLoginView(TokenObtainPairView):
                 except Exception:
                     return Response({'detail': 'Error blacklisting old tokens'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
         return Response({
             'access': tokens.get('access'),
             'refresh': tokens.get('refresh'),
             'account': account_payload,
         }, status=status.HTTP_200_OK)
 
+class SwitchProfileView(APIView):
+    """Switch the current profile in the JWT token."""
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=['Authentication'],
+        summary='Switch current profile',
+        description='Switch the current profile in the JWT token. Requires Authentication header with Bearer token and profile_id in headers.',
+        parameters=[
+            OpenApiParameter(
+                name='Authorization',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.HEADER,
+                required=True,
+                description='Bearer token for authentication (e.g., "Bearer your_access_token")'
+            ),
+            OpenApiParameter(
+                name='profile_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.HEADER,
+                required=True,
+                description='ID of the profile to switch to'
+            ),
+        ],
+        request=None,
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'access': {'type': 'string', 'description': 'New access token with switched profile'},
+                    'refresh': {'type': 'string', 'description': 'Refresh token'}
+                }
+            },
+            400: {'description': 'Bad request - missing or invalid profile_id'},
+            401: {'description': 'Unauthorized - invalid or missing access token'},
+        }
+    )
+    def post(self, request):
+        profile_id = request.data.get('profile_id')
+        if not profile_id:
+            return Response({'detail': 'profile_id header is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        try:
+            profile = Profile.objects.get(pk=profile_id)
+        except Exception:
+            return Response({'detail': 'Profile not found or does not belong to user'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create new tokens with updated current_profile claim
+        refresh = RefreshToken.for_user(user)
+        refresh['current_profile'] = profile.pk
+
+        access = refresh.access_token
+        access['current_profile'] = profile.pk
+
+        return Response({
+            'access': str(access),
+            'refresh': str(refresh)
+        }, status=status.HTTP_200_OK)
+    
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -208,3 +268,5 @@ class LogoutAllView(APIView):
                 # Continue blacklisting the rest even if one fails
                 continue
         return Response(status=status.HTTP_205_RESET_CONTENT)
+
+

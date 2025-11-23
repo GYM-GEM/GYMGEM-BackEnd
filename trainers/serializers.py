@@ -1,3 +1,4 @@
+from urllib import request
 from rest_framework import serializers
 
 from accounts.models import Account
@@ -37,9 +38,9 @@ class TrainerSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Account does not exist.")
         
         # Find trainer profile from the account
-        trainer_profile = account.profiles.filter(profile_type="trainer").first()
-        if not trainer_profile:
-            raise serializers.ValidationError('Account must have a profile with profile_type="trainer".')
+        # trainer_profile = account.profiles.filter(profile_type="trainer").first()
+        # if not trainer_profile:
+        #     raise serializers.ValidationError('Account must have a profile with profile_type="trainer".')
         
         return value
 
@@ -222,32 +223,64 @@ class TrainerExperienceSerializer(serializers.ModelSerializer):
         return instance
     
 class TrainerCalendarSlotSerializer(serializers.ModelSerializer):
-    account_id = serializers.IntegerField(write_only=True)
-    
+    trainer_id = serializers.PrimaryKeyRelatedField(
+        queryset=Trainer.objects.all(),
+        write_only=True,
+        required=False,
+        help_text="Only superusers may set this field."
+    )
+
     class Meta:
         model = TrainerCalendarSlot
         fields = [
-            "account_id",
             "slot_date",
             "slot_start_time",
             "is_booked",
+            "trainer_id",
         ]
         read_only_fields = ["is_booked"]
-    
-    def validate_account_id(self, value):
-        # Get the account
+
+    def validate_trainer_id(self, value):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            raise serializers.ValidationError("Authentication required.")
+        if not request.user.is_superuser:
+            raise serializers.ValidationError("Only superusers may set trainer_id.")
+        return value
+
+    def _get_account(self):
+        request = self.context.get("request")
+        if not request:
+            raise serializers.ValidationError("Request context is required.")
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            raise serializers.ValidationError("Authentication required.")
+        if isinstance(user, Account):
+            return user
         try:
-            account = Account.objects.get(pk=value)
+            return Account.objects.get(pk=user.pk)
         except Account.DoesNotExist:
             raise serializers.ValidationError("Account does not exist.")
-        
-        # Find trainer profile from the account
+
+    def _get_trainer_from_account(self, account):
+        if account.is_superuser:
+            return True
         trainer_profile = account.profiles.filter(profile_type="trainer").first()
         if not trainer_profile:
-            raise serializers.ValidationError('Account must have a profile with profile_type="trainer".')
-        
-        # Check if trainer exists for this profile
-        if not Trainer.objects.filter(profile_id=trainer_profile).exists():
+            raise serializers.ValidationError("Account must have a trainer profile.")
+        try:
+            return Trainer.objects.get(profile_id=trainer_profile)
+        except Trainer.DoesNotExist:
             raise serializers.ValidationError("Trainer does not exist for this account.")
-        
-        return value
+
+    def create(self, validated_data):
+        explicit_trainer = validated_data.pop("trainer_id", None)
+        if explicit_trainer:
+            trainer = explicit_trainer
+        else:
+            account = self._get_account()
+            trainer = self._get_trainer_from_account(account)
+        slot = TrainerCalendarSlot(trainer=trainer, **validated_data)
+        slot.full_clean()
+        slot.save()
+        return slot

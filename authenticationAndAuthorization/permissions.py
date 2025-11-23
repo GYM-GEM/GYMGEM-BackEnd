@@ -1,3 +1,5 @@
+import jwt
+from django.conf import settings
 from accounts.models import Account
 from rest_framework.permissions import BasePermission
 
@@ -13,6 +15,8 @@ class IsAuthenticatedAndHasRole(BasePermission):
             return False
 
         allowed_roles = getattr(view, 'required_roles', [])
+        if user.is_superuser:
+            return True  # superusers bypass everything
         if not allowed_roles:
             return True  # Only authentication required
 
@@ -37,17 +41,45 @@ def HasRole(allowed_roles):
     """
     class _HasRole(BasePermission):
         def has_permission(self, request, view):
+
+            auth_header = request.headers.get("Authorization")
+            token = None
+
+            if auth_header and auth_header.startswith("Bearer "):
+                token = auth_header.split(" ")[1]
+
+            payload = None
+            if token:
+
+                try:
+                    payload = jwt.decode(
+                        token,
+                        settings.SECRET_KEY,
+                        algorithms=["HS256"]
+                    )
+                except Exception as e:
+                    print("Token decode error:", str(e))
+
             user = request.user
             if not user or not user.is_authenticated:
                 return False
+            if user.is_superuser:
+                return True  # bypass role checks
 
-            account = Account.objects.filter(pk=getattr(user, 'pk', None)).first()
-            if account:
-                user_roles = set(account.profiles.values_list('profile_type', flat=True))
-            else:
-                user_roles = set(user.groups.values_list('name', flat=True))
-            
+            if payload:
+                user_roles = set()
+                profiles = payload.get("profiles", [])
+                if isinstance(profiles, list):
+                    for profile in profiles:
+                        if isinstance(profile, dict):
+                            role = profile.get("profile_type")
+                            if role:
+                                user_roles.add(role)
+                        elif isinstance(profile, str):
+                            user_roles.add(profile)
+                else:
+                    user_roles = set()            
             roles = allowed_roles if isinstance(allowed_roles, list) else [allowed_roles]
             return bool(user_roles.intersection(set(roles)))
     
-    return _HasRole
+    return _HasRole()

@@ -333,57 +333,25 @@ class TrainerExperienceUpdateView(APIView):
         return Response(serializer.errors, status=400)
     
 class TrainerCalendarSlotView(APIView):
-    
-    @extend_schema(
-        tags=['Trainers'],
-        summary='List all trainer calendar slots',
-        description='Get all trainer calendar slots',
-        responses={200: 'List of TrainerCalendarSlot'}
-    )
-    def get(self, request):
-        slots = TrainerCalendarSlot.objects.all()
-        # Assuming you have a serializer for TrainerCalendarSlot
-        serializer = TrainerCalendarSlotSerializer(slots, many=True)
-        return Response(serializer.data)
-
-    @extend_schema(
-        tags=['Trainers'],
-        summary='Create new trainer calendar slot',
-        description='Create a new trainer calendar slot',
-        request='TrainerCalendarSlot data',
-        responses={201: 'Created TrainerCalendarSlot', 400: {'description': 'Validation error'}}
-    )
-    def post(self, request):
-        serializer = TrainerCalendarSlotSerializer(data=request.data)
+    def post(self, request, *args, **kwargs):
+        serializer = TrainerCalendarSlotSerializer(
+            data=request.data,
+            context={"request": request},
+        )
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
-    
-    def delete(self, request, slot_id):
-        try:
-            slot = TrainerCalendarSlot.objects.get(id=slot_id)
-        except TrainerCalendarSlot.DoesNotExist:
-            return Response({"error": "TrainerCalendarSlot not found"}, status=404)
-        
-        slot.delete()
-        return Response(status=204)
-    
-    def patch(self, request, slot_id):
-        try:
-            slot = TrainerCalendarSlot.objects.get(id=slot_id)
-        except TrainerCalendarSlot.DoesNotExist:
-            return Response({"error": "TrainerCalendarSlot not found"}, status=404)
-        
-        serializer = TrainerCalendarSlotSerializer(slot, data=request.data, partial=True)
+
+    def patch(self, request, slot_id, *args, **kwargs):
+        slot = get_object_or_404(TrainerCalendarSlot, pk=slot_id)
+        serializer = TrainerCalendarSlotSerializer(
+            slot,
+            data=request.data,
+            partial=True,
+            context={"request": request},
+        )
         if serializer.is_valid():
-            if slot.slot_start_time <= timezone.now().time() and slot.slot_date <= timezone.now().date():
-                return Response({"error": "Cannot book past slots"}, status=422)
-            if slot.is_booked:
-                return Response({"error": "Slot is already booked"}, status=409)
-            
-            slot.is_booked = True
             serializer.save()
             return Response(serializer.data, status=200)
         return Response(serializer.errors, status=400)
-    
