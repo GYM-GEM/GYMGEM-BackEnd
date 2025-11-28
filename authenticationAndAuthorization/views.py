@@ -86,6 +86,7 @@ class AccountLoginView(TokenObtainPairView):
             'username': user.username,
             'email': user.email,
             'current_profile': account.default_profile.id if account and account.default_profile else None,
+            'profiles': list(zip(account.profiles.values_list('profile_type', flat=True), account.profiles.values_list('id', flat=True))) if account else []
         }
 
         if request.user.is_authenticated:

@@ -7,13 +7,15 @@ from rest_framework.permissions import AllowAny
 from rest_framework.decorators import permission_classes
 from drf_spectacular.utils import extend_schema, OpenApiParameter, extend_schema_view
 from drf_spectacular.types import OpenApiTypes
+from authenticationAndAuthorization.permissions import HasRole
+from utils.views import get_account_from_token
+
 # Create your views here.
 
 
-@permission_classes([AllowAny])
 class AccountsListView(APIView):
     """Handles operations on the accounts collection"""
-    
+    permission_classes = [HasRole(['admin'])]
     @extend_schema(
         tags=['Accounts'],
         operation_id='accounts_list',
@@ -37,7 +39,9 @@ class AccountsListView(APIView):
             for account in accounts
         ]
         return JsonResponse(data, safe=False)
-    
+
+@permission_classes([AllowAny])
+class AccountsCreateView(APIView):
     @extend_schema(
         tags=['Accounts'],
         operation_id='accounts_create',
@@ -72,7 +76,6 @@ class AccountsListView(APIView):
         return JsonResponse({"id": account.id}, status=201)
 
 
-@permission_classes([AllowAny])
 class AccountsDetailView(APIView):
     """Handles operations on individual accounts"""
     
@@ -93,6 +96,8 @@ class AccountsDetailView(APIView):
         responses={200: {'description': 'Account data'}, 404: {'description': 'Account not found'}}
     )
     def get(self, request, account_id):
+        if (get_account_from_token(request).id != account_id) and (not request.user.is_superuser):
+            return JsonResponse({"error": "Forbidden"}, status=403)
         """Retrieve a specific account"""
         try:
             account = Account.objects.get(id=account_id)
@@ -140,6 +145,8 @@ class AccountsDetailView(APIView):
         responses={200: {'description': 'Account updated'}, 404: {'description': 'Account not found'}}
     )
     def put(self, request, account_id):
+        if (get_account_from_token(request).id != account_id) and (not request.user.is_superuser):
+            return JsonResponse({"error": "Forbidden"}, status=403)
         """Update an account"""
         try:
             account = Account.objects.get(id=account_id)
@@ -178,6 +185,8 @@ class AccountsDetailView(APIView):
         responses={200: {'description': 'Account updated'}, 404: {'description': 'Account not found'}}
     )
     def patch(self, request, account_id):
+        if (get_account_from_token(request).id != account_id) and (not request.user.is_superuser):
+            return JsonResponse({"error": "Forbidden"}, status=403)
         """Partially update an account"""
         try:
             account = Account.objects.get(id=account_id)
@@ -211,6 +220,8 @@ class AccountsDetailView(APIView):
         responses={200: {'description': 'Account deleted'}, 404: {'description': 'Account not found'}}
     )
     def delete(self, request, account_id):
+        if (get_account_from_token(request).id != account_id) and (not request.user.is_superuser):
+            return JsonResponse({"error": "Forbidden"}, status=403)
         """Delete an account"""
         try:
             account = Account.objects.get(id=account_id)

@@ -1,4 +1,5 @@
 from accounts.models import Account
+from utils.views import get_account_from_token, get_profile_id_from_token
 from .models import Course, CourseEnrollment, CourseLesson, LessonSection
 
 class CourseValidator:
@@ -10,17 +11,17 @@ class CourseValidator:
             raise ValueError("Course with the given ID does not exist.")
     
     @staticmethod
-    def validate_course_belongs_to_trainer(course, trainer_profile):
-        if course.trainer_profile != trainer_profile:
+    def validate_course_belongs_to_trainer(course,request):
+        if course.trainer_profile.id != get_profile_id_from_token(request):
             raise ValueError("The course does not belong to the specified trainer profile.")
     
     @staticmethod
-    def validate_trainer_profile_belongs_to_user(trainer_profile, user):
+    def validate_trainer_profile_belongs_to_user(trainer_profile, request):
         """
         Validates that the given trainer profile belongs to the specified user.
         trainer_profile can be either a Profile object or an ID (int).
         """
-        account = Account.objects.filter(pk=user.pk).first()
+        account = get_account_from_token(request)
         if not account:
             raise ValueError("User account does not exist.")
         
@@ -34,14 +35,15 @@ class CourseValidator:
         
         if not profile_exists:
             raise ValueError("The trainer profile does not belong to the requested user.")
-    
+        return True
+
     @staticmethod
-    def validate_trainee_profile_belongs_to_user(trainee_profile, user):
+    def validate_trainee_profile_belongs_to_user(trainee_profile, request):
         """
         Validates that the given trainee profile belongs to the specified user.
         trainee_profile can be either a Profile object or an ID (int).
         """
-        account = Account.objects.filter(pk=user.pk).first()
+        account = get_account_from_token(request)
         if not account:
             raise ValueError("User account does not exist.")
         
