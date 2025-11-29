@@ -1,9 +1,15 @@
 from rest_framework import serializers
 
 from accounts.models import Account
-from .models import Trainer, TrainerCalendarSlot, TrainerSpecialization, TrainerExperience
+from .models import (
+    Trainer,
+    TrainerCalendarSlot,
+    TrainerSpecialization,
+    TrainerExperience,
+)
 import re
 from utils.views import get_account_from_token, get_profile_id_from_token
+
 
 class TrainerSerializer(serializers.ModelSerializer):
     # Accept account_id from frontend, convert to profile_id internally
@@ -37,21 +43,22 @@ class TrainerSerializer(serializers.ModelSerializer):
         account = get_account_from_token(self.context.get("request"))
         # Check if trainer already exists for this profile
         profile_id = get_profile_id_from_token(self.context.get("request"))
-        trainer_profile = account.profiles.filter(profile_type="trainer", id=profile_id).first()
+        trainer_profile = account.profiles.filter(
+            profile_type="trainer", id=profile_id
+        ).first()
 
         if Trainer.objects.filter(profile_id=trainer_profile).exists():
             raise serializers.ValidationError(
                 "Trainer already exists for this account."
             )
-        
+
         trainer = Trainer(profile_id=trainer_profile, **validated_data)
         trainer.full_clean()
         trainer.save()
         return trainer
 
-
     def update(self, instance, validated_data):
-        
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.full_clean()
@@ -218,13 +225,14 @@ class TrainerExperienceSerializer(serializers.ModelSerializer):
         instance.full_clean()
         instance.save()
         return instance
-    
+
+
 class TrainerCalendarSlotSerializer(serializers.ModelSerializer):
     trainer_id = serializers.PrimaryKeyRelatedField(
         queryset=Trainer.objects.all(),
         write_only=True,
         required=False,
-        help_text="Only superusers may set this field."
+        help_text="Only superusers may set this field.",
     )
 
     class Meta:
@@ -268,7 +276,9 @@ class TrainerCalendarSlotSerializer(serializers.ModelSerializer):
         try:
             return Trainer.objects.get(profile_id=trainer_profile)
         except Trainer.DoesNotExist:
-            raise serializers.ValidationError("Trainer does not exist for this account.")
+            raise serializers.ValidationError(
+                "Trainer does not exist for this account."
+            )
 
     def create(self, validated_data):
         explicit_trainer = validated_data.pop("trainer_id", None)

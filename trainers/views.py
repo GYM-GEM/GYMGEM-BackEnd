@@ -3,61 +3,82 @@ from time import timezone
 from authenticationAndAuthorization.permissions import HasRole
 from profiles.models import Profile
 from utils.views import get_profile_id_from_token
-from .serializers import TrainerCalendarSlotSerializer, TrainerSerializer , TrainerSpecializationSerializer, TrainerExperienceSerializer
-from .models import Trainer, TrainerCalendarSlot, TrainerSpecialization, TrainerExperience
+from .serializers import (
+    TrainerCalendarSlotSerializer,
+    TrainerSerializer,
+    TrainerSpecializationSerializer,
+    TrainerExperienceSerializer,
+)
+from .models import (
+    Trainer,
+    TrainerCalendarSlot,
+    TrainerSpecialization,
+    TrainerExperience,
+)
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from django.shortcuts import get_object_or_404
+
 # Create your views here.
 
 
 class TrainerView(APIView):
-    
-    permission_classes = [HasRole(['trainer'])]
+
+    permission_classes = [HasRole(["trainer"])]
+
     @extend_schema(
-        tags=['Trainers'],
-        summary='Create new trainer',
+        tags=["Trainers"],
+        summary="Create new trainer",
         request=TrainerSerializer,
-        responses=TrainerSerializer
+        responses=TrainerSerializer,
     )
     def post(self, request):
-        serializer = TrainerSerializer(data=request.data,  context={"request": request})
+        serializer = TrainerSerializer(data=request.data, context={"request": request})
+        print(serializer.is_valid())
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
-    
+
+
 class TrainerList(APIView):
-    permission_classes = [HasRole(['trainer', 'trainee'])]
+    permission_classes = [HasRole(["trainer", "trainee"])]
+
     @extend_schema(
-        tags=['Trainers'],
-        summary='List all trainers',
-        responses=TrainerSerializer(many=True)
+        tags=["Trainers"],
+        summary="List all trainers",
+        responses=TrainerSerializer(many=True),
     )
     def get(self, request):
         trainers = Trainer.objects.all()
         serializer = TrainerSerializer(trainers, many=True)
         return Response(serializer.data)
 
+
 class TrainerUpdateView(APIView):
-    permission_classes = [HasRole(['trainer'])]
+    permission_classes = [HasRole(["trainer"])]
+
     @extend_schema(
-        tags=['Trainers'],
-        summary='Update trainer',
-        description='Update an existing trainer',
+        tags=["Trainers"],
+        summary="Update trainer",
+        description="Update an existing trainer",
         parameters=[
             OpenApiParameter(
-                name='trainer_id',
+                name="trainer_id",
                 type=OpenApiTypes.INT,
                 location=OpenApiParameter.PATH,
                 required=True,
-                description='Trainer ID'
+                description="Trainer ID",
             ),
         ],
         request=TrainerSerializer,
-        responses={200: TrainerSerializer, 404: {'description': 'Trainer not found'}, 400: {'description': 'Validation error'}}
+        responses={
+            200: TrainerSerializer,
+            404: {"description": "Trainer not found"},
+            400: {"description": "Validation error"},
+        },
     )
     def put(self, request):
         try:
@@ -67,26 +88,31 @@ class TrainerUpdateView(APIView):
         except Trainer.DoesNotExist:
             return Response({"error": "Trainer not found"}, status=404)
 
-        serializer = TrainerSerializer(trainer, data=request.data, context={"request": request},partial=True)
+        serializer = TrainerSerializer(
+            trainer, data=request.data, context={"request": request}, partial=True
+        )
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
-    
+
     @extend_schema(
-        tags=['Trainers'],
-        summary='Delete trainer',
-        description='Delete an existing trainer',
+        tags=["Trainers"],
+        summary="Delete trainer",
+        description="Delete an existing trainer",
         parameters=[
             OpenApiParameter(
-                name='trainer_id',
+                name="trainer_id",
                 type=OpenApiTypes.INT,
                 location=OpenApiParameter.PATH,
                 required=True,
-                description='Trainer ID'
+                description="Trainer ID",
             ),
         ],
-        responses={204: {'description': 'Trainer deleted'}, 404: {'description': 'Trainer not found'}}
+        responses={
+            204: {"description": "Trainer deleted"},
+            404: {"description": "Trainer not found"},
+        },
     )
     def delete(self, request, trainer_id):
         try:
@@ -96,22 +122,26 @@ class TrainerUpdateView(APIView):
 
         trainer.delete()
         return Response(status=204)
-    
+
     @extend_schema(
-        tags=['Trainers'],
-        summary='Partially update trainer',
-        description='Partially update an existing trainer',
+        tags=["Trainers"],
+        summary="Partially update trainer",
+        description="Partially update an existing trainer",
         parameters=[
             OpenApiParameter(
-                name='trainer_id',
+                name="trainer_id",
                 type=OpenApiTypes.INT,
                 location=OpenApiParameter.PATH,
                 required=True,
-                description='Trainer ID'
+                description="Trainer ID",
             ),
         ],
         request=TrainerSerializer,
-        responses={200: TrainerSerializer, 404: {'description': 'Trainer not found'}, 400: {'description': 'Validation error'}}
+        responses={
+            200: TrainerSerializer,
+            404: {"description": "Trainer not found"},
+            400: {"description": "Validation error"},
+        },
     )
     def patch(self, request, trainer_id):
         try:
@@ -127,12 +157,12 @@ class TrainerUpdateView(APIView):
 
 
 class TrainerSpecializationView(APIView):
-    
+
     @extend_schema(
-        tags=['Trainers'],
-        summary='List all trainer specializations',
-        description='Get all trainer specializations',
-        responses={200: TrainerSpecializationSerializer(many=True)}
+        tags=["Trainers"],
+        summary="List all trainer specializations",
+        description="Get all trainer specializations",
+        responses={200: TrainerSpecializationSerializer(many=True)},
     )
     def get(self, request):
         specializations = TrainerSpecialization.objects.all()
@@ -140,11 +170,14 @@ class TrainerSpecializationView(APIView):
         return Response(serializer.data)
 
     @extend_schema(
-        tags=['Trainers'],
-        summary='Create new trainer specialization',
-        description='Create a new trainer specialization',
+        tags=["Trainers"],
+        summary="Create new trainer specialization",
+        description="Create a new trainer specialization",
         request=TrainerSpecializationSerializer,
-        responses={201: TrainerSpecializationSerializer, 400: {'description': 'Validation error'}}
+        responses={
+            201: TrainerSpecializationSerializer,
+            400: {"description": "Validation error"},
+        },
     )
     def post(self, request):
         serializer = TrainerSpecializationSerializer(data=request.data)
@@ -155,22 +188,26 @@ class TrainerSpecializationView(APIView):
 
 
 class TrainerSpecializationUpdateView(APIView):
-    
+
     @extend_schema(
-        tags=['Trainers'],
-        summary='Update trainer specialization',
-        description='Update an existing trainer specialization',
+        tags=["Trainers"],
+        summary="Update trainer specialization",
+        description="Update an existing trainer specialization",
         parameters=[
             OpenApiParameter(
-                name='specialization_id',
+                name="specialization_id",
                 type=OpenApiTypes.INT,
                 location=OpenApiParameter.PATH,
                 required=True,
-                description='Specialization ID'
+                description="Specialization ID",
             ),
         ],
         request=TrainerSpecializationSerializer,
-        responses={200: TrainerSpecializationSerializer, 404: {'description': 'TrainerSpecialization not found'}, 400: {'description': 'Validation error'}}
+        responses={
+            200: TrainerSpecializationSerializer,
+            404: {"description": "TrainerSpecialization not found"},
+            400: {"description": "Validation error"},
+        },
     )
     def put(self, request, specialization_id):
         try:
@@ -185,21 +222,24 @@ class TrainerSpecializationUpdateView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
-    
+
     @extend_schema(
-        tags=['Trainers'],
-        summary='Delete trainer specialization',
-        description='Delete an existing trainer specialization',
+        tags=["Trainers"],
+        summary="Delete trainer specialization",
+        description="Delete an existing trainer specialization",
         parameters=[
             OpenApiParameter(
-                name='specialization_id',
+                name="specialization_id",
                 type=OpenApiTypes.INT,
                 location=OpenApiParameter.PATH,
                 required=True,
-                description='Specialization ID'
+                description="Specialization ID",
             ),
         ],
-        responses={204: {'description': 'TrainerSpecialization deleted'}, 404: {'description': 'TrainerSpecialization not found'}}
+        responses={
+            204: {"description": "TrainerSpecialization deleted"},
+            404: {"description": "TrainerSpecialization not found"},
+        },
     )
     def delete(self, request, specialization_id):
         try:
@@ -209,22 +249,26 @@ class TrainerSpecializationUpdateView(APIView):
 
         specialization.delete()
         return Response(status=204)
-    
+
     @extend_schema(
-        tags=['Trainers'],
-        summary='Partially update trainer specialization',
-        description='Partially update an existing trainer specialization',
+        tags=["Trainers"],
+        summary="Partially update trainer specialization",
+        description="Partially update an existing trainer specialization",
         parameters=[
             OpenApiParameter(
-                name='specialization_id',
+                name="specialization_id",
                 type=OpenApiTypes.INT,
                 location=OpenApiParameter.PATH,
                 required=True,
-                description='Specialization ID'
+                description="Specialization ID",
             ),
         ],
         request=TrainerSpecializationSerializer,
-        responses={200: TrainerSpecializationSerializer, 404: {'description': 'TrainerSpecialization not found'}, 400: {'description': 'Validation error'}}
+        responses={
+            200: TrainerSpecializationSerializer,
+            404: {"description": "TrainerSpecialization not found"},
+            400: {"description": "Validation error"},
+        },
     )
     def patch(self, request, specialization_id):
         try:
@@ -242,12 +286,12 @@ class TrainerSpecializationUpdateView(APIView):
 
 
 class TrainerExperienceView(APIView):
-    
+
     @extend_schema(
-        tags=['Trainers'],
-        summary='List all trainer experiences',
-        description='Get all trainer experiences',
-        responses={200: TrainerExperienceSerializer(many=True)}
+        tags=["Trainers"],
+        summary="List all trainer experiences",
+        description="Get all trainer experiences",
+        responses={200: TrainerExperienceSerializer(many=True)},
     )
     def get(self, request):
         experiences = TrainerExperience.objects.all()
@@ -255,11 +299,14 @@ class TrainerExperienceView(APIView):
         return Response(serializer.data)
 
     @extend_schema(
-        tags=['Trainers'],
-        summary='Create new trainer experience',
-        description='Create a new trainer experience',
+        tags=["Trainers"],
+        summary="Create new trainer experience",
+        description="Create a new trainer experience",
         request=TrainerExperienceSerializer,
-        responses={201: TrainerExperienceSerializer, 400: {'description': 'Validation error'}}
+        responses={
+            201: TrainerExperienceSerializer,
+            400: {"description": "Validation error"},
+        },
     )
     def post(self, request):
 
@@ -278,22 +325,26 @@ class TrainerExperienceView(APIView):
 
 
 class TrainerExperienceUpdateView(APIView):
-    
+
     @extend_schema(
-        tags=['Trainers'],
-        summary='Update trainer experience',
-        description='Update an existing trainer experience',
+        tags=["Trainers"],
+        summary="Update trainer experience",
+        description="Update an existing trainer experience",
         parameters=[
             OpenApiParameter(
-                name='experience_id',
+                name="experience_id",
                 type=OpenApiTypes.INT,
                 location=OpenApiParameter.PATH,
                 required=True,
-                description='Experience ID'
+                description="Experience ID",
             ),
         ],
         request=TrainerExperienceSerializer,
-        responses={200: TrainerExperienceSerializer, 404: {'description': 'TrainerExperience not found'}, 400: {'description': 'Validation error'}}
+        responses={
+            200: TrainerExperienceSerializer,
+            404: {"description": "TrainerExperience not found"},
+            400: {"description": "Validation error"},
+        },
     )
     def put(self, request, experience_id):
         try:
@@ -310,19 +361,22 @@ class TrainerExperienceUpdateView(APIView):
         return Response(serializer.errors, status=400)
 
     @extend_schema(
-        tags=['Trainers'],
-        summary='Delete trainer experience',
-        description='Delete an existing trainer experience',
+        tags=["Trainers"],
+        summary="Delete trainer experience",
+        description="Delete an existing trainer experience",
         parameters=[
             OpenApiParameter(
-                name='experience_id',
+                name="experience_id",
                 type=OpenApiTypes.INT,
                 location=OpenApiParameter.PATH,
                 required=True,
-                description='Experience ID'
+                description="Experience ID",
             ),
         ],
-        responses={204: {'description': 'TrainerExperience deleted'}, 404: {'description': 'TrainerExperience not found'}}
+        responses={
+            204: {"description": "TrainerExperience deleted"},
+            404: {"description": "TrainerExperience not found"},
+        },
     )
     def delete(self, request, experience_id):
         try:
@@ -334,20 +388,24 @@ class TrainerExperienceUpdateView(APIView):
         return Response(status=204)
 
     @extend_schema(
-        tags=['Trainers'],
-        summary='Partially update trainer experience',
-        description='Partially update an existing trainer experience',
+        tags=["Trainers"],
+        summary="Partially update trainer experience",
+        description="Partially update an existing trainer experience",
         parameters=[
             OpenApiParameter(
-                name='experience_id',
+                name="experience_id",
                 type=OpenApiTypes.INT,
                 location=OpenApiParameter.PATH,
                 required=True,
-                description='Experience ID'
+                description="Experience ID",
             ),
         ],
         request=TrainerExperienceSerializer,
-        responses={200: TrainerExperienceSerializer, 404: {'description': 'TrainerExperience not found'}, 400: {'description': 'Validation error'}}
+        responses={
+            200: TrainerExperienceSerializer,
+            404: {"description": "TrainerExperience not found"},
+            400: {"description": "Validation error"},
+        },
     )
     def patch(self, request, experience_id):
         try:
@@ -362,7 +420,8 @@ class TrainerExperienceUpdateView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
-    
+
+
 class TrainerCalendarSlotView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = TrainerCalendarSlotSerializer(
