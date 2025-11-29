@@ -4,7 +4,7 @@ from django.conf import settings
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from rest_framework.permissions import AllowAny
 from rest_framework.decorators import permission_classes
 from accounts.models import Account
@@ -52,9 +52,17 @@ class GoogleLoginView(APIView):
         if not user.pk:
             return Response({"error": "User was not persisted to DB"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+        # Use custom tokens with account_id and current_profile claims
         refresh = RefreshToken.for_user(user)
+        refresh['account_id'] = user.pk
+        refresh['current_profile'] = user.default_profile.id if user.default_profile else None
+        
+        access = refresh.access_token
+        access['account_id'] = user.pk
+        access['current_profile'] = user.default_profile.id if user.default_profile else None
+        
         return Response({
-            "access": str(refresh.access_token),
+            "access": str(access),
             "refresh": str(refresh),
             "user": {"id": user.id, "email": user.email, "username": getattr(user, "username", "")},
             "created": created
