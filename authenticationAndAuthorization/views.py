@@ -336,7 +336,7 @@ class LogoutAllView(APIView):
         return Response(status=status.HTTP_205_RESET_CONTENT)
 
 
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 class TokenRenewView(APIView):
     """
     Create new JWT tokens without login credentials.
@@ -368,43 +368,43 @@ class TokenRenewView(APIView):
     )
     def post(self, request, *args, **kwargs):
         refresh_token_str = request.headers.get("refresh")
-
+        new_profile_id = request.data.get("profile_id")
         if not refresh_token_str:
             return Response(
                 {"detail": "Refresh token is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Validate the provided raw JWT refresh token by decoding it (do not
+        # instantiate a RefreshToken object from it — we want to avoid using the
+        # old refresh to construct the new tokens).
         try:
-            refresh = RefreshToken(refresh_token_str)
-        except TokenError:
-            return Response(
-                {"detail": "Invalid or expired refresh token."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        try:
-            payload = jwt.decode(
-                refresh_token_str, settings.SECRET_KEY, algorithms=["HS256"]
-            )
+            payload = jwt.decode(refresh_token_str, settings.SECRET_KEY, algorithms=["HS256"])
         except Exception as e:
-            print("Token decode error:", str(e))
-        # Extract the authenticated user from refresh token
-        print(payload)
-        user_id = payload["account_id"]
+            return Response({"detail": "Invalid or expired refresh token."}, status=status.HTTP_401_UNAUTHORIZED)
 
-        user = Account.objects.get(pk=user_id)
+        # Determine user id from claims (support account_id or standard user_id/sub)
+        user_id = payload.get("account_id") or payload.get("user_id") or payload.get("sub")
+        if not user_id:
+            return Response({"detail": "Refresh token missing user information."}, status=status.HTTP_401_UNAUTHORIZED)
 
-        # Create new tokens
+        try:
+            user = Account.objects.get(pk=user_id)
+        except Account.DoesNotExist:
+            return Response({"detail": "User not found for provided refresh token."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Create new tokens (independent of the old refresh)
         new_refresh = RefreshToken.for_user(user)
         new_access = new_refresh.access_token
 
-        # Optional: blacklist old refresh token
+        # Optional: blacklist old refresh token if it exists in OutstandingToken
         try:
-            old_outstanding = OutstandingToken.objects.get(token=refresh_token_str)
-            BlacklistedToken.objects.get_or_create(token=old_outstanding)
+            old_outstanding = OutstandingToken.objects.filter(token=refresh_token_str).first()
+            if old_outstanding:
+                BlacklistedToken.objects.get_or_create(token=old_outstanding)
         except Exception:
-            pass  # Not critical; skip silently
+            # Not critical; continue even if blacklisting fails
+            pass
 
         # Limit outstanding tokens to 5 per user
         tokens = OutstandingToken.objects.filter(user=user)
@@ -422,9 +422,9 @@ class TokenRenewView(APIView):
             "username": user.username,
             "email": user.email,
             "current_profile": (
-                account.default_profile.id
-                if account and account.default_profile
-                else None
+                new_profile_id
+                if new_profile_id
+                else (account.default_profile.id if account and account.default_profile else None)
             ),
             "profiles": (
                 list(
