@@ -12,7 +12,7 @@ class TraineeView(APIView):
         return Response(serializer.data)
 
     def post(self, request):
-        serializer = TraineeSerializer(data=request.data)
+        serializer = TraineeSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=201)

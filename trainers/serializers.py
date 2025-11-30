@@ -43,13 +43,10 @@ class TrainerSerializer(serializers.ModelSerializer):
         account = get_account_from_token(self.context.get("request"))
         # Check if trainer already exists for this profile
         profile_id = get_profile_id_from_token(self.context.get("request"))
-        print("Accc:", account)
-        print("PPPPP:", profile_id)
+
         trainer_profile = account.profiles.filter(
             profile_type="trainer", id=profile_id
         ).first()
-
-        print("PPPPP22222:", profile_id)
 
         if Trainer.objects.filter(profile_id=trainer_profile).exists():
             raise serializers.ValidationError(
