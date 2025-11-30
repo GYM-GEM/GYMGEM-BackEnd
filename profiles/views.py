@@ -6,7 +6,6 @@ from .serializers import ProfileSerializer
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
-# Create your views here.
 
 class ProfileView(APIView):
     

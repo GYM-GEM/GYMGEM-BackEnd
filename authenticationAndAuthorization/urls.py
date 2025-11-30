@@ -7,18 +7,18 @@ from .views import (
     LogoutView,
     LogoutAllView,
     SwitchProfileView,
+    TokenRenewView,
 )
 
 urlpatterns = [
     path("social/google/login/", GoogleLoginView.as_view(), name="google_login"),
     # Rich login: returns tokens + account info
-    path('login', AccountLoginView.as_view(), name='account_login'),
-    path('switch-profile', SwitchProfileView.as_view(), name='switch_profile'),
-
+    path("login", AccountLoginView.as_view(), name="account_login"),
+    path("switch-profile", SwitchProfileView.as_view(), name="switch_profile"),
     # Refresh access token
-    path('refresh-token', MyTokenRefreshView.as_view(), name='token_refresh'),
-
+    path("refresh-token", MyTokenRefreshView.as_view(), name="token_refresh"),
     # Logout endpoints
-    path('logout', LogoutView.as_view(), name='logout'),
-    path('logout-all', LogoutAllView.as_view(), name='logout_all'),
+    path("logout", LogoutView.as_view(), name="logout"),
+    path("logout-all", LogoutAllView.as_view(), name="logout_all"),
+    path("renew-refresh", TokenRenewView.as_view(), name="toekn_renew"),
 ]

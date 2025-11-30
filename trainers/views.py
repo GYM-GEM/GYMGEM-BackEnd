@@ -20,13 +20,14 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from django.shortcuts import get_object_or_404
+from rest_framework.permissions import IsAuthenticated
 
 # Create your views here.
 
 
 class TrainerView(APIView):
 
-    permission_classes = [HasRole(["trainer"])]
+    permission_classes = [IsAuthenticated]
 
     @extend_schema(
         tags=["Trainers"],
