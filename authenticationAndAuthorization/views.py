@@ -437,7 +437,19 @@ class TokenRenewView(APIView):
                 else []
             ),
         }
-
+        new_refresh["account_id"] = user.pk
+        new_refresh["current_profile"] = (
+            new_profile_id
+            if new_profile_id
+            else (account.default_profile.id if account and account.default_profile else None)
+        )
+        new_access["current_profile"] = (
+            new_profile_id
+            if new_profile_id
+            else (account.default_profile.id if account and account.default_profile else None)
+        )
+        new_access["account_id"] = user.pk
+        new_access["profiles"] = account_payload["profiles"]
         return Response(
             {
                 "access": str(new_access),
