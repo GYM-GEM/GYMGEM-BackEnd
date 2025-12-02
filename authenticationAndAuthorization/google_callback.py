@@ -103,14 +103,15 @@ class GoogleLoginView(APIView):
                 user.default_profile.id if user and user.default_profile else None
             ),
             "profiles": (
-                list(
-                    zip(
-                        user.profiles.values_list("profile_type", flat=True),
-                        user.profiles.values_list("id", flat=True),
-                    )
+            [
+                {"type": profile_type, "id": profile_id}
+                for profile_type, profile_id in zip(
+                user.profiles.values_list("profile_type", flat=True),
+                user.profiles.values_list("id", flat=True),
                 )
-                if user
-                else []
+            ]
+            if user
+            else []
             ),
         }
 
