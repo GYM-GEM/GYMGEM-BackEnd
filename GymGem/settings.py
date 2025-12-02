@@ -293,3 +293,12 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.getenv("gmail_user")
+EMAIL_HOST_PASSWORD = os.getenv("gmail_app_password")
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+EMAIL_TIMEOUT = 30

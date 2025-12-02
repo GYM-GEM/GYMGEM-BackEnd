@@ -1,12 +1,15 @@
-from django.shortcuts import render
 from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
+from utils.views import get_account_from_token
 from .models import Profile 
 from accounts.models import Account
 from .serializers import ProfileSerializer
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
+from rest_framework.decorators import permission_classes
 
+@permission_classes([AllowAny])
 class ProfileView(APIView):
     
     @extend_schema(
@@ -28,17 +31,27 @@ class ProfileView(APIView):
         responses={201: ProfileSerializer, 400: {'description': 'Validation error'}}
     )
     def post(self, request):
-        serializer = ProfileSerializer(data=request.data)
-        my_profiles = Profile.objects.filter(account=request.data.get('account'))
+        my_account = get_account_from_token(request)
+        serializer = ProfileSerializer(data={**request.data, 'account': my_account.pk})
+        if not my_account:
+            return Response({"error": "Invalid account"}, status=400)
+        my_profiles = Profile.objects.filter(account=my_account)
         if serializer.is_valid():
             serializer.save()
-            if len(my_profiles) == 1:
-                Account.objects.filter(id=serializer.data.get('account')).update(default_profile=serializer.data.get("id"))
+            if my_profiles.count() == 1:
+                Account.objects.filter(id=my_account.id).update(default_profile=serializer.data.get("id"))
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
     
+@permission_classes([AllowAny])
 class ProfileUpdateView(APIView):
     
+    def get(self, request):
+        account = get_account_from_token(request)
+        profiles = Profile.objects.filter(account=account)
+        serializer = ProfileSerializer(profiles, many=True)
+        return Response(serializer.data)
+        
     @extend_schema(
         tags=['Profiles'],
         summary='Update profile',
@@ -85,6 +98,10 @@ class ProfileUpdateView(APIView):
     def delete(self, request, profile_id):
         try:
             profile = Profile.objects.get(id=profile_id)
+            account = Account.objects.get(id=profile.account.id)
+            if account.default_profile and account.default_profile.id == profile.id:
+                account.default_profile = account.profiles.exclude(id=profile.id).first()
+                account.save()
         except Profile.DoesNotExist:
             return Response({"error": "Profile not found"}, status=404)
         

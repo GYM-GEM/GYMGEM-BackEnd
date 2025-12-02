@@ -5,6 +5,7 @@ class Account(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     last_seen = models.DateTimeField(null=True, blank=True)
+    is_verified = models.BooleanField(default=False)
     default_profile = models.ForeignKey(
         "profiles.Profile",
         null=True,

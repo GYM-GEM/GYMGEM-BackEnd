@@ -1,5 +1,5 @@
 from django.db import models
-from accounts.models import Account
+from django.conf import settings
 
 # Create your models here.
 
@@ -12,7 +12,10 @@ class Profile(models.Model):
         ("trainee", "Trainee"),
     ]
     account = models.ForeignKey(
-        Account, on_delete=models.CASCADE, related_name="profiles", null=True
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="profiles",
+        null=True,
     )
     profile_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
 

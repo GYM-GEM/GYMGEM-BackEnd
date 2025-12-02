@@ -1,17 +1,17 @@
+from django.conf import settings
 from django.http import JsonResponse
-from django.shortcuts import render
+import jwt
 from rest_framework.views import APIView
 from accounts.models import Account
 from django.contrib.auth.hashers import make_password
 from rest_framework.permissions import AllowAny
 from rest_framework.decorators import permission_classes
-from drf_spectacular.utils import extend_schema, OpenApiParameter, extend_schema_view
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from authenticationAndAuthorization.permissions import HasRole
 from utils.views import get_account_from_token
-
+from rest_framework.permissions import IsAuthenticated
 # Create your views here.
-
 
 class AccountsListView(APIView):
     """Handles operations on the accounts collection"""
@@ -35,12 +35,15 @@ class AccountsListView(APIView):
                 "lastName": account.last_name,
                 "createdAt": account.created_at,
                 "updatedAt": account.updated_at,
+                "defaultProfile": {
+                    "id": account.default_profile.id,
+                    "profileType": account.default_profile.profile_type,
+                } if account.default_profile else None,
             }
             for account in accounts
         ]
         return JsonResponse(data, safe=False)
 
-@permission_classes([AllowAny])
 class AccountsCreateView(APIView):
     @extend_schema(
         tags=['Accounts'],
@@ -65,7 +68,10 @@ class AccountsCreateView(APIView):
         """Create a new account"""
         if request.data.get("password") != request.data.get("confirmPassword"):
             return JsonResponse({"error": "Passwords do not match"}, status=400)
-        
+        if Account.objects.filter(username=request.data.get("username")).exists():
+            return JsonResponse({"error": "Username already exists"}, status=400)
+        if Account.objects.filter(email=request.data.get("email")).exists():
+            return JsonResponse({"error": "Email already exists"}, status=400)
         account = Account.objects.create(
             username=request.data.get("username"),
             email=request.data.get("email"),
@@ -73,9 +79,49 @@ class AccountsCreateView(APIView):
             first_name=request.data.get("firstName", ""),
             last_name=request.data.get("lastName", ""),
         )
+        try:
+            from utils.views import send_verification_email
+            send_verification_email(account, request)
+        except Exception as e:
+            print("Failed to send verification email.", e)
         return JsonResponse({"id": account.id}, status=201)
-
-
+        
+class AccountsVerifyView(APIView):
+    @extend_schema(
+        tags=['Accounts'],
+        operation_id='accounts_verify',
+        summary='Verify account email',
+        description='Verify a user account using a verification token',
+        request={'application/json': {
+            'type': 'object',
+            'properties': {
+                'token': {'type': 'string'},
+            },
+            'required': ['token']
+        }},
+        responses={200: {'description': 'Account verified'}, 400: {'description': 'Bad request'}}
+    )
+    def post(self, request):
+        """Verify account email"""
+        token = request.data.get("token")
+        if not token:
+            return JsonResponse({"error": "Token is required"}, status=400)
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+            account_id = payload.get("user_id")
+            account = Account.objects.get(id=account_id)
+            print("Verifying account:", account.is_verified)
+            account.is_verified = True
+            print("Verifying account:", account.is_verified)
+            account.save()
+            return JsonResponse({"message": "Account verified successfully"})
+        except jwt.ExpiredSignatureError:
+            return JsonResponse({"error": "Token has expired"}, status=400)
+        except jwt.InvalidTokenError:
+            return JsonResponse({"error": "Invalid token"}, status=400)
+        except Account.DoesNotExist:
+            return JsonResponse({"error": "Account not found"}, status=400)
+        
 class AccountsDetailView(APIView):
     """Handles operations on individual accounts"""
     
@@ -114,6 +160,12 @@ class AccountsDetailView(APIView):
                 } if account.default_profile else None,
                 "createdAt": account.created_at,
                 "updatedAt": account.updated_at,
+                "profiles": [
+                    {
+                        "id": profile.id,
+                        "profileType": profile.profile_type,
+                    } for profile in account.profiles.all()
+                ]
             }
             return JsonResponse(data)
         except Account.DoesNotExist:
@@ -198,6 +250,13 @@ class AccountsDetailView(APIView):
                 account.first_name = request.data["firstName"]
             if "lastName" in request.data:
                 account.last_name = request.data["lastName"]
+            if "defaultProfileId" in request.data:
+                from profiles.models import Profile
+                try:
+                    profile = Profile.objects.get(id=request.data["defaultProfileId"], account=account)
+                    account.default_profile = profile
+                except Profile.DoesNotExist:
+                    return JsonResponse({"error": "Default profile not found or does not belong to the account"}, status=400)
             account.save()
             return JsonResponse({"message": "Account partially updated successfully"})
         except Account.DoesNotExist:
@@ -220,9 +279,9 @@ class AccountsDetailView(APIView):
         responses={200: {'description': 'Account deleted'}, 404: {'description': 'Account not found'}}
     )
     def delete(self, request, account_id):
-        if (get_account_from_token(request).id != account_id) and (not request.user.is_superuser):
-            return JsonResponse({"error": "Forbidden"}, status=403)
-        """Delete an account"""
+        # if (get_account_from_token(request).id != account_id) and (not request.user.is_superuser):
+        #     return JsonResponse({"error": "Forbidden"}, status=403)
+        # """Delete an account"""
         try:
             account = Account.objects.get(id=account_id)
             account.delete()
@@ -268,5 +327,48 @@ class CurrentAccountView(APIView):
                 ],
             }
             return JsonResponse(data)
+        except Account.DoesNotExist:
+            return JsonResponse({"error": "Account not found"}, status=404)
+        
+class AccountsPasswordChangeView(APIView):
+    permission_classes = [IsAuthenticated]
+    @extend_schema(
+        tags=['Accounts'],
+        operation_id='accounts_change_password',
+        summary='Change account password',
+        description='Change the password of an existing account',
+        parameters=[
+            OpenApiParameter(
+                name='account_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                required=True,
+                description='Account ID'
+            ),
+        ],
+        request={'application/json': {
+            'type': 'object',
+            'properties': {
+                'oldPassword': {'type': 'string'},
+                'newPassword': {'type': 'string'},
+            },
+            'required': ['oldPassword', 'newPassword']
+        }},
+        responses={200: {'description': 'Password changed'}, 400: {'description': 'Bad request'}, 404: {'description': 'Account not found'}}
+    )
+    def post(self, request):
+        """Change account password"""
+        try:
+            account = get_account_from_token(request)
+            old_password = request.data.get("oldPassword")
+            new_password = request.data.get("newPassword")
+            confirm_password = request.data.get("confirmPassword")
+            if new_password != confirm_password:
+                return JsonResponse({"error": "New passwords do not match"}, status=400)
+            if not account.check_password(old_password):
+                return JsonResponse({"error": "Old password is incorrect"}, status=400)
+            account.set_password(new_password)
+            account.save()
+            return JsonResponse({"message": "Password changed successfully"})
         except Account.DoesNotExist:
             return JsonResponse({"error": "Account not found"}, status=404)
