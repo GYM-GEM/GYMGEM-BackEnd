@@ -360,13 +360,14 @@ class AccountsPasswordChangeView(APIView):
         """Change account password"""
         try:
             account = get_account_from_token(request)
-            old_password = request.data.get("oldPassword")
+            if account.has_usable_password():
+                old_password = request.data.get("oldPassword")
+                if not account.check_password(old_password):
+                    return JsonResponse({"error": "Old password is incorrect"}, status=400)
             new_password = request.data.get("newPassword")
             confirm_password = request.data.get("confirmPassword")
             if new_password != confirm_password:
                 return JsonResponse({"error": "New passwords do not match"}, status=400)
-            if not account.check_password(old_password):
-                return JsonResponse({"error": "Old password is incorrect"}, status=400)
             account.set_password(new_password)
             account.save()
             return JsonResponse({"message": "Password changed successfully"})

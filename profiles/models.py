@@ -27,4 +27,4 @@ class Profile(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.profile_type} Profile for {self.account.username}"
+        return f"{self.profile_type} Profile for {self.account}"
