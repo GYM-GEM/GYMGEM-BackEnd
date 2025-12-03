@@ -1,6 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
-from utils.views import get_account_from_token
+from utils.views import get_account_from_token, get_profile_id_from_token
 from .models import Profile 
 from accounts.models import Account
 from .serializers import ProfileSerializer
@@ -45,7 +45,12 @@ class ProfileView(APIView):
     
 @permission_classes([AllowAny])
 class ProfileUpdateView(APIView):
-    
+    @extend_schema(
+        tags=['Profiles'],
+        summary='Retrieve all profiles for the authenticated account',
+        description='Get all profiles associated with the authenticated account',
+        responses={200: ProfileSerializer(many=True)}
+    )
     def get(self, request):
         account = get_account_from_token(request)
         profiles = Profile.objects.filter(account=account)
@@ -95,10 +100,14 @@ class ProfileUpdateView(APIView):
         ],
         responses={204: {'description': 'Profile deleted'}, 404: {'description': 'Profile not found'}}
     )
-    def delete(self, request, profile_id):
+    def delete(self, request):
         try:
+            password = request.data.get("password", None)
+            profile_id = get_profile_id_from_token(request)
             profile = Profile.objects.get(id=profile_id)
-            account = Account.objects.get(id=profile.account.id)
+            account = get_account_from_token(request)
+            if not account.check_password(password):
+                return Response({"error": "Incorrect password"}, status=400)
             if account.default_profile and account.default_profile.id == profile.id:
                 account.default_profile = account.profiles.exclude(id=profile.id).first()
                 account.save()
