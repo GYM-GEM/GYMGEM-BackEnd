@@ -44,6 +44,7 @@ class AccountsListView(APIView):
         ]
         return JsonResponse(data, safe=False)
 
+@permission_classes([AllowAny])
 class AccountsCreateView(APIView):
     @extend_schema(
         tags=['Accounts'],
@@ -121,7 +122,8 @@ class AccountsVerifyView(APIView):
             return JsonResponse({"error": "Invalid token"}, status=400)
         except Account.DoesNotExist:
             return JsonResponse({"error": "Account not found"}, status=400)
-        
+
+@permission_classes([IsAuthenticated])
 class AccountsDetailView(APIView):
     """Handles operations on individual accounts"""
     
@@ -278,12 +280,16 @@ class AccountsDetailView(APIView):
         ],
         responses={200: {'description': 'Account deleted'}, 404: {'description': 'Account not found'}}
     )
-    def delete(self, request, account_id):
-        # if (get_account_from_token(request).id != account_id) and (not request.user.is_superuser):
-        #     return JsonResponse({"error": "Forbidden"}, status=403)
-        # """Delete an account"""
+    def delete(self, request):
+        account = get_account_from_token(request)
+        if (request.user.id != account.id) and (not request.user.is_superuser):
+            return JsonResponse({"error": "Forbidden"}, status=403)
+        """Delete an account"""
         try:
-            account = Account.objects.get(id=account_id)
+            password = request.data.get("password", None)
+            if not account.check_password(password):
+                return JsonResponse({"error": "Incorrect password"}, status=400)
+            account = Account.objects.get(id=request.user.id)
             account.delete()
             return JsonResponse({"message": "Account deleted successfully"})
         except Account.DoesNotExist:
