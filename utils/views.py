@@ -6,7 +6,6 @@ from accounts.models import Account
 
 # Create your views here.
 def get_account_from_token(request):
-    print("Auth Header:", request)
     auth_header = request.headers.get("Authorization")
     token = None
 

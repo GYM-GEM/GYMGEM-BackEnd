@@ -2,6 +2,7 @@ from accounts.models import Account
 from utils.views import get_account_from_token, get_profile_id_from_token
 from .models import Course, CourseEnrollment, CourseLesson, LessonSection
 
+
 class CourseValidator:
     @staticmethod
     def validate_course_exists(course_id):
@@ -9,12 +10,14 @@ class CourseValidator:
             return Course.objects.get(id=course_id)
         except Course.DoesNotExist:
             raise ValueError("Course with the given ID does not exist.")
-    
+
     @staticmethod
-    def validate_course_belongs_to_trainer(course,request):
+    def validate_course_belongs_to_trainer(course, request):
         if course.trainer_profile.id != get_profile_id_from_token(request):
-            raise ValueError("The course does not belong to the specified trainer profile.")
-    
+            raise ValueError(
+                "The course does not belong to the specified trainer profile."
+            )
+
     @staticmethod
     def validate_trainer_profile_belongs_to_user(trainer_profile, request):
         """
@@ -24,17 +27,23 @@ class CourseValidator:
         account = get_account_from_token(request)
         if not account:
             raise ValueError("User account does not exist.")
-        
+
         # Handle both Profile object and ID
-        profile_id = trainer_profile.pk if hasattr(trainer_profile, 'pk') else trainer_profile
-        
+        profile_id = (
+            trainer_profile.pk if hasattr(trainer_profile, "pk") else trainer_profile
+        )
+
+        print("Validating trainer profile ID:", profile_id)
+        print("Account ID:", account.id)
+
         profile_exists = account.profiles.filter(
-            pk=profile_id,
-            profile_type='trainer'
+            pk=profile_id, profile_type="trainer"
         ).exists()
-        
+
         if not profile_exists:
-            raise ValueError("The trainer profile does not belong to the requested user.")
+            raise ValueError(
+                "The trainer profile does not belong to the requested user."
+            )
         return True
 
     @staticmethod
@@ -46,29 +55,32 @@ class CourseValidator:
         account = get_account_from_token(request)
         if not account:
             raise ValueError("User account does not exist.")
-        
+
         # Handle both Profile object and ID
-        profile_id = trainee_profile.pk if hasattr(trainee_profile, 'pk') else trainee_profile
-        
+        profile_id = (
+            trainee_profile.pk if hasattr(trainee_profile, "pk") else trainee_profile
+        )
+
         profile_exists = account.profiles.filter(
-            pk=profile_id,
-            profile_type='trainee'
+            pk=profile_id, profile_type="trainee"
         ).exists()
-        
+
         if not profile_exists:
-            raise ValueError("The trainee profile does not belong to the requested user.")
-        
+            raise ValueError(
+                "The trainee profile does not belong to the requested user."
+            )
+
     @staticmethod
     def validate_lesson_exists(lesson_id):
         try:
             return CourseLesson.objects.get(id=lesson_id)
         except CourseLesson.DoesNotExist:
             raise ValueError("Lesson with the given ID does not exist.")
-    
+
     @staticmethod
     def validate_lesson_belongs_to_course(lesson, course):
         if lesson.course != course:
-            raise ValueError("The lesson does not belong to the specified course.") 
+            raise ValueError("The lesson does not belong to the specified course.")
 
     @staticmethod
     def validate_enrollment_exists(enrollment_id):
@@ -76,16 +88,21 @@ class CourseValidator:
             return CourseEnrollment.objects.get(id=enrollment_id)
         except CourseEnrollment.DoesNotExist:
             raise ValueError("Enrollment with the given ID does not exist.")
+
     @staticmethod
     def validate_lesson_belongs_to_trainer(lesson, trainer_profile):
         if lesson.course.trainer_profile != trainer_profile:
-            raise ValueError("The lesson does not belong to the specified trainer profile.")
-    
+            raise ValueError(
+                "The lesson does not belong to the specified trainer profile."
+            )
+
     @staticmethod
     def validate_enrollment_belongs_to_trainee(enrollment, trainee_profile):
         if enrollment.trainee_profile != trainee_profile:
-            raise ValueError("The enrollment does not belong to the specified trainee profile.")
-        
+            raise ValueError(
+                "The enrollment does not belong to the specified trainee profile."
+            )
+
     @staticmethod
     def validate_section_exists(section_id):
         try:
@@ -97,9 +114,8 @@ class CourseValidator:
     def validate_enrollment_belongs_to_course(enrollment, course):
         if enrollment.course != course:
             raise ValueError("The enrollment does not belong to the specified course.")
-        
+
     @staticmethod
     def validate_section_belongs_to_lesson(section, lesson):
         if section.lesson != lesson:
             raise ValueError("The section does not belong to the specified lesson.")
-        
