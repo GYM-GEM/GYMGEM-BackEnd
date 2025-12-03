@@ -6,6 +6,7 @@ from accounts.models import Account
 
 # Create your views here.
 def get_account_from_token(request):
+    print("Auth Header:", request)
     auth_header = request.headers.get("Authorization")
     token = None
 
@@ -53,25 +54,27 @@ def get_profile_id_from_token(request):
     profile_id = payload.get("current_profile", None) if payload else None
     return profile_id
 
-def send_verification_email(account,request):
+
+def send_verification_email(account, request):
     from django.core.mail import send_mail
     from django.urls import reverse
     from django.conf import settings
     import jwt
     from datetime import datetime, timedelta, timezone
+
     token_payload = {
-        'user_id': account.id,
-        'exp': datetime.now(timezone.utc) + timedelta(minutes=15),
-        'iat': datetime.now(timezone.utc)
+        "user_id": account.id,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+        "iat": datetime.now(timezone.utc),
     }
-    token = jwt.encode(token_payload, settings.SECRET_KEY, algorithm='HS256')
+    token = jwt.encode(token_payload, settings.SECRET_KEY, algorithm="HS256")
 
     verification_link = request.build_absolute_uri(
-        reverse('accounts-verify') + f'?token={token}'
+        reverse("accounts-verify") + f"?token={token}"
     )
     print("Verification link:", verification_link)
-    subject = 'Verify your email address'
-    message = f'Hi {account.first_name},\n\nPlease verify your email by clicking the link below:\n{verification_link}\n\nThank you!'
+    subject = "Verify your email address"
+    message = f"Hi {account.first_name},\n\nPlease verify your email by clicking the link below:\n{verification_link}\n\nThank you!"
     from_email = settings.DEFAULT_FROM_EMAIL
     recipient_list = [account.email]
     print("Sending email to:", recipient_list)
