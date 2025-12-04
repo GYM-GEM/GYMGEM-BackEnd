@@ -1,5 +1,6 @@
 from rest_framework.viewsets import ViewSet
 from profiles.models import Profile
+from utils.views import get_profile_id_from_token
 from .models import Course
 from .serializers import (
     CourseLessonSerializer,
@@ -15,7 +16,6 @@ from rest_framework.permissions import IsAuthenticated
 from authenticationAndAuthorization.permissions import HasRole
 from .validators import CourseValidator
 from drf_spectacular.utils import extend_schema
-
 
 # Create your views here.
 class CoursesView(ViewSet):
@@ -54,7 +54,9 @@ class CoursesView(ViewSet):
         url_path="create",
     )
     def create_course(self, request):
-        serializer = CourseSerializer(data=request.data)
+        profile_id = get_profile_id_from_token(request)
+        trainer_profile = Profile.objects.get(pk=profile_id)
+        serializer = CourseSerializer(data={**request.data, "trainer_profile": trainer_profile.pk})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -79,14 +81,15 @@ class CoursesView(ViewSet):
     )
     def update_course(self, request, pk=None):
         try:
+            
             course = CourseValidator.validate_course_exists(pk)
             CourseValidator.validate_course_belongs_to_trainer(
-                course, request.user.trainer_profile
+                course, request
             )
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = CourseSerializer(course, data=request.data)
+        serializer = CourseSerializer(course, data={**request.data, "trainer_profile": course.trainer_profile.pk})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -111,7 +114,7 @@ class CoursesView(ViewSet):
         try:
             course = CourseValidator.validate_course_exists(pk)
             CourseValidator.validate_course_belongs_to_trainer(
-                course, request.user.trainer_profile
+                course, request
             )
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
@@ -122,24 +125,41 @@ class CoursesView(ViewSet):
     @extend_schema(
         tags=["Courses"],
         summary="Get course detail",
-        description="Get detailed information about a specific course",
+        description="Get detailed information about a specific course with all lessons and sections",
         responses={200: CourseSerializer, 404: {"description": "Course not found"}},
     )
     @action(
         methods=["get"],
         detail=True,
-        permission_classes=[IsAuthenticated],
+        permission_classes=[HasRole(["trainee", "trainer"])],
         url_path="detail",
     )
     def get_course_detail(self, request, pk=None):
         try:
-            course = CourseValidator.validate_course_exists(pk)
-        except ValueError as e:
-            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+            course = Course.objects.get(pk=pk)
+        except Course.DoesNotExist:
+            return Response(
+                {"error": f"Course with id {pk} does not exist"},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-        serializer = CourseSerializer(course)
-        return Response(serializer.data)
-
+        # Serialize course data
+        course_data = CourseSerializer(course).data
+        
+        # Fetch and order lessons with their sections
+        lessons = course.courselesson_set.all().order_by('order', 'id')
+        lessons_data = []
+        
+        for lesson in lessons:
+            lesson_data = CourseLessonSerializer(lesson).data
+            # Order sections within each lesson
+            sections = lesson.lessonsection_set.all().order_by('order', 'id')
+            lesson_data['sections'] = LessonSectionSerializer(sections, many=True).data
+            lessons_data.append(lesson_data)
+        
+        course_data['lessons'] = lessons_data
+        
+        return Response(course_data)
 
 class LessonsView(ViewSet):
     serializer_class = CourseLessonSerializer

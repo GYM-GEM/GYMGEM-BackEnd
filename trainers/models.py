@@ -31,14 +31,9 @@ class Trainer(models.Model):
         return f"Trainer<{self.name}> for Profile {self.profile_id}"
 
     def clean(self):
-        if not self.profile_id:
+        if not self.profile_id_id:
             raise ValidationError({"profile_id": "Profile is required."})
-        if getattr(self.profile_id, "profile_type", None) != "trainer":
-            raise ValidationError(
-                {
-                    "profile_id": 'Profile must have profile_type="trainer" to create a Trainer.'
-                }
-            )
+
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -118,4 +113,4 @@ class TrainerRecord(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"TrainerRecord<{self.record_date}> for Trainer {self.trainer_id.name}"
+        return f"TrainerRecord<{self.record_date}> for Trainer {self.trainer.name}"
