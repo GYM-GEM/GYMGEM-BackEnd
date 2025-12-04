@@ -45,3 +45,15 @@ class StoreBranch(models.Model):
 
     def __str__(self):
         return f"StoreBranch<{self.branch_name}> of Store {self.store.name}"
+    
+    def clean(self):
+        """Validate StoreBranch fields."""
+        if self.opening_time >= self.closing_time:
+            raise ValidationError({
+                'closing_time': 'Closing time must be after opening time.'
+            })    
+    def save(self, *args, **kwargs):
+        # Enforce validation at the model layer, even when not using serializers/forms
+        self.full_clean()
+        return super().save(*args, **kwargs)
+    
