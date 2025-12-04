@@ -45,8 +45,13 @@ class TrainerSerializer(serializers.ModelSerializer):
         profile_id = get_profile_id_from_token(self.context.get("request"))
 
         trainer_profile = account.profiles.filter(
-            profile_type="trainer", id=profile_id
+            profile_type="trainer", pk=profile_id
         ).first()
+
+        if not trainer_profile:
+            raise serializers.ValidationError(
+                "No trainer profile found for this account."
+            )
 
         if Trainer.objects.filter(profile_id=trainer_profile).exists():
             raise serializers.ValidationError(

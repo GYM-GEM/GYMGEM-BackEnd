@@ -341,9 +341,10 @@ class AccountsDetailView(APIView):
             return JsonResponse({"error": "Forbidden"}, status=403)
         """Delete an account"""
         try:
-            password = request.data.get("password", None)
-            if not account.check_password(password):
-                return JsonResponse({"error": "Incorrect password"}, status=400)
+            if account.has_usable_password():
+                password = request.data.get("password", None)
+                if not account.check_password(password):
+                    return JsonResponse({"error": "Incorrect password"}, status=400)
             account = Account.objects.get(id=request.user.id)
             account.delete()
             return JsonResponse({"message": "Account deleted successfully"})

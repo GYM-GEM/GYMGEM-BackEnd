@@ -27,7 +27,7 @@ from rest_framework.permissions import IsAuthenticated
 
 class TrainerView(APIView):
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRole(["trainer"])]
 
     @extend_schema(
         tags=["Trainers"],
