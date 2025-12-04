@@ -31,12 +31,13 @@ class CoursesView(ViewSet):
     @action(
         methods=["get"],
         detail=False,
-        permission_classes=[IsAuthenticated],
+        permission_classes=[HasRole(["trainee"])],
         url_path="for-trainees",
     )
     def get_courses_for_trainees(self, request):
         courses = Course.objects.all()
-        serializer = CourseSerializer(courses, many=True)
+        queryset = courses.filter(status="published")
+        serializer = CourseSerializer(queryset, many=True)
         return Response(serializer.data)
 
     @extend_schema(
@@ -85,7 +86,7 @@ class CoursesView(ViewSet):
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = CourseSerializer(course, data=request.data, partial=True)
+        serializer = CourseSerializer(course, data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)

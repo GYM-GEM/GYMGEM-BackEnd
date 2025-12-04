@@ -5,7 +5,7 @@ urlpatterns = [
     path('list', AccountsListView.as_view(), name='accounts-list'),
 
     #get , put , patch , delete account by id
-    path('<int:account_id>', AccountsDetailView.as_view(), name='accounts-detail'),
+    path('detail', AccountsDetailView.as_view(), name='accounts-detail'),
     path('current', CurrentAccountView.as_view(), name='current-account'),
     path('create', AccountsCreateView.as_view(), name='accounts-create'),
     path('change-password', AccountsPasswordChangeView.as_view(), name='accounts-change-password'),
