@@ -27,7 +27,7 @@ class CourseLesson(models.Model):
     cover = models.URLField(blank=True, null=True)
     duration = models.DurationField()
     status = models.CharField(max_length=20, choices=[('draft', 'Draft'), ('published', 'Published')], default='draft')
-    order = models.PositiveIntegerField()
+    order = models.PositiveIntegerField(unique=True)
 
     def __str__(self):
         return f"Lesson {self.order}: {self.title} for Course {self.course.title}"
@@ -40,7 +40,7 @@ class LessonSection(models.Model):
                                                             ('doc', 'Document'), ('ppt', 'PowerPoint'), ('other', 'Other')])
     content_url = models.URLField(blank=True, null=True)
     content_text = models.TextField(blank=True, null=True)
-    order = models.PositiveIntegerField()
+    order = models.PositiveIntegerField(unique=True)
 
     def __str__(self):
         return f"Section {self.order}: {self.title} for Lesson {self.lesson.title}"

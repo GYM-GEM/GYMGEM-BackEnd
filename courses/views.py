@@ -1,7 +1,7 @@
 from rest_framework.viewsets import ViewSet
 from profiles.models import Profile
 from utils.views import get_profile_id_from_token
-from .models import Course
+from .models import Course, CourseLesson, LessonSection
 from .serializers import (
     CourseLessonSerializer,
     CourseSerializer,
@@ -177,8 +177,8 @@ class LessonsView(ViewSet):
     @action(
         methods=["get"],
         detail=True,
-        permission_classes=[IsAuthenticated],
-        url_path="lessons",
+        permission_classes=[HasRole(["trainee", "trainer"])],
+        url_path="list",
     )
     def get_lessons_for_course(self, request, pk=None):
         try:
@@ -186,7 +186,7 @@ class LessonsView(ViewSet):
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
         try:
-            lessons = course.lessons.all()
+            lessons = CourseLesson.objects.filter(course=course).order_by('order')
             serializer = CourseLessonSerializer(lessons, many=True)
             return Response(serializer.data)
         except ValueError as e:
@@ -207,7 +207,7 @@ class LessonsView(ViewSet):
         methods=["post"],
         detail=True,
         permission_classes=[HasRole(["trainer"])],
-        url_path="lessons/create",
+        url_path="create",
     )
     def create_lesson_for_course(self, request, pk=None):
         try:
@@ -215,7 +215,8 @@ class LessonsView(ViewSet):
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
         try:
-            trainer = Profile.objects.get(pk=request.user.pk)
+            profile_id = get_profile_id_from_token(request)
+            trainer = Profile.objects.get(pk=profile_id)
             print(
                 trainer,
                 "++++++++++",
@@ -223,7 +224,7 @@ class LessonsView(ViewSet):
                 "++++++++++",
                 course.trainer_profile,
             )
-            CourseValidator.validate_course_belongs_to_trainer(course, trainer)
+            CourseValidator.validate_course_belongs_to_trainer(course, request)
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -250,14 +251,15 @@ class LessonsView(ViewSet):
         methods=["put"],
         detail=True,
         permission_classes=[HasRole(["trainer"])],
-        url_path=r"lessons/update/(?P<lesson_pk>\d+)",
+        url_path="update",
     )
-    def update_lesson_for_course(self, request, pk=None, lesson_pk=None):
+    def update_lesson_for_course(self, request, pk=None):
         try:
-            course = CourseValidator.validate_course_exists(pk)
-            lesson = CourseValidator.validate_lesson_exists(lesson_pk)
+            
+            lesson = CourseValidator.validate_lesson_exists(pk)
+            course = lesson.course
             CourseValidator.validate_course_belongs_to_trainer(
-                course, request.user.trainer_profile
+                course, request
             )
             CourseValidator.validate_lesson_belongs_to_course(lesson, course)
         except ValueError as e:
@@ -282,15 +284,15 @@ class LessonsView(ViewSet):
         methods=["delete"],
         detail=True,
         permission_classes=[HasRole(["trainer"])],
-        url_path=r"lessons/delete/(?P<lesson_pk>\d+)",
+        url_path="delete",
     )
-    def delete_lesson_for_course(self, request, pk=None, lesson_pk=None):
+    def delete_lesson_for_course(self, request, pk=None):
         try:
-            course = CourseValidator.validate_course_exists(pk)
-            lesson = CourseValidator.validate_lesson_exists(lesson_pk)
-            CourseValidator.validate_lesson_belongs_to_course(lesson, course)
+            
+            lesson = CourseValidator.validate_lesson_exists(pk)
+            course = lesson.course
             CourseValidator.validate_course_belongs_to_trainer(
-                course, request.user.trainer_profile
+                course, request
             )
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
@@ -310,20 +312,20 @@ class LessonsView(ViewSet):
     @action(
         methods=["get"],
         detail=True,
-        permission_classes=[IsAuthenticated],
-        url_path=r"lessons/detail/(?P<lesson_pk>\d+)",
+        permission_classes=[HasRole(["trainee", "trainer"])],
+        url_path="detail",
     )
-    def get_lesson_detail(self, request, pk=None, lesson_pk=None):
+    def get_lesson_detail(self, request, pk=None):
         try:
-            course = CourseValidator.validate_course_exists(pk)
-            lesson = CourseValidator.validate_lesson_exists(lesson_pk)
+            lesson = CourseValidator.validate_lesson_exists(pk)
+            course = lesson.course
             CourseValidator.validate_lesson_belongs_to_course(lesson, course)
+            sections = LessonSection.objects.filter(lesson=lesson).order_by('order')
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = CourseLessonSerializer(lesson)
-        return Response(serializer.data)
-
+        return Response({"lesson": serializer.data, "sections": LessonSectionSerializer(sections, many=True).data})
 
 class LessonSectionsView(ViewSet):
     serializer_class = LessonSectionSerializer
@@ -475,7 +477,6 @@ class LessonSectionsView(ViewSet):
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
         section.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
 
 class CourseEnrollmentsView(ViewSet):
     serializer_class = CourseEnrollmentSerializer
