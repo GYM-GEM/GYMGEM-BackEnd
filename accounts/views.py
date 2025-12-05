@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.http import JsonResponse
+from rest_framework import status
 import jwt
 from rest_framework.views import APIView
 from accounts.models import Account
@@ -51,6 +52,7 @@ class AccountsListView(APIView):
             for account in accounts
         ]
         return JsonResponse(data, safe=False)
+
 
 @permission_classes([AllowAny])
 class AccountsCreateView(APIView):
@@ -142,6 +144,7 @@ class AccountsVerifyView(APIView):
             return JsonResponse({"error": "Invalid token"}, status=400)
         except Account.DoesNotExist:
             return JsonResponse({"error": "Account not found"}, status=400)
+
 
 @permission_classes([IsAuthenticated])
 class AccountsDetailView(APIView):
@@ -336,6 +339,7 @@ class AccountsDetailView(APIView):
         },
     )
     def delete(self, request):
+        print("Request user:", request.user)
         account = get_account_from_token(request)
         if (request.user.id != account.id) and (not request.user.is_superuser):
             return JsonResponse({"error": "Forbidden"}, status=403)
@@ -347,7 +351,7 @@ class AccountsDetailView(APIView):
                     return JsonResponse({"error": "Incorrect password"}, status=400)
             account = Account.objects.get(id=request.user.id)
             account.delete()
-            return JsonResponse({"message": "Account deleted successfully"})
+            return JsonResponse({"message": "Account deleted successfully"}, status=204)
         except Account.DoesNotExist:
             return JsonResponse({"error": "Account not found"}, status=404)
 
