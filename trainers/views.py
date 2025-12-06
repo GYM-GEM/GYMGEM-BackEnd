@@ -45,7 +45,8 @@ class TrainerView(APIView):
     
     def get(self, request):
         try:
-            profile_id = get_profile_id_from_token(request)
+            
+            profile_id = request.data.get("profile_id", None)
             my_profile = Profile.objects.get(id=profile_id)
             trainer = Trainer.objects.get(profile_id=my_profile)
         except Trainer.DoesNotExist:
