@@ -45,7 +45,7 @@ class TrainerView(APIView):
     
     def get(self, request):
         try:
-            profile_id = request.data.get("profile_id", None)
+            profile_id = request.query_params.get("profile_id", None)
             my_profile = Profile.objects.get(pk=profile_id)
             trainer = Trainer.objects.get(profile_id=my_profile)
             serializer = TrainerSerializer(trainer)
