@@ -42,6 +42,17 @@ class TrainerView(APIView):
             serializer.save()
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
+    
+    def get(self, request):
+        try:
+            profile_id = get_profile_id_from_token(request)
+            my_profile = Profile.objects.get(id=profile_id)
+            trainer = Trainer.objects.get(profile_id=my_profile)
+        except Trainer.DoesNotExist:
+            return Response({"error": "Trainer not found"}, status=404)
+
+        serializer = TrainerSerializer(trainer)
+        return Response(serializer.data)
 
 
 class TrainerList(APIView):

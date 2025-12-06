@@ -159,6 +159,8 @@ class CoursesView(ViewSet):
             lessons_data.append(lesson_data)
         
         course_data['lessons'] = lessons_data
+        #ratings_data = CourseRatingSerializer(ratings, many=True).data
+        #students_data = TraineeSerializer(students, many=True).data
         
         return Response(course_data)
 
