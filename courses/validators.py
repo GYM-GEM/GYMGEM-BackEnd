@@ -1,3 +1,4 @@
+from profile import Profile
 from accounts.models import Account
 from utils.views import get_account_from_token, get_profile_id_from_token
 from .models import Course, CourseEnrollment, CourseLesson, LessonSection
@@ -90,15 +91,17 @@ class CourseValidator:
             raise ValueError("Enrollment with the given ID does not exist.")
 
     @staticmethod
-    def validate_lesson_belongs_to_trainer(lesson, trainer_profile):
-        if lesson.course.trainer_profile != trainer_profile:
+    def validate_lesson_belongs_to_trainer(lesson, request):
+        trainer_profile_id = get_profile_id_from_token(request)
+        if lesson.course.trainer_profile.id != trainer_profile_id:
             raise ValueError(
                 "The lesson does not belong to the specified trainer profile."
             )
 
     @staticmethod
-    def validate_enrollment_belongs_to_trainee(enrollment, trainee_profile):
-        if enrollment.trainee_profile != trainee_profile:
+    def validate_enrollment_belongs_to_trainee(enrollment, request):
+        trainee_profile_id = get_profile_id_from_token(request)
+        if enrollment.trainee_profile.id != trainee_profile_id:
             raise ValueError(
                 "The enrollment does not belong to the specified trainee profile."
             )

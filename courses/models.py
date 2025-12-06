@@ -21,26 +21,65 @@ class Course(models.Model):
         return self.title
     
 class CourseLesson(models.Model):
-    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='lessons')
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True, null=True)
     cover = models.URLField(blank=True, null=True)
     duration = models.DurationField()
     status = models.CharField(max_length=20, choices=[('draft', 'Draft'), ('published', 'Published')], default='draft')
-    order = models.PositiveIntegerField(unique=True)
-
+    order = models.PositiveIntegerField()
+    
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.course and self.order:
+            # Check if order is unique within the course (excluding current instance)
+            duplicate = CourseLesson.objects.filter(
+                course=self.course, 
+                order=self.order
+            ).exclude(pk=self.pk).exists()
+            if duplicate:
+                raise ValidationError({"order": "Order must be unique within the course."})
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+    
     def __str__(self):
         return f"Lesson {self.order}: {self.title} for Course {self.course.title}"
     
 class LessonSection(models.Model):
-    lesson = models.ForeignKey(CourseLesson, on_delete=models.CASCADE)
+    lesson = models.ForeignKey(CourseLesson, on_delete=models.CASCADE, related_name='sections')
     title = models.CharField(max_length=200)
     content_type = models.CharField(max_length=20, choices=[('video', 'Video'), ('article', 'Article'), ('quiz', 'Quiz'),
                                                             ('pdf', 'PDF'), ('image', 'Image'), ('audio', 'Audio'),
                                                             ('doc', 'Document'), ('ppt', 'PowerPoint'), ('other', 'Other')])
     content_url = models.URLField(blank=True, null=True)
     content_text = models.TextField(blank=True, null=True)
-    order = models.PositiveIntegerField(unique=True)
+    order = models.PositiveIntegerField()
+    
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        errors = {}
+        
+        # Validate that either content_url or content_text is provided
+        if not self.content_url and not self.content_text:
+            errors['content'] = "Either content_url or content_text must be provided."
+        
+        # Check if order is unique within the lesson (excluding current instance)
+        if self.lesson and self.order:
+            duplicate = LessonSection.objects.filter(
+                lesson=self.lesson, 
+                order=self.order
+            ).exclude(pk=self.pk).exists()
+            if duplicate:
+                errors['order'] = "Order must be unique within the lesson."
+        
+        if errors:
+            raise ValidationError(errors)
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Section {self.order}: {self.title} for Lesson {self.lesson.title}"
@@ -48,7 +87,7 @@ class LessonSection(models.Model):
     
 class CourseEnrollment(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
-    trainee_profile = models.ForeignKey('trainees.Trainee', on_delete=models.CASCADE)
+    trainee_profile = models.ForeignKey('profiles.Profile', on_delete=models.CASCADE)
     enrollment_date = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=[('in_progress', 'In Progress'), ('completed', 'Completed'), ('dropped', 'Dropped')], default='in_progress')
     rating = models.PositiveIntegerField(blank=True, null=True, validators=[MinValueValidator(1), MaxValueValidator(100)])

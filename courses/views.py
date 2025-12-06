@@ -1,5 +1,6 @@
 from rest_framework.viewsets import ViewSet
 from profiles.models import Profile
+from trainees.models import Trainee
 from utils.views import get_profile_id_from_token
 from .models import Course, CourseLesson, LessonSection
 from .serializers import (
@@ -147,13 +148,13 @@ class CoursesView(ViewSet):
         course_data = CourseSerializer(course).data
         
         # Fetch and order lessons with their sections
-        lessons = course.courselesson_set.all().order_by('order', 'id')
+        lessons = course.lessons.all().order_by('order', 'id')
         lessons_data = []
         
         for lesson in lessons:
             lesson_data = CourseLessonSerializer(lesson).data
             # Order sections within each lesson
-            sections = lesson.lessonsection_set.all().order_by('order', 'id')
+            sections = lesson.sections.all().order_by('order', 'id')
             lesson_data['sections'] = LessonSectionSerializer(sections, many=True).data
             lessons_data.append(lesson_data)
         
@@ -343,8 +344,8 @@ class LessonSectionsView(ViewSet):
     @action(
         methods=["get"],
         detail=True,
-        permission_classes=[IsAuthenticated],
-        url_path="sections",
+        permission_classes=[HasRole(["trainee", "trainer"])],
+        url_path="list",
     )
     def get_sections_for_lesson(self, request, pk=None):
         try:
@@ -352,7 +353,7 @@ class LessonSectionsView(ViewSet):
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
-        sections = lesson.sections.all()
+        sections = lesson.lessonsection_set.all().order_by('order')
         serializer = LessonSectionSerializer(sections, many=True)
         return Response(serializer.data)
 
@@ -368,14 +369,12 @@ class LessonSectionsView(ViewSet):
     @action(
         methods=["get"],
         detail=True,
-        permission_classes=[IsAuthenticated],
-        url_path=r"section/(?P<section_pk>\d+)",
+        permission_classes=[HasRole(["trainee", "trainer"])],
+        url_path="detail",
     )
-    def get_section_detail(self, request, pk=None, section_pk=None):
+    def get_section_detail(self, request, pk=None):
         try:
-            lesson = CourseValidator.validate_lesson_exists(pk)
-            section = CourseValidator.validate_section_exists(section_pk)
-            CourseValidator.validate_section_belongs_to_lesson(section, lesson)
+            section = CourseValidator.validate_section_exists(pk)
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
@@ -395,16 +394,14 @@ class LessonSectionsView(ViewSet):
     )
     @action(
         methods=["post"],
-        detail=True,
+        detail=False,
         permission_classes=[HasRole(["trainer"])],
-        url_path="sections/create",
+        url_path="create",
     )
-    def create_section_for_lesson(self, request, pk=None):
+    def create_section_for_lesson(self, request):
         try:
-            lesson = CourseValidator.validate_lesson_exists(pk)
-            print("++++++++++", request.user)
-            trainer = Profile.objects.get(pk=request.user.pk)
-            CourseValidator.validate_lesson_belongs_to_trainer(lesson, trainer)
+            lesson = CourseValidator.validate_lesson_exists(request.data.get("lesson"))
+            CourseValidator.validate_lesson_belongs_to_trainer(lesson, request)
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
@@ -431,15 +428,14 @@ class LessonSectionsView(ViewSet):
         methods=["put"],
         detail=True,
         permission_classes=[HasRole(["trainer"])],
-        url_path=r"sections/update/(?P<section_pk>\d+)",
+        url_path="update",
     )
-    def update_section_for_lesson(self, request, pk=None, section_pk=None):
+    def update_section_for_lesson(self, request, pk=None):
         try:
-            lesson = CourseValidator.validate_lesson_exists(pk)
-            section = CourseValidator.validate_section_exists(section_pk)
-            CourseValidator.validate_section_belongs_to_lesson(section, lesson)
+ 
+            section = CourseValidator.validate_section_exists(pk)
             CourseValidator.validate_lesson_belongs_to_trainer(
-                lesson, request.user.trainer_profile
+                section.lesson, request
             )
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
@@ -463,15 +459,13 @@ class LessonSectionsView(ViewSet):
         methods=["delete"],
         detail=True,
         permission_classes=[HasRole(["trainer"])],
-        url_path=r"sections/delete/(?P<section_pk>\d+)",
+        url_path="delete",
     )
-    def delete_section_for_lesson(self, request, pk=None, section_pk=None):
+    def delete_section_for_lesson(self, request, pk=None):
         try:
-            lesson = CourseValidator.validate_lesson_exists(pk)
-            section = CourseValidator.validate_section_exists(section_pk)
-            CourseValidator.validate_section_belongs_to_lesson(section, lesson)
+            section = CourseValidator.validate_section_exists(pk)
             CourseValidator.validate_lesson_belongs_to_trainer(
-                lesson, request.user.trainer_profile
+                section.lesson, request
             )
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
@@ -502,10 +496,11 @@ class CourseEnrollmentsView(ViewSet):
     def enroll_in_course(self, request, pk=None):
         try:
             course = CourseValidator.validate_course_exists(pk)
+            profile = get_profile_id_from_token(request)
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
-
-        serializer = CourseEnrollmentSerializer(data=request.data)
+        
+        serializer = CourseEnrollmentSerializer(data={**request.data, "trainee_profile": profile, "course": course.pk})
         if serializer.is_valid():
             serializer.save(course=course)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -524,68 +519,52 @@ class CourseEnrollmentsView(ViewSet):
         methods=["get"],
         detail=True,
         permission_classes=[HasRole(["trainer"])],
-        url_path="enrollments",
+        url_path="trainer-enrollments",
     )
     def get_enrollments_for_course(self, request, pk=None):
         try:
             course = CourseValidator.validate_course_exists(pk)
             CourseValidator.validate_course_belongs_to_trainer(
-                course, request.user.trainer_profile
+                course, request
             )
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
-
+    
         enrollments = course.enrollments.all()
         serializer = CourseEnrollmentSerializer(enrollments, many=True)
         return Response(serializer.data)
-
+    
     @extend_schema(
         tags=["Course Enrollments"],
-        summary="Get my enrollments for course",
-        description="Get my enrollments for a specific course (trainee only)",
+        summary="Get enrollments for trainee",
+        description="Get all enrollments for the logged-in trainee",
         responses={200: CourseEnrollmentSerializer(many=True)},
     )
     @action(
         methods=["get"],
-        detail=True,
+        detail=False,
         permission_classes=[HasRole(["trainee"])],
         url_path="my-enrollments",
     )
-    def get_my_enrollments(self, request, pk=None):
+    def get_enrollments_for_trainee(self, request):
+        try:
+            profile_id = get_profile_id_from_token(request)
+            trainee_profile = Profile.objects.get(pk=profile_id)
+            CourseValidator.validate_trainee_profile_belongs_to_user(trainee_profile, request)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        enrollments = CourseEnrollment.objects.filter(
+            trainee_profile=trainee_profile  
+        )
+        serializer = CourseEnrollmentSerializer(enrollments, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
         enrollments = CourseEnrollment.objects.filter(
             course__id=pk, trainee_profile=request.user.trainee_profile
         )
         serializer = CourseEnrollmentSerializer(enrollments, many=True)
         return Response(serializer.data)
 
-    @extend_schema(
-        tags=["Course Enrollments"],
-        summary="Get my enrollment detail",
-        description="Get detailed information about my specific enrollment (trainee only)",
-        responses={
-            200: CourseEnrollmentSerializer,
-            404: {"description": "Enrollment or course not found"},
-        },
-    )
-    @action(
-        methods=["get"],
-        detail=True,
-        permission_classes=[HasRole(["trainee"])],
-        url_path=r"my-enrollment-detail/(?P<enrollment_pk>\d+)",
-    )
-    def get_my_enrollment_detail(self, request, pk=None, enrollment_pk=None):
-        try:
-            course = CourseValidator.validate_course_exists(pk)
-            enrollment = CourseValidator.validate_enrollment_exists(enrollment_pk)
-            CourseValidator.validate_enrollment_belongs_to_course(enrollment, course)
-            CourseValidator.validate_enrollment_belongs_to_trainee(
-                enrollment, request.user.trainee_profile
-            )
-        except ValueError as e:
-            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
-
-        serializer = CourseEnrollmentSerializer(enrollment)
-        return Response(serializer.data)
 
     @extend_schema(
         tags=["Course Enrollments"],
@@ -600,18 +579,25 @@ class CourseEnrollmentsView(ViewSet):
         methods=["delete"],
         detail=True,
         permission_classes=[HasRole(["trainee"])],
-        url_path=r"un-enroll/(?P<enrollment_pk>\d+)",
+        url_path="delete-my-enrollment",
     )
-    def delete_my_enrollment(self, request, pk=None, enrollment_pk=None):
+    def delete_my_enrollment(self, request, pk=None):
         try:
-            course = CourseValidator.validate_course_exists(pk)
-            enrollment = CourseValidator.validate_enrollment_exists(enrollment_pk)
-            CourseValidator.validate_enrollment_belongs_to_course(enrollment, course)
+            profile_id = get_profile_id_from_token(request)
+            enrollment = CourseEnrollment.objects.get(
+                pk=pk, trainee_profile=profile_id
+            )
+            if enrollment.status == "dropped":
+                return Response(
+                    {"error": "You have already dropped this enrollment."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             CourseValidator.validate_enrollment_belongs_to_trainee(
-                enrollment, request.user.trainee_profile
+                enrollment, request
             )
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
-        enrollment.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        enrollment.status = "dropped"
+        enrollment.save()
+        return Response(status=status.HTTP_200_OK)
