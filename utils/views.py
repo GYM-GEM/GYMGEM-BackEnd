@@ -1,12 +1,14 @@
 import jwt
-from rest_framework import serializers
+from rest_framework import serializers, generics
 from GymGem import settings
 from accounts.models import Account
+from .models import Category
+from .serializers import CategorySerializer
 
 
 def get_account_from_token(request):
     auth_header = request.headers.get("Authorization")
-    payload = None  
+    payload = None
 
     if not auth_header or not auth_header.startswith("Bearer "):
         raise serializers.ValidationError("Authorization header is missing or invalid.")
@@ -80,3 +82,11 @@ def send_verification_email(account, request):
     recipient_list = [account.email]
     print("Sending email to:", recipient_list)
     send_mail(subject, message, from_email, recipient_list)
+
+
+class CategoryListView(generics.ListAPIView):
+    """Return a list of all categories."""
+
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    permission_classes = []
