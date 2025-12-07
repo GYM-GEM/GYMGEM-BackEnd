@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.db import models
 from rest_framework.viewsets import ViewSet
 from profiles.models import Profile
@@ -18,7 +19,8 @@ from rest_framework.permissions import IsAuthenticated
 from authenticationAndAuthorization.permissions import HasRole
 from .validators import CourseValidator
 from drf_spectacular.utils import extend_schema
-
+from trainers.models import Trainer
+from trainers.serializers import TrainerSerializer
 # Create your views here.
 class CoursesView(ViewSet):
     serializer_class = CourseSerializer
@@ -36,11 +38,64 @@ class CoursesView(ViewSet):
         permission_classes=[HasRole(["trainee"])],
         url_path="for-trainees",
     )
+
     def get_courses_for_trainees(self, request):
-        courses = Course.objects.all()
-        queryset = courses.filter(status="published")
-        serializer = CourseSerializer(queryset, many=True)
-        return Response(serializer.data)
+        params = request.query_params
+
+        queryset = Course.objects.filter(status="published")
+
+        if params.get("category"):
+            queryset = queryset.filter(category=params["category"])
+
+        if params.get("level"):
+            queryset = queryset.filter(level=params["level"])
+
+        if params.get("language"):
+            queryset = queryset.filter(language=params["language"])
+
+        price_min = params.get("price_min")
+        price_max = params.get("price_max")
+
+        if price_min:
+            queryset = queryset.filter(price__gte=price_min)
+
+        if price_max:
+            queryset = queryset.filter(price__lte=price_max)
+
+        if params.get("trainer_profile"):
+            queryset = queryset.filter(trainer_profile=params["trainer_profile"])
+
+        if params.get("search"):
+            s = params["search"]
+            queryset = queryset.filter(
+                Q(title__icontains=s) | Q(description__icontains=s)
+            )
+
+        if params.get("ordering"):
+            queryset = queryset.order_by(params["ordering"])
+
+        # Serialize courses
+        courses_data = CourseSerializer(queryset, many=True).data
+
+        # Extract trainer profile IDs
+        trainer_profile_ids = [course["trainer_profile"] for course in courses_data]
+
+        # Fetch Trainer objects
+        trainers = Trainer.objects.filter(profile_id__in=trainer_profile_ids)
+
+        # Build mapping: profile_id -> trainer name (use profile_id_id to get the integer ID)
+        trainer_map = {
+            trainer.profile_id_id: trainer.name
+            for trainer in trainers
+        }
+
+        # Attach trainer name
+        for course in courses_data:
+            profile_id = course["trainer_profile"]
+            course["trainer_profile_name"] = trainer_map.get(profile_id, "Unknown Trainer")
+
+        return Response(courses_data, status=status.HTTP_200_OK)
+
 
     @extend_schema(
         tags=["Courses"],
