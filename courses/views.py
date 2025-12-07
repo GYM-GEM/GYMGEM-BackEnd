@@ -20,6 +20,7 @@ from .validators import CourseValidator
 from drf_spectacular.utils import extend_schema
 from trainers.models import Trainer
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import Sum, Count, Avg
 
 # Create your views here.
 class CoursesView(ViewSet):
@@ -41,7 +42,9 @@ class CoursesView(ViewSet):
     def get_courses_for_trainees(self, request):
         params = request.query_params
 
-        queryset = Course.objects.filter(status="published")
+        queryset = Course.objects.filter(status="published").select_related(
+            'trainer_profile', 'category', 'level', 'language'
+        )
 
         if params.get("category"):
             queryset = queryset.filter(category=params["category"])
@@ -73,25 +76,48 @@ class CoursesView(ViewSet):
         if params.get("ordering"):
             queryset = queryset.order_by(params["ordering"])
 
+        # Annotate courses with aggregated data in a single query
+        queryset = queryset.annotate(
+            total_duration=Sum('lessons__duration'),
+            lesson_count=Count('lessons', distinct=True),
+            average_rating=Avg('courseenrollment__rating', filter=models.Q(courseenrollment__status='completed')),
+            total_ratings=Count('courseenrollment__rating', filter=models.Q(courseenrollment__rating__isnull=False), distinct=True),
+            students_enrolled=Count('courseenrollment__trainee_profile', distinct=True)
+        )
+        
         # Serialize courses
         courses_data = CourseSerializer(queryset, many=True).data
 
-        # Extract trainer profile IDs
+        # Fetch trainer names in a single query
         trainer_profile_ids = [course["trainer_profile"] for course in courses_data]
-
-        # Fetch Trainer objects
-        trainers = Trainer.objects.filter(profile_id__in=trainer_profile_ids)
-
-        # Build mapping: profile_id -> trainer name (use profile_id_id to get the integer ID)
         trainer_map = {
             trainer.profile_id_id: trainer.name
-            for trainer in trainers
+            for trainer in Trainer.objects.filter(profile_id__in=trainer_profile_ids).only('profile_id', 'name')
         }
 
-        # Attach trainer name
+        # Create a mapping of annotated data by course ID
+        annotated_data = {
+            course.id: {
+                'total_duration': course.total_duration or 0,
+                'lesson_count': course.lesson_count or 0,
+                'average_rating': course.average_rating,
+                'total_ratings': course.total_ratings or 0,
+                'students_enrolled': course.students_enrolled or 0,
+            }
+            for course in queryset
+        }
+
+        # Attach computed data to each course
         for course in courses_data:
+            course_id = course["id"]
             profile_id = course["trainer_profile"]
+            
+            # Add trainer name
             course["trainer_profile_name"] = trainer_map.get(profile_id, "Unknown Trainer")
+            
+            # Add annotated fields
+            if course_id in annotated_data:
+                course.update(annotated_data[course_id])
 
         return Response(courses_data, status=status.HTTP_200_OK)
 
