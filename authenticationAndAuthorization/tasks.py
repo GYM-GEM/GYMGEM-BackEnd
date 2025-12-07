@@ -1,0 +1,9 @@
+
+from celery import shared_task
+from django.core.management import call_command
+
+@shared_task
+def flush_expired_tokens():
+    """Remove expired tokens from the database."""
+    call_command('flushexpiredtokens')
+    return "Expired tokens flushed successfully"

@@ -113,25 +113,41 @@ class GoogleLoginView(APIView):
             if user
             else []
             ),
+            "account_type": "social",
         }
 
-        if request.user.is_authenticated:
-            current_tokens = OutstandingToken.objects.filter(user=request.user)
-            if current_tokens.count() > 5:
-                # Blacklist oldest tokens beyond the 5 most recent
-                tokens_to_blacklist = current_tokens.order_by("created_at")[0]
+        multiple_logins = False
+        
+        # Get all outstanding tokens (not blacklisted)
+        outstanding_tokens = OutstandingToken.objects.filter(user=user)
+        
+        # Exclude blacklisted tokens
+        blacklisted_token_ids = BlacklistedToken.objects.filter(
+            token__in=outstanding_tokens
+        ).values_list('token_id', flat=True)
+        
+        active_tokens = outstanding_tokens.exclude(id__in=blacklisted_token_ids)
+        login_count = active_tokens.count()
+        
+        # Check for multiple active logins (more than 1 means already logged in elsewhere)
+        if login_count > 1:
+            multiple_logins = True
+        
+        # Limit to 5 active sessions - blacklist oldest
+        if login_count >= 5:
+            tokens_to_blacklist = active_tokens.order_by("created_at")[:login_count - 5]
+            for token in tokens_to_blacklist:
                 try:
-                    BlacklistedToken.objects.get_or_create(token=tokens_to_blacklist)
+                    BlacklistedToken.objects.get_or_create(token=token)
                 except Exception:
-                    return Response(
-                        {"detail": "Error blacklisting old tokens"},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    )
+                    pass  # Continue even if one fails
+    
 
         return Response(
             {
                 "access": str(access),
                 "refresh": str(refresh),
+                "multiple_logins": multiple_logins,
                 "account": account_payload,
             },
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,

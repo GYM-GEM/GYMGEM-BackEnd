@@ -40,7 +40,24 @@ class MyTokenRefreshView(TokenRefreshView):
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.headers)
         serializer.is_valid(raise_exception=True)
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        multiple_logins = False
+        account = get_account_from_token(request)
+        # Get all outstanding tokens (not blacklisted)
+        outstanding_tokens = OutstandingToken.objects.filter(user=account)
+        
+        # Exclude blacklisted tokens
+        blacklisted_token_ids = BlacklistedToken.objects.filter(
+            token__in=outstanding_tokens
+        ).values_list('token_id', flat=True)
+        
+        active_tokens = outstanding_tokens.exclude(id__in=blacklisted_token_ids)
+        login_count = active_tokens.count()
+        
+        # Check for multiple active logins (more than 1 means already logged in elsewhere)
+        if login_count > 1:
+            multiple_logins = True
+
+        return Response({**serializer.validated_data, "multiple_logins": multiple_logins}, status=status.HTTP_200_OK)
 
 
 @permission_classes([AllowAny])
@@ -79,6 +96,8 @@ class AccountLoginView(TokenObtainPairView):
         },
     )
     def post(self, request, *args, **kwargs):
+        from django.utils import timezone
+        
         # Support login via email or username: if email is provided and username is not,
         # resolve the username from the Account with that email.
         data = request.data.copy()
@@ -108,45 +127,69 @@ class AccountLoginView(TokenObtainPairView):
         # Resolve account and enrich response
         user = serializer.user
         account = Account.objects.filter(pk=user.pk).first()
+        
+        # Clean up expired tokens for this user on login
+        now = timezone.now()
+        expired_tokens = OutstandingToken.objects.filter(
+            user=account,
+            expires_at__lt=now
+        )
+        
+        # Delete blacklisted expired tokens first
+        BlacklistedToken.objects.filter(token__in=expired_tokens).delete()
+        # Delete expired outstanding tokens
+        expired_tokens.delete()
+        
         account_payload = {
             "id": account.pk if account else None,
             "username": user.username,
             "email": user.email,
             "current_profile": (
-            account.default_profile.id
-            if account and account.default_profile
-            else None
+                account.default_profile.id
+                if account and account.default_profile
+                else None
             ),
             "profiles": (
-            [
-                {"type": profile_type, "id": profile_id}
-                for profile_type, profile_id in zip(
-                account.profiles.values_list("profile_type", flat=True),
-                account.profiles.values_list("id", flat=True),
-                )
-            ]
-            if account
-            else []
-            ),
-        }
-        multiple_logins = False
-        if request.user.is_authenticated:
-            current_tokens = OutstandingToken.objects.filter(user=request.user)
-            login_count = current_tokens.count()
-            if login_count > 5:
-                # Blacklist oldest tokens beyond the 5 most recent
-                tokens_to_blacklist = current_tokens.order_by("created_at")[0]
-                try:
-                    BlacklistedToken.objects.get_or_create(token=tokens_to_blacklist)
-                except Exception:
-                    return Response(
-                        {"detail": "Error blacklisting old tokens"},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                [
+                    {"type": profile_type, "id": profile_id}
+                    for profile_type, profile_id in zip(
+                        account.profiles.values_list("profile_type", flat=True),
+                        account.profiles.values_list("id", flat=True),
                     )
-            
-            if login_count > 1:
-                multiple_logins = True
-
+                ]
+                if account
+                else []
+            ),
+            "account_type": "regular",
+        }
+        
+        multiple_logins = False
+        
+        # Get all outstanding tokens (not blacklisted)
+        outstanding_tokens = OutstandingToken.objects.filter(user=account)
+        
+        # Exclude blacklisted tokens
+        blacklisted_token_ids = BlacklistedToken.objects.filter(
+            token__in=outstanding_tokens
+        ).values_list('token_id', flat=True)
+        
+        active_tokens = outstanding_tokens.exclude(id__in=blacklisted_token_ids)
+        login_count = active_tokens.count()
+        
+        # Check for multiple active logins (more than 1 means already logged in elsewhere)
+        if login_count > 1:
+            multiple_logins = True
+        
+        # Limit to 5 active sessions - blacklist oldest
+        if login_count >= 5:
+            tokens_to_blacklist = active_tokens.order_by("created_at")[:login_count - 5]
+            for token in tokens_to_blacklist:
+                try:
+                    BlacklistedToken.objects.get_or_create(token=token)
+                except Exception:
+                    pass  # Continue even if one fails
+    
+        print("Active login count for user:", active_tokens.count())
         return Response(
             {
                 "access": tokens.get("access"),
@@ -331,16 +374,50 @@ class LogoutAllView(APIView):
         ],
     )
     def post(self, request):
-        user = request.user
-        # OutstandingToken has a FK to user when token_blacklist app is enabled
+        from django.utils import timezone
+        
+        user = get_account_from_token(request)
+        
+        # Get all outstanding tokens for this user
         tokens = OutstandingToken.objects.filter(user=user)
+        
+        # Blacklist all tokens
+        blacklisted_count = 0
         for t in tokens:
             try:
-                BlacklistedToken.objects.get_or_create(token=t)
+                _, created = BlacklistedToken.objects.get_or_create(token=t)
+                if created:
+                    blacklisted_count += 1
             except Exception:
-                # Continue blacklisting the rest even if one fails
                 continue
-        return Response(status=status.HTTP_205_RESET_CONTENT)
+        
+        # Clean up expired tokens for this user
+        now = timezone.now()
+        expired_tokens = OutstandingToken.objects.filter(
+            user=user,
+            expires_at__lt=now
+        )
+        
+        # Delete blacklisted expired tokens
+        expired_blacklisted = BlacklistedToken.objects.filter(
+            token__in=expired_tokens
+        )
+        expired_blacklisted_count = expired_blacklisted.count()
+        expired_blacklisted.delete()
+        
+        # Delete expired outstanding tokens
+        expired_count = expired_tokens.count()
+        expired_tokens.delete()
+        
+        print(f"Blacklisted {blacklisted_count} active tokens")
+        print(f"Cleaned up {expired_count} expired tokens")
+        
+        return Response(
+            {
+                "detail": f"Logged out from all devices. Cleaned up {expired_count} expired tokens."
+            },
+            status=status.HTTP_205_RESET_CONTENT
+        )
 
 
 @permission_classes([IsAuthenticated])
