@@ -9,6 +9,7 @@ from rest_framework_simplejwt.token_blacklist.models import (
     BlacklistedToken,
     OutstandingToken,
 )
+from utils.views import get_account_from_token
 from .serializers import MyTokenObtainPairSerializer, MyTokenRefreshSerializer
 from accounts.models import Account
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -201,9 +202,9 @@ class SwitchProfileView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user = request.user
+        user = get_account_from_token(request)
         try:
-            profile = Profile.objects.get(pk=profile_id)
+            profile = Profile.objects.get(pk=profile_id, account=user)
         except Exception:
             return Response(
                 {"detail": "Profile not found or does not belong to user"},
