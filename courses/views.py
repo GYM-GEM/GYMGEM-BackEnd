@@ -15,12 +15,12 @@ from .serializers import (
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
 from authenticationAndAuthorization.permissions import HasRole
 from .validators import CourseValidator
 from drf_spectacular.utils import extend_schema
 from trainers.models import Trainer
-from trainers.serializers import TrainerSerializer
+from django.core.exceptions import ValidationError as DjangoValidationError
+
 # Create your views here.
 class CoursesView(ViewSet):
     serializer_class = CourseSerializer
@@ -38,7 +38,6 @@ class CoursesView(ViewSet):
         permission_classes=[HasRole(["trainee"])],
         url_path="for-trainees",
     )
-
     def get_courses_for_trainees(self, request):
         params = request.query_params
 
@@ -96,6 +95,32 @@ class CoursesView(ViewSet):
 
         return Response(courses_data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        tags=["Courses"],
+        summary="Get courses of a trainer",
+        description="Get all courses created by the logged-in trainer",
+        responses={200: CourseSerializer(many=True)},
+    )
+    @action(
+        methods=["get"],
+        detail=False,
+        permission_classes=[HasRole(["trainer"])],
+        url_path="my-courses",
+    )
+    def get_courses_of_trainer(self, request):
+        
+        profile_id = get_profile_id_from_token(request)
+        try:
+            trainer_profile = Profile.objects.get(pk=profile_id)
+        except Profile.DoesNotExist:
+            return Response({"error": "Trainer profile not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        queryset = Course.objects.filter(trainer_profile=trainer_profile)
+        try:
+            serializer = CourseSerializer(queryset, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except DjangoValidationError as e:
+            return Response({"error": e.message_dict}, status=status.HTTP_400_BAD_REQUEST)
 
     @extend_schema(
         tags=["Courses"],
