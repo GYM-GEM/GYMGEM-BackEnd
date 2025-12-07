@@ -129,10 +129,11 @@ class AccountLoginView(TokenObtainPairView):
             else []
             ),
         }
-
+        multiple_logins = False
         if request.user.is_authenticated:
             current_tokens = OutstandingToken.objects.filter(user=request.user)
-            if current_tokens.count() > 5:
+            login_count = current_tokens.count()
+            if login_count > 5:
                 # Blacklist oldest tokens beyond the 5 most recent
                 tokens_to_blacklist = current_tokens.order_by("created_at")[0]
                 try:
@@ -142,11 +143,15 @@ class AccountLoginView(TokenObtainPairView):
                         {"detail": "Error blacklisting old tokens"},
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     )
+            
+            if login_count > 1:
+                multiple_logins = True
 
         return Response(
             {
                 "access": tokens.get("access"),
                 "refresh": tokens.get("refresh"),
+                "multiple_logins": multiple_logins,
                 "account": account_payload,
             },
             status=status.HTTP_200_OK,
