@@ -96,6 +96,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "accounts.middleware.RateLimitMiddleware",
 ]
 
 ROOT_URLCONF = "GymGem.urls"
