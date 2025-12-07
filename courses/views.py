@@ -1,3 +1,4 @@
+from django.db import models
 from rest_framework.viewsets import ViewSet
 from profiles.models import Profile
 from trainees.models import Trainee
@@ -144,24 +145,66 @@ class CoursesView(ViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # Serialize course data
+        trainee_id = get_profile_id_from_token(request)
+        enrollment = CourseEnrollment.objects.filter(
+            course=course,
+            trainee_profile=trainee_id
+        ).first()
+
+
         course_data = CourseSerializer(course).data
-        
-        # Fetch and order lessons with their sections
-        lessons = course.lessons.all().order_by('order', 'id')
-        lessons_data = []
-        
-        for lesson in lessons:
-            lesson_data = CourseLessonSerializer(lesson).data
-            # Order sections within each lesson
-            sections = lesson.sections.all().order_by('order', 'id')
-            lesson_data['sections'] = LessonSectionSerializer(sections, many=True).data
-            lessons_data.append(lesson_data)
-        
-        course_data['lessons'] = lessons_data
-        #ratings_data = CourseRatingSerializer(ratings, many=True).data
-        #students_data = TraineeSerializer(students, many=True).data
-        
+
+        lessons = (
+            course.lessons
+            .all()
+            .order_by("order", "id")
+            .prefetch_related("sections")
+        )
+
+        # This fixes your serialization bug
+        course_data["lessons"] = CourseLessonSerializer(lessons, many=True).data
+
+        if not enrollment:
+            course_data["lessons_details"] = []
+        elif enrollment.status in ["in_progress", "completed"]:
+            lessons_details = []
+            for lesson in lessons:
+                lesson_data = CourseLessonSerializer(lesson).data
+                lesson_data["sections"] = LessonSectionSerializer(
+                    lesson.sections.all().order_by("order", "id"),
+                    many=True
+                ).data
+                lessons_details.append(lesson_data)
+
+            course_data["lessons_details"] = lessons_details
+
+        # 6️⃣ Ratings (optimized at DB-level)
+        rating_stats = (
+            CourseEnrollment.objects.filter(
+                course=course,
+                status="completed",
+                rating__isnull=False
+            )
+            .aggregate(
+                average_rating=models.Avg("rating"),
+                total_ratings=models.Count("rating")
+            )
+        )
+
+        course_data["ratings"] = rating_stats
+
+        profile_ids = CourseEnrollment.objects.filter(
+            course=course
+        ).values_list("trainee_profile_id", flat=True)
+
+        students_count = Trainee.objects.filter(
+            profile_id__in=profile_ids
+        ).distinct().count()
+
+        course_data["students_enrolled"] = students_count
+
+
+        # 8️⃣ Response
         return Response(course_data)
 
 class LessonsView(ViewSet):
