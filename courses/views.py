@@ -270,9 +270,9 @@ class CoursesView(ViewSet):
         # This fixes your serialization bug
         course_data["lessons"] = CourseLessonSerializer(lessons, many=True).data
 
-        if not enrollment:
+        if not enrollment and course.trainer_profile.pk != trainee_id:
             course_data["lessons_details"] = []
-        elif enrollment.status in ["in_progress", "completed"]:
+        elif enrollment.status in ["in_progress", "completed"] or course.trainer_profile.pk == trainee_id:
             lessons_details = []
             for lesson in lessons:
                 lesson_data = CourseLessonSerializer(lesson).data
