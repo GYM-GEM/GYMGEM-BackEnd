@@ -316,15 +316,6 @@ class LessonsView(ViewSet):
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
         try:
-            profile_id = get_profile_id_from_token(request)
-            trainer = Profile.objects.get(pk=profile_id)
-            print(
-                trainer,
-                "++++++++++",
-                request.user.pk,
-                "++++++++++",
-                course.trainer_profile,
-            )
             CourseValidator.validate_course_belongs_to_trainer(course, request)
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
