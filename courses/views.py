@@ -777,7 +777,8 @@ class CourseEnrollmentsView(ViewSet):
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
         
         enrollments = CourseEnrollment.objects.filter(
-            trainee_profile=trainee_profile  
+            trainee_profile=trainee_profile,
+            status__in=['in_progress', 'completed']
         ).select_related(
             'course',
             'course__trainer_profile',
@@ -830,10 +831,20 @@ class CourseEnrollmentsView(ViewSet):
         # Serialize enrollments
         enrollments_data = CourseEnrollmentSerializer(enrollments, many=True).data
         
-        return Response({
-            "enrollments": enrollments_data,
-            "courses": courses_data
-        }, status=status.HTTP_200_OK)
+        # Create mapping of course data by course_id for easy lookup
+        course_map = {course['id']: course for course in courses_data}
+        
+        # Merge enrollment with its course data
+        result = []
+        for enrollment in enrollments_data:
+            course_id = enrollment['course']
+            combined = {
+                **enrollment,
+                'course_details': course_map.get(course_id, None)
+            }
+            result.append(combined)
+        
+        return Response(result, status=status.HTTP_200_OK)
 
 
 
