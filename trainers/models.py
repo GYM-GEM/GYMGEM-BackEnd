@@ -12,8 +12,9 @@ class Trainer(models.Model):
         Profile, on_delete=models.CASCADE, primary_key=True
     )
     name = models.CharField(max_length=100)
-    profile_picture = models.ImageField(
-        upload_to="trainer_profiles/", blank=True, null=True
+    profile_picture = models.URLField(
+        max_length=500, blank=True, null=True,
+        help_text="Link to the trainer's profile picture"
     )
     gender = models.CharField(
         max_length=10, choices=[("male", "Male"), ("female", "Female")], default="male"
