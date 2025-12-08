@@ -1,8 +1,9 @@
 from django.urls import path
-from .views import TrainerCalendarSlotView, TrainerView , TrainerUpdateView , TrainerSpecializationView, TrainerSpecializationUpdateView, TrainerExperienceUpdateView, TrainerExperienceView
+from .views import TrainerCalendarSlotView, TrainerView , TrainerUpdateView , TrainerSpecializationView, TrainerSpecializationUpdateView, TrainerExperienceUpdateView, TrainerExperienceView, TrainerListView
 
 urlpatterns = [
-    path('create', TrainerView.as_view(), name='trainer-list'),
+    path('create', TrainerView.as_view(), name='trainer'),
+    path('list', TrainerListView.as_view(), name='trainer-list'),
     path('update/<int:trainer_id>', TrainerUpdateView.as_view(), name='trainer-detail'),
     path('specializations', TrainerSpecializationView.as_view(), name='trainer-specializations'),
     path('specializations/<int:specialization_id>', TrainerSpecializationUpdateView.as_view(), name='trainer-specialization-detail'),

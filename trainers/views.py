@@ -1,4 +1,5 @@
 from time import timezone
+from django.db.models import Prefetch  # add at top
 
 from authenticationAndAuthorization.permissions import HasRole
 from profiles.models import Profile
@@ -49,7 +50,21 @@ class TrainerView(APIView):
             my_profile = Profile.objects.get(pk=profile_id)
             trainer = Trainer.objects.get(profile_id=my_profile)
             serializer = TrainerSerializer(trainer)
-            return Response(serializer.data)
+            specializations = TrainerSpecialization.objects.filter(trainer=trainer).select_related(
+                'specialization'
+            )
+            experiences = TrainerExperience.objects.filter(trainer=trainer).select_related(
+                'trainer'
+            )
+            calendar_slots = TrainerCalendarSlot.objects.filter(trainer=trainer).select_related(
+                'trainer'
+            )
+            return Response({
+                "trainer": serializer.data,
+                "specializations": TrainerSpecializationSerializer(specializations, many=True).data,
+                "experiences": TrainerExperienceSerializer(experiences, many=True).data,
+                "calendar_slots": TrainerCalendarSlotSerializer(calendar_slots, many=True).data,
+            })
         except Trainer.DoesNotExist:
             return Response({"error": "Trainer not found"}, status=404)
         except Profile.DoesNotExist:
@@ -57,7 +72,7 @@ class TrainerView(APIView):
 
 
 
-class TrainerList(APIView):
+class TrainerListView(APIView):
     permission_classes = [HasRole(["trainer", "trainee"])]
 
     @extend_schema(
@@ -66,16 +81,40 @@ class TrainerList(APIView):
         responses=TrainerSerializer(many=True),
     )
     def get(self, request):
-        trainers = Trainer.objects.all().select_related(
-            'profile_id',  # ForeignKey - use select_related
-            'profile_id__account'  # Nested FK
+        trainers = Trainer.objects.select_related(
+            "profile_id",
+            "profile_id__account",
         ).prefetch_related(
-            'trainerspecialization_set',  # ManyToMany or reverse FK
-            'trainerexperience_set',
-            'trainercalendarslot_set'
+            Prefetch(
+                "trainerspecialization_set",
+                queryset=TrainerSpecialization.objects.select_related("specialization"),
+            ),
+            Prefetch(
+                "trainerexperience_set",
+                queryset=TrainerExperience.objects.select_related("trainer"),
+            ),
+            Prefetch(
+                "trainercalendarslot_set",
+                queryset=TrainerCalendarSlot.objects.select_related("trainer"),
+            ),
         )
-        serializer = TrainerSerializer(trainers, many=True)
-        return Response(serializer.data)
+
+        trainers_data = []
+        for trainer in trainers:
+            base = TrainerSerializer(trainer).data
+            base["id"] = trainer.pk  # ensure id is present
+            base["specializations"] = TrainerSpecializationSerializer(
+                trainer.trainerspecialization_set.all(), many=True
+            ).data
+            base["experiences"] = TrainerExperienceSerializer(
+                trainer.trainerexperience_set.all(), many=True
+            ).data
+            base["calendar_slots"] = TrainerCalendarSlotSerializer(
+                trainer.trainercalendarslot_set.all(), many=True
+            ).data
+            trainers_data.append(base)
+
+        return Response(trainers_data)
 
 
 class TrainerUpdateView(APIView):
