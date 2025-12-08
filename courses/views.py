@@ -289,9 +289,9 @@ class CoursesView(ViewSet):
         lessons = course.lessons.all()
         course_data["lessons"] = CourseLessonSerializer(lessons, many=True).data
         
-        if not enrollment and course.trainer_profile.pk != trainee_id:
+        if (not enrollment) and course.trainer_profile.pk != trainee_id:
             course_data["lessons_details"] = []
-        elif enrollment.status in ["in_progress", "completed"] or course.trainer_profile.pk == trainee_id:
+        elif course.trainer_profile.pk == trainee_id or enrollment.status in ["in_progress", "completed"]:
             lessons_details = []
             for lesson in lessons:
                 lesson_data = CourseLessonSerializer(lesson).data
