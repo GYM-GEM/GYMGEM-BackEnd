@@ -253,7 +253,23 @@ class CoursesView(ViewSet):
     )
     def get_course_detail(self, request, pk=None):
         try:
-            course = Course.objects.get(pk=pk)
+            # Fetch course with all related data in one go
+            course = Course.objects.select_related(
+                'trainer_profile',
+                'category',
+                'level',
+                'language'
+            ).prefetch_related(
+                Prefetch(
+                    'lessons',
+                    queryset=CourseLesson.objects.prefetch_related(
+                        Prefetch(
+                            'sections',
+                            queryset=LessonSection.objects.order_by('order', 'id')
+                        )
+                    ).order_by("order", "id")
+                )
+            ).get(pk=pk)
         except Course.DoesNotExist:
             return Response(
                 {"error": f"Course with id {pk} does not exist"},
@@ -266,22 +282,10 @@ class CoursesView(ViewSet):
             trainee_profile=trainee_id
         ).first()
 
-
         course_data = CourseSerializer(course).data
 
-        lessons = (
-            course.lessons
-            .all()
-            .order_by("order", "id")
-            .prefetch_related(
-                Prefetch(
-                    'sections',
-                    queryset=LessonSection.objects.order_by('order', 'id')
-                )
-            )
-        )
-
-        # This fixes your serialization bug
+        # Use prefetched lessons (no additional query)
+        lessons = course.lessons.all()
         course_data["lessons"] = CourseLessonSerializer(lessons, many=True).data
 
         if not enrollment and course.trainer_profile.pk != trainee_id:
@@ -290,6 +294,7 @@ class CoursesView(ViewSet):
             lessons_details = []
             for lesson in lessons:
                 lesson_data = CourseLessonSerializer(lesson).data
+                # Use prefetched sections (no additional query)
                 lesson_data["sections"] = LessonSectionSerializer(
                     lesson.sections.all().order_by("order", "id"),
                     many=True
@@ -298,33 +303,35 @@ class CoursesView(ViewSet):
 
             course_data["lessons_details"] = lessons_details
 
-        # 6️⃣ Ratings (optimized at DB-level)
-        rating_stats = (
-            CourseEnrollment.objects.filter(
-                course=course,
-                status="completed",
-                rating__isnull=False
-            )
-            .aggregate(
-                average_rating=models.Avg("rating"),
-                total_ratings=models.Count("rating")
-            )
+        # Ratings
+        rating_stats = CourseEnrollment.objects.filter(
+            course=course,
+            status="completed",
+            rating__isnull=False
+        ).aggregate(
+            average_rating=models.Avg("rating"),
+            total_ratings=models.Count("rating")
         )
-
         course_data["ratings"] = rating_stats
 
-        profile_ids = CourseEnrollment.objects.filter(
+        # Total duration - aggregate in single query
+        total_duration = CourseLesson.objects.filter(
             course=course
-        ).values_list("trainee_profile_id", flat=True)
+        ).aggregate(total=Sum('duration'))['total']
+        
+        course_data["total_duration"] = (
+            int(total_duration.total_seconds()) if total_duration else 0
+        )
 
+        # Students enrolled
         students_count = Trainee.objects.filter(
-            profile_id__in=profile_ids
+            profile_id__in=CourseEnrollment.objects.filter(
+                course=course
+            ).values_list("trainee_profile_id", flat=True)
         ).distinct().count()
 
         course_data["students_enrolled"] = students_count
 
-
-        # 8️⃣ Response
         return Response(course_data)
 
 class LessonsView(ViewSet):
