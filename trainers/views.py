@@ -66,7 +66,14 @@ class TrainerList(APIView):
         responses=TrainerSerializer(many=True),
     )
     def get(self, request):
-        trainers = Trainer.objects.all()
+        trainers = Trainer.objects.all().select_related(
+            'profile_id',  # ForeignKey - use select_related
+            'profile_id__account'  # Nested FK
+        ).prefetch_related(
+            'trainerspecialization_set',  # ManyToMany or reverse FK
+            'trainerexperience_set',
+            'trainercalendarslot_set'
+        )
         serializer = TrainerSerializer(trainers, many=True)
         return Response(serializer.data)
 
@@ -179,7 +186,10 @@ class TrainerSpecializationView(APIView):
         responses={200: TrainerSpecializationSerializer(many=True)},
     )
     def get(self, request):
-        specializations = TrainerSpecialization.objects.all()
+        specializations = TrainerSpecialization.objects.all().select_related(
+            'trainer',
+            'trainer__profile_id'
+        )
         serializer = TrainerSpecializationSerializer(specializations, many=True)
         return Response(serializer.data)
 
@@ -308,7 +318,10 @@ class TrainerExperienceView(APIView):
         responses={200: TrainerExperienceSerializer(many=True)},
     )
     def get(self, request):
-        experiences = TrainerExperience.objects.all()
+        experiences = TrainerExperience.objects.all().select_related(
+            'trainer',
+            'trainer__profile_id'
+        )
         serializer = TrainerExperienceSerializer(experiences, many=True)
         return Response(serializer.data)
 

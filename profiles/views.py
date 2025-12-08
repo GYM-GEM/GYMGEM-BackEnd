@@ -19,7 +19,7 @@ class ProfileView(APIView):
         responses={200: ProfileSerializer(many=True)}
     )
     def get(self, request):
-        profiles = Profile.objects.all()
+        profiles = Profile.objects.all().select_related('account')
         serializer = ProfileSerializer(profiles, many=True)
         return Response(serializer.data)
     

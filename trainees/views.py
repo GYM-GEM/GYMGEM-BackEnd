@@ -7,7 +7,10 @@ from .serializers import TraineeSerializer
 class TraineeView(APIView):
     
     def get(self, request):
-        trainees = Trainee.objects.all()
+        trainees = Trainee.objects.all().select_related(
+            'profile_id',
+            'profile_id__account'
+        )
         serializer = TraineeSerializer(trainees, many=True)
         return Response(serializer.data)
 

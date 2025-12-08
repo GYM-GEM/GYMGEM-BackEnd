@@ -80,13 +80,17 @@ class ConversationViewSet(viewsets.ModelViewSet):
         Filter conversations to only show those where the user is a participant.
         Supports optional search parameter to filter by participant username.
         """
-        queryset = Conversation.objects.filter(participants=self.request.user)
+        queryset = Conversation.objects.filter(
+            participants=self.request.user
+        ).prefetch_related(
+            'messages',  # Fetch all messages in one query
+            'messages__sender',  # Fetch senders in one query
+            'participants'  # Fetch participants in one query
+        )
         
         # Optional search by participant username
         search = self.request.query_params.get('search', None)
         if search:
-            # Search for conversations where OTHER participants' usernames contain the search term
-            # This finds conversations with the current user AND another user matching the search
             queryset = queryset.filter(
                 Q(participants__username__icontains=search) & 
                 ~Q(participants__username=self.request.user.username)
@@ -375,8 +379,18 @@ class MessageViewSet(viewsets.ModelViewSet):
         """
         Filter messages to only show those in conversations where the user is a participant.
         """
-        user_conversations = Conversation.objects.filter(participants=self.request.user)
-        return Message.objects.filter(conversation__in=user_conversations)
+        user_conversations = Conversation.objects.filter(
+            participants=self.request.user
+        ).values_list('id', flat=True)  # Only get IDs
+    
+        return Message.objects.filter(
+            conversation_id__in=user_conversations
+        ).select_related(
+            'sender',
+            'conversation'
+        ).prefetch_related(
+            'conversation__participants'
+        )
 
     @extend_schema(
         tags=['Chat'],
@@ -546,3 +560,41 @@ class MessageViewSet(viewsets.ModelViewSet):
         return Response({
             'status': 'message deleted successfully'
         }, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        tags=['Chat'],
+        summary="Get unread messages count",
+        description="Retrieve the count of unread messages in a conversation. Excludes messages sent by the requesting user.",
+        responses={
+            200: {
+                'type': 'object',
+                'properties': {
+                    'unread_count': {
+                        'type': 'integer',
+                        'example': 3
+                    }
+                }
+            }
+        },
+        examples=[
+            OpenApiExample(
+                'Success Response',
+                value={'unread_count': 3},
+                response_only=True,
+            ),
+        ],
+    )
+    @action(detail=True, methods=['get'])
+    def get_unread_messages_count(self, request, pk=None):
+        conversation = self.get_object()
+        # Use aggregate for count - single query
+        from django.db.models import Count
+        
+        unread_count = Message.objects.filter(
+            conversation=conversation,
+            is_read=False
+        ).exclude(sender=request.user).aggregate(
+            count=Count('id')
+        )['count'] or 0
+        
+        return Response({'unread_count': unread_count})

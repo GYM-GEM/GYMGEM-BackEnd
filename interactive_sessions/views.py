@@ -37,7 +37,15 @@ class InteractiveSessionView(viewsets.ModelViewSet):
     partial_update: Partially update an interactive session (trainer only).
     destroy: Delete an interactive session (trainer only).
     """
-    queryset = InteractiveSession.objects.all().order_by('id')
+    queryset = InteractiveSession.objects.all().select_related(
+        'scheduled_at',
+        'scheduled_at__trainer'  # If TrainerCalendarSlot has trainer FK
+    ).prefetch_related(
+        'first_participant',  # ManyToMany
+        'second_participant',  # ManyToMany
+        'first_participant__account',
+        'second_participant__account'
+    ).order_by('id')
     serializer_class = InteractiveSessionSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = InteractiveSessionPagination

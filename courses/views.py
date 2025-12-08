@@ -1,4 +1,4 @@
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from django.db import models
 from rest_framework.viewsets import ViewSet
 from profiles.models import Profile
@@ -95,7 +95,7 @@ class CoursesView(ViewSet):
             for trainer in Trainer.objects.filter(profile_id__in=trainer_profile_ids).only('profile_id', 'name')
         }
 
-        # Create a mapping of annotated data by course ID
+        # Create a mapping of annotated data to each course ID
         annotated_data = {
             course.id: {
                 'total_duration': course.total_duration or 0,
@@ -141,12 +141,21 @@ class CoursesView(ViewSet):
         except Profile.DoesNotExist:
             return Response({"error": "Trainer profile not found."}, status=status.HTTP_404_NOT_FOUND)
         
-        queryset = Course.objects.filter(trainer_profile=trainer_profile)
-        try:
-            serializer = CourseSerializer(queryset, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except DjangoValidationError as e:
-            return Response({"error": e.message_dict}, status=status.HTTP_400_BAD_REQUEST)
+        queryset = Course.objects.filter(
+            trainer_profile=trainer_profile
+        ).select_related(
+            'trainer_profile',
+            'category',
+            'level',
+            'language'
+        ).annotate(
+            total_duration=Sum('lessons__duration'),
+            lesson_count=Count('lessons', distinct=True),
+            average_rating=Avg('courseenrollment__rating', filter=models.Q(courseenrollment__status='completed')),
+            students_enrolled=Count('courseenrollment__trainee_profile', distinct=True)
+        )
+        serializer = CourseSerializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @extend_schema(
         tags=["Courses"],
@@ -264,7 +273,12 @@ class CoursesView(ViewSet):
             course.lessons
             .all()
             .order_by("order", "id")
-            .prefetch_related("sections")
+            .prefetch_related(
+                Prefetch(
+                    'sections',
+                    queryset=LessonSection.objects.order_by('order', 'id')
+                )
+            )
         )
 
         # This fixes your serialization bug
@@ -338,7 +352,9 @@ class LessonsView(ViewSet):
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
         try:
-            lessons = CourseLesson.objects.filter(course=course).order_by('order')
+            lessons = CourseLesson.objects.filter(
+                course=course
+            ).select_related('course').order_by('order')
             serializer = CourseLessonSerializer(lessons, many=True)
             return Response(serializer.data)
         except ValueError as e:
@@ -672,7 +688,11 @@ class CourseEnrollmentsView(ViewSet):
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
     
-        enrollments = course.enrollments.all()
+        enrollments = course.enrollments.all().select_related(
+            'trainee_profile',
+            'trainee_profile__account',
+            'course'
+        )
         serializer = CourseEnrollmentSerializer(enrollments, many=True)
         return Response(serializer.data)
     
@@ -697,6 +717,13 @@ class CourseEnrollmentsView(ViewSet):
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
         enrollments = CourseEnrollment.objects.filter(
             trainee_profile=trainee_profile  
+        ).select_related(
+            'course',
+            'course__trainer_profile',
+            'course__category',
+            'course__level',
+            'course__language',
+            'trainee_profile'
         )
         serializer = CourseEnrollmentSerializer(enrollments, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
