@@ -763,9 +763,9 @@ class CourseEnrollmentsView(ViewSet):
         try:
             profile_id = get_profile_id_from_token(request)
             trainee_profile = Profile.objects.get(pk=profile_id)
-            CourseValidator.validate_trainee_profile_belongs_to_user(trainee_profile, request)
-        except ValueError as e:
+        except (ValueError, Profile.DoesNotExist) as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        
         enrollments = CourseEnrollment.objects.filter(
             trainee_profile=trainee_profile  
         ).select_related(
@@ -776,14 +776,55 @@ class CourseEnrollmentsView(ViewSet):
             'course__language',
             'trainee_profile'
         )
-        serializer = CourseEnrollmentSerializer(enrollments, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
-        enrollments = CourseEnrollment.objects.filter(
-            course__id=pk, trainee_profile=request.user.trainee_profile
+        
+        # Get course IDs
+        course_ids = list(enrollments.values_list('course_id', flat=True))
+        
+        # Fetch courses with annotations
+        courses = Course.objects.filter(
+            id__in=course_ids
+        ).select_related(
+            'trainer_profile',
+            'category',
+            'level',
+            'language'
+        ).annotate(
+            total_duration=Sum('lessons__duration'),
+            lesson_count=Count('lessons', distinct=True),
+            average_rating=Avg('courseenrollment__rating', filter=models.Q(courseenrollment__status='completed')),
+            total_ratings=Count('courseenrollment__rating', filter=models.Q(courseenrollment__rating__isnull=False), distinct=True),
+            students_enrolled=Count('courseenrollment__trainee_profile', distinct=True, filter=models.Q(courseenrollment__status__in=['in_progress', 'completed']))
         )
-        serializer = CourseEnrollmentSerializer(enrollments, many=True)
-        return Response(serializer.data)
+        
+        # Serialize courses and add annotations
+        courses_data = CourseSerializer(courses, many=True).data
+        
+        # Create mapping of annotated data
+        annotated_data = {
+            course.id: {
+                'total_duration': int(course.total_duration.total_seconds()) if course.total_duration else 0,
+                'lesson_count': course.lesson_count or 0,
+                'average_rating': course.average_rating,
+                'total_ratings': course.total_ratings or 0,
+                'students_enrolled': course.students_enrolled or 0,
+            }
+            for course in courses
+        }
+        
+        # Attach annotations to courses
+        for course_data in courses_data:
+            course_id = course_data['id']
+            if course_id in annotated_data:
+                course_data.update(annotated_data[course_id])
+        
+        # Serialize enrollments
+        enrollments_data = CourseEnrollmentSerializer(enrollments, many=True).data
+        
+        return Response({
+            "enrollments": enrollments_data,
+            "courses": courses_data
+        }, status=status.HTTP_200_OK)
+
 
 
     @extend_schema(

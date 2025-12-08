@@ -53,8 +53,9 @@ class CourseValidator:
         Validates that the given trainee profile belongs to the specified user.
         trainee_profile can be either a Profile object or an ID (int).
         """
-        account = get_account_from_token(request)
-        if not account:
+        try:
+            account = get_account_from_token(request)
+        except Exception as e:
             raise ValueError("User account does not exist.")
 
         # Handle both Profile object and ID
@@ -70,6 +71,8 @@ class CourseValidator:
             raise ValueError(
                 "The trainee profile does not belong to the requested user."
             )
+
+        return True  # <-- ADD THIS LINE
 
     @staticmethod
     def validate_lesson_exists(lesson_id):
