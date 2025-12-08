@@ -89,8 +89,9 @@ class CourseEnrollment(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
     trainee_profile = models.ForeignKey('profiles.Profile', on_delete=models.CASCADE)
     enrollment_date = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=20, choices=[('in_progress', 'In Progress'), ('completed', 'Completed'), ('dropped', 'Dropped')], default='in_progress')
+    status = models.CharField(max_length=20, choices=[('in_progress', 'In Progress'), ('completed', 'Completed'), ('dropped', 'Dropped'),('wishlist', 'Wishlist')], default='in_progress')
     rating = models.PositiveIntegerField(blank=True, null=True, validators=[MinValueValidator(1), MaxValueValidator(100)])
+    review = models.TextField(blank=True, null=True)
     permanent_access = models.BooleanField(default=False)
     due_date = models.DateTimeField(blank=True, null=True)
     def __str__(self):
