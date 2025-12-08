@@ -1,3 +1,4 @@
+from django.utils import timezone 
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 # Create your models here.
@@ -92,7 +93,13 @@ class CourseEnrollment(models.Model):
     status = models.CharField(max_length=20, choices=[('in_progress', 'In Progress'), ('completed', 'Completed'), ('dropped', 'Dropped'),('wishlist', 'Wishlist')], default='in_progress')
     rating = models.PositiveIntegerField(blank=True, null=True, validators=[MinValueValidator(1), MaxValueValidator(100)])
     review = models.TextField(blank=True, null=True)
+    review_date = models.DateTimeField(blank=True, null=True)
     permanent_access = models.BooleanField(default=False)
     due_date = models.DateTimeField(blank=True, null=True)
+    def save(self, *args, **kwargs):
+        if not self.review_date:
+            self.review_date = timezone.now()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"Enrollment of {self.trainee_profile} in Course {self.course.title}"
