@@ -82,7 +82,7 @@ class CoursesView(ViewSet):
             lesson_count=Count('lessons', distinct=True),
             average_rating=Avg('courseenrollment__rating', filter=models.Q(courseenrollment__status='completed')),
             total_ratings=Count('courseenrollment__rating', filter=models.Q(courseenrollment__rating__isnull=False), distinct=True),
-            students_enrolled=Count('courseenrollment__trainee_profile', distinct=True)
+            students_enrolled=Count('courseenrollment__trainee_profile', distinct=True, filter=models.Q(courseenrollment__status__in=['in_progress', 'completed']))
         )
         
         # Serialize courses
@@ -326,7 +326,8 @@ class CoursesView(ViewSet):
         # Students enrolled
         students_count = Trainee.objects.filter(
             profile_id__in=CourseEnrollment.objects.filter(
-                course=course
+                course=course,
+                status__in=["in_progress", "completed"]
             ).values_list("trainee_profile_id", flat=True)
         ).distinct().count()
 
