@@ -698,8 +698,12 @@ class CourseEnrollmentsView(ViewSet):
         
         serializer = CourseEnrollmentSerializer(data={**request.data, "trainee_profile": profile, "course": course.pk, "status": "wishlist"})
         if serializer.is_valid():
-            serializer.save(course=course)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            if CourseEnrollment.objects.filter(course=course, trainee_profile=profile, status='wishlist').exists():
+                CourseEnrollment.objects.filter(course=course, trainee_profile=profile, status='wishlist').delete()
+                return Response({"detail": "course removed from wishlist"}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                serializer.save(course=course)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     @extend_schema(
