@@ -430,14 +430,24 @@ class TokenRenewView(APIView):
     @extend_schema(
         tags=["Authentication"],
         summary="Renew tokens using only refresh token",
-        description="Provide a refresh token to get new access/refresh tokens plus account info.",
-        request={
-            "type": "object",
-            "properties": {
-                "refresh": {"type": "string", "description": "Refresh token"},
-            },
-            "required": ["refresh"],
-        },
+        description="Provide a refresh token in the request headers to get new access/refresh tokens plus account info.",
+        parameters=[
+            OpenApiParameter(
+                name="refresh",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.HEADER,
+                required=True,
+                description="Refresh token to exchange for new tokens",
+            ),
+            OpenApiParameter(
+                name="profile_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Optional profile_id to set in new tokens",
+            ),
+        ],
+        request=None,
         responses={
             200: {
                 "type": "object",

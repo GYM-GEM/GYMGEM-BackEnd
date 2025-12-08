@@ -44,6 +44,24 @@ class TrainerView(APIView):
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
     
+    @extend_schema(
+        tags=["Trainers"],
+        summary="Get trainer profile",
+        description="Retrieve trainer profile with specializations, experiences, and calendar slots by profile_id query param.",
+        parameters=[
+            OpenApiParameter(
+                name="profile_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Profile ID of the trainer",
+            ),
+        ],
+        responses={
+            200: TrainerSerializer,
+            404: {"description": "Trainer or Profile not found"},
+        },
+    )
     def get(self, request):
         try:
             profile_id = request.query_params.get("profile_id", None)
@@ -489,6 +507,14 @@ class TrainerExperienceUpdateView(APIView):
 
 
 class TrainerCalendarSlotView(APIView):
+    @extend_schema(
+        tags=["Trainers"],
+        summary="Create calendar slot",
+        description="Create a new trainer calendar slot.",
+        operation_id="trainers_calendar_slots_create_root",
+        request=TrainerCalendarSlotSerializer,
+        responses={201: TrainerCalendarSlotSerializer, 400: {"description": "Validation error"}},
+    )
     def post(self, request, *args, **kwargs):
         serializer = TrainerCalendarSlotSerializer(
             data=request.data,
@@ -499,6 +525,55 @@ class TrainerCalendarSlotView(APIView):
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
 
+    @extend_schema(
+        tags=["Trainers"],
+        summary="Update calendar slot",
+        description="Partially update a trainer calendar slot.",
+        operation_id="trainers_calendar_slots_partial_update_with_id",
+        parameters=[
+            OpenApiParameter(
+                name="slot_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                required=True,
+                description="Calendar slot ID",
+            )
+        ],
+        request=TrainerCalendarSlotSerializer,
+        responses={200: TrainerCalendarSlotSerializer, 400: {"description": "Validation error"}},
+    )
+    def patch(self, request, slot_id, *args, **kwargs):
+        slot = get_object_or_404(TrainerCalendarSlot, pk=slot_id)
+        serializer = TrainerCalendarSlotSerializer(
+            slot,
+            data=request.data,
+            partial=True,
+            context={"request": request},
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=200)
+        return Response(serializer.errors, status=400)
+
+
+class TrainerCalendarSlotDetailView(APIView):
+    @extend_schema(
+        tags=["Trainers"],
+        summary="Update calendar slot (by ID)",
+        description="Partially update a trainer calendar slot by ID.",
+        operation_id="trainers_calendar_slot_partial_update",
+        parameters=[
+            OpenApiParameter(
+                name="slot_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                required=True,
+                description="Calendar slot ID",
+            )
+        ],
+        request=TrainerCalendarSlotSerializer,
+        responses={200: TrainerCalendarSlotSerializer, 400: {"description": "Validation error"}},
+    )
     def patch(self, request, slot_id, *args, **kwargs):
         slot = get_object_or_404(TrainerCalendarSlot, pk=slot_id)
         serializer = TrainerCalendarSlotSerializer(

@@ -4,6 +4,7 @@ from GymGem import settings
 from accounts.models import Account
 from .models import Category
 from .serializers import CategorySerializer
+from drf_spectacular.utils import extend_schema
 
 
 def get_account_from_token(request):
@@ -84,6 +85,12 @@ def send_verification_email(account, request):
     send_mail(subject, message, from_email, recipient_list)
 
 
+@extend_schema(
+    tags=["Utils"],
+    summary="List categories",
+    description="Return a list of all categories",
+    responses={200: CategorySerializer(many=True)},
+)
 class CategoryListView(generics.ListAPIView):
     """Return a list of all categories."""
 

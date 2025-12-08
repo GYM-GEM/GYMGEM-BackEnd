@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import TrainerCalendarSlotView, TrainerView , TrainerUpdateView , TrainerSpecializationView, TrainerSpecializationUpdateView, TrainerExperienceUpdateView, TrainerExperienceView, TrainerListView
+from .views import TrainerCalendarSlotView, TrainerCalendarSlotDetailView, TrainerView , TrainerUpdateView , TrainerSpecializationView, TrainerSpecializationUpdateView, TrainerExperienceUpdateView, TrainerExperienceView, TrainerListView
 
 urlpatterns = [
     path('create', TrainerView.as_view(), name='trainer'),
@@ -10,5 +10,5 @@ urlpatterns = [
     path('experiences', TrainerExperienceView.as_view(), name='trainer-experiences'),
     path('experiences/<int:experience_id>', TrainerExperienceUpdateView.as_view(), name='trainer-experience-detail'),
     path('calendar-slots', TrainerCalendarSlotView.as_view(), name='trainer-calendar-slots'),
-    path('calendar-slots/<int:slot_id>', TrainerCalendarSlotView.as_view(), name='trainer-calendar-slot-detail'),
+    path('calendar-slots/<int:slot_id>', TrainerCalendarSlotDetailView.as_view(), name='trainer-calendar-slot-detail'),
 ]

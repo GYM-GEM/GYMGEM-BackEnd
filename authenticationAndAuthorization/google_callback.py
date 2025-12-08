@@ -12,10 +12,38 @@ from rest_framework_simplejwt.token_blacklist.models import (
     BlacklistedToken,
     OutstandingToken,
 )
+from drf_spectacular.utils import extend_schema, OpenApiResponse
 
 
 @permission_classes([AllowAny])
 class GoogleLoginView(APIView):
+    @extend_schema(
+        tags=["Authentication"],
+        summary="Login with Google ID token",
+        description="Exchange a Google OAuth2 ID token for JWT access/refresh tokens and account info.",
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {
+                    "id_token": {"type": "string", "description": "Google OAuth2 ID token"}
+                },
+                "required": ["id_token"]
+            }
+        },
+        responses={
+            200: {
+                "type": "object",
+                "properties": {
+                    "access": {"type": "string"},
+                    "refresh": {"type": "string"},
+                    "multiple_logins": {"type": "boolean"},
+                    "account": {"type": "object"}
+                }
+            },
+            201: OpenApiResponse(description="User created via Google login", response=None),
+            400: OpenApiResponse(description="Invalid or missing ID token"),
+        }
+    )
     def post(self, request):
         token = request.data.get("id_token")
         if not token:

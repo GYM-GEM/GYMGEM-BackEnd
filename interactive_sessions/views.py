@@ -4,8 +4,8 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.pagination import PageNumberPagination
 from interactive_sessions.models import InteractiveSession
 from .serializers import InteractiveSessionSerializer
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
 import django_filters.rest_framework as filters
 
 class InteractiveSessionFilter(filters.FilterSet):
@@ -26,6 +26,52 @@ class InteractiveSessionPagination(PageNumberPagination):
     max_page_size = 100
 
 
+@extend_schema_view(
+    list=extend_schema(
+        tags=["Interactive Sessions"],
+        summary="List interactive sessions",
+        description="Get a list of interactive sessions with optional filtering, searching, and ordering.",
+        parameters=[
+            OpenApiParameter('status', OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description='Filter by status'),
+            OpenApiParameter('first_participant', OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description='Filter by first participant ID'),
+            OpenApiParameter('second_participant', OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description='Filter by second participant ID'),
+            OpenApiParameter('scheduled_slot', OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description='Filter by scheduled slot ID'),
+            OpenApiParameter('created_from', OpenApiTypes.DATETIME, OpenApiParameter.QUERY, required=False, description='Created at from (>=)'),
+            OpenApiParameter('created_to', OpenApiTypes.DATETIME, OpenApiParameter.QUERY, required=False, description='Created at to (<=)'),
+            OpenApiParameter('search', OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description='Search title, description, trainer/trainee name'),
+            OpenApiParameter('ordering', OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description='Order by created_at, updated_at, scheduled_at'),
+        ],
+        responses={200: InteractiveSessionSerializer(many=True)},
+    ),
+    retrieve=extend_schema(
+        tags=["Interactive Sessions"],
+        summary="Retrieve interactive session",
+        responses={200: InteractiveSessionSerializer},
+    ),
+    create=extend_schema(
+        tags=["Interactive Sessions"],
+        summary="Create interactive session (trainer only)",
+        request=InteractiveSessionSerializer,
+        responses={201: InteractiveSessionSerializer, 400: {"description": "Validation error"}},
+    ),
+    update=extend_schema(
+        tags=["Interactive Sessions"],
+        summary="Update interactive session (trainer only)",
+        request=InteractiveSessionSerializer,
+        responses={200: InteractiveSessionSerializer, 400: {"description": "Validation error"}},
+    ),
+    partial_update=extend_schema(
+        tags=["Interactive Sessions"],
+        summary="Partially update interactive session (trainer only)",
+        request=InteractiveSessionSerializer,
+        responses={200: InteractiveSessionSerializer, 400: {"description": "Validation error"}},
+    ),
+    destroy=extend_schema(
+        tags=["Interactive Sessions"],
+        summary="Delete interactive session (trainer only)",
+        responses={204: {"description": "Session deleted"}},
+    ),
+)
 class InteractiveSessionView(viewsets.ModelViewSet):
     """
     ViewSet for managing interactive sessions between trainers and trainees.
@@ -67,45 +113,4 @@ class InteractiveSessionView(viewsets.ModelViewSet):
             perms.insert(0, HasRole(['trainer']))  # remove the trailing ()
         return perms
 
-    @swagger_auto_schema(
-        operation_description="Get a list of interactive sessions",
-        manual_parameters=[
-            openapi.Parameter('status', openapi.IN_QUERY, description="Filter by status", type=openapi.TYPE_STRING),
-            openapi.Parameter('first_participant', openapi.IN_QUERY, description="Filter by first participant ID", type=openapi.TYPE_INTEGER),
-            openapi.Parameter('second_participant', openapi.IN_QUERY, description="Filter by second participant ID", type=openapi.TYPE_INTEGER),
-            openapi.Parameter('search', openapi.IN_QUERY, description="Search in title, description, trainer name, trainee name", type=openapi.TYPE_STRING),
-            openapi.Parameter('ordering', openapi.IN_QUERY, description="Order by: created_at, updated_at, start_time (prefix with '-' for descending)", type=openapi.TYPE_STRING),
-        ]
-    )
-    def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
-
-    @swagger_auto_schema(
-        operation_description="Create a new interactive session (trainer only)"
-    )
-    def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
-
-    @swagger_auto_schema(
-        operation_description="Retrieve a specific interactive session"
-    )
-    def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
-
-    @swagger_auto_schema(
-        operation_description="Update an interactive session (trainer only)"
-    )
-    def update(self, request, *args, **kwargs):
-        return super().update(request, *args, **kwargs)
-
-    @swagger_auto_schema(
-        operation_description="Partially update an interactive session (trainer only)"
-    )
-    def partial_update(self, request, *args, **kwargs):
-        return super().partial_update(request, *args, **kwargs)
-
-    @swagger_auto_schema(
-        operation_description="Delete an interactive session (trainer only)"
-    )
-    def destroy(self, request, *args, **kwargs):
-        return super().destroy(request, *args, **kwargs)
+    # Methods inherit schema from extend_schema_view above.

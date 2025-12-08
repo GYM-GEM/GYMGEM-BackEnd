@@ -236,8 +236,40 @@ SPECTACULAR_SETTINGS = {
         {'name': 'Courses', 'description': 'Course management operations'},
         {'name': 'Trainers', 'description': 'Trainer profile and operations'},
         {'name': 'Profiles', 'description': 'User profile operations'},
+        {'name': 'Trainees', 'description': 'Trainee profile and operations'},
+        {'name': 'Interactive Sessions', 'description': '1:1 interactive session operations'},
+        {'name': 'Utils', 'description': 'Utility endpoints (categories, etc.)'},
     ],
 }
+
+# dj-rest-auth / allauth registration deprecation fixes
+# Configure SIGNUP_FIELDS to avoid deprecated USERNAME_REQUIRED/EMAIL_REQUIRED usage
+REST_AUTH = {
+    'SIGNUP_FIELDS': {
+        'username': {'required': True},
+        'email': {'required': True},
+        'password1': {'required': True},
+        'password2': {'required': True},
+    }
+}
+
+# Suppress noisy third-party deprecation warnings in development
+import warnings
+warnings.filterwarnings(
+    "ignore",
+    message=r".*app_settings\.USERNAME_REQUIRED is deprecated.*",
+    module=r"dj_rest_auth\.registration\.serializers"
+)
+warnings.filterwarnings(
+    "ignore",
+    message=r".*app_settings\.EMAIL_REQUIRED is deprecated.*",
+    module=r"dj_rest_auth\.registration\.serializers"
+)
+warnings.filterwarnings(
+    "ignore",
+    message=r".*allauth\.headless\.tokens\.base\.AbstractTokenStrategy is deprecated.*",
+    module=r"allauth\.headless\.tokens\.base"
+)
 
 SIMPLE_JWT = {
   # It will work instead of the default serializer(TokenObtainPairSerializer).
