@@ -18,6 +18,7 @@ class Trainer(models.Model):
     gender = models.CharField(
         max_length=10, choices=[("male", "Male"), ("female", "Female")], default="male"
     )
+    bio = models.TextField(blank=True, null=True,max_length=500)
     birthdate = models.DateField(default=now)
     country = models.CharField(max_length=100, blank=True, null=True)
     state = models.CharField(max_length=100, blank=True, null=True)

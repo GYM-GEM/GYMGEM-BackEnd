@@ -17,6 +17,7 @@ class TrainerSerializer(serializers.ModelSerializer):
         model = Trainer
         fields = [
             "name",
+            "bio",
             "profile_picture",
             "gender",
             "birthdate",
