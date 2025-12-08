@@ -287,7 +287,7 @@ class CoursesView(ViewSet):
         # Use prefetched lessons (no additional query)
         lessons = course.lessons.all()
         course_data["lessons"] = CourseLessonSerializer(lessons, many=True).data
-
+        
         if not enrollment and course.trainer_profile.pk != trainee_id:
             course_data["lessons_details"] = []
         elif enrollment.status in ["in_progress", "completed"] or course.trainer_profile.pk == trainee_id:
@@ -302,7 +302,7 @@ class CoursesView(ViewSet):
                 lessons_details.append(lesson_data)
 
             course_data["lessons_details"] = lessons_details
-
+        course_data["enrollment"] = enrollment.status if enrollment else None
         # Ratings
         rating_stats = CourseEnrollment.objects.filter(
             course=course,
@@ -849,3 +849,36 @@ class CourseEnrollmentsView(ViewSet):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @extend_schema(
+        tags=["Course Enrollments"],
+        summary="Get wishlist for trainee",
+        description="Get all wishlist courses for the logged-in trainee",
+        responses={200: CourseEnrollmentSerializer(many=True)},
+    )
+    @action(
+        methods=["get"],
+        detail=False,
+        permission_classes=[HasRole(["trainee"])],
+        url_path="my-wishlist",
+    )
+    def get_wishlist_for_trainee(self, request):
+        try:
+            profile_id = get_profile_id_from_token(request)
+            trainee_profile = Profile.objects.get(pk=profile_id)
+            CourseValidator.validate_trainee_profile_belongs_to_user(trainee_profile, request)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        enrollments = CourseEnrollment.objects.filter(
+            trainee_profile=trainee_profile,
+            status="wishlist"
+        ).select_related(
+            'course',
+            'course__trainer_profile',
+            'course__category',
+            'course__level',
+            'course__language',
+            'trainee_profile'
+        )
+        serializer = CourseEnrollmentSerializer(enrollments, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
