@@ -6,7 +6,10 @@ from profiles.models import Profile
 class Store(models.Model):
     profile_id = models.OneToOneField(Profile, on_delete=models.CASCADE, primary_key=True)
     name = models.CharField(max_length=100)
-    profile_picture = models.ImageField(upload_to='store_profiles/', blank=True, null=True)
+    profile_picture = models.URLField(
+        max_length=500, blank=True, null=True,
+        help_text="Link to the store's profile picture"
+    )
     description = models.CharField(max_length=255, blank=True, null=True)
     store_type = models.CharField(max_length=100, choices=[('supplements', 'Supplements'), ('clothes', 'Clothes'), ('both', 'Both')], blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -9,7 +9,10 @@ class Gym(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     description = models.CharField(max_length=255, blank=True, null=True)
-
+    profile_picture = models.URLField(
+        max_length=500, blank=True, null=True,
+        help_text="Link to the gym's profile picture"
+    )
     def __str__(self):
         return f"Gym<{self.name}> for Profile {self.profile_id_id}"
 
