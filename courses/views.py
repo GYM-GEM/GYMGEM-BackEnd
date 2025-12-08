@@ -1,3 +1,4 @@
+from random import random
 from django.db.models import Q, Prefetch
 from django.db import models
 from rest_framework.viewsets import ViewSet
@@ -313,7 +314,14 @@ class CoursesView(ViewSet):
             total_ratings=models.Count("rating")
         )
         course_data["ratings"] = rating_stats
-
+        enrollments_ids = CourseEnrollment.objects.values_list(
+            'id', flat=True
+        ).filter(course=course, status="completed", review__isnull=False,rating__isnull=False)
+        random_ids = random.sample(list(enrollments_ids), 10) if len(enrollments_ids) >10 else enrollments_ids
+        course_data["reviews"] = CourseEnrollment.objects.filter(
+            id__in=random_ids
+        ).values("trainee_profile__account__username", "rating", "review"
+        )
         # Total duration - aggregate in single query
         total_duration = CourseLesson.objects.filter(
             course=course
