@@ -700,7 +700,7 @@ class CourseEnrollmentsView(ViewSet):
         if serializer.is_valid():
             if CourseEnrollment.objects.filter(course=course, trainee_profile=profile, status='wishlist').exists():
                 CourseEnrollment.objects.filter(course=course, trainee_profile=profile, status='wishlist').delete()
-                return Response({"detail": "course removed from wishlist"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"detail": "course removed from wishlist"}, status=status.HTTP_205_RESET_CONTENT)
             else:
                 serializer.save(course=course)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
