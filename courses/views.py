@@ -342,12 +342,10 @@ class CoursesView(ViewSet):
         )
 
         # Students enrolled
-        students_count = Trainee.objects.filter(
-            profile_id__in=CourseEnrollment.objects.filter(
+        students_count = CourseEnrollment.objects.filter(
                 course=course,
                 status__in=["in_progress", "completed"]
-            ).values_list("trainee_profile_id", flat=True)
-        ).distinct().count()
+            ).values_list("trainee_profile_id", flat=True).distinct().count()
 
         course_data["students_enrolled"] = students_count
 
