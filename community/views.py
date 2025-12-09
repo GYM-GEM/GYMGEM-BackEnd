@@ -1,6 +1,6 @@
 from django.shortcuts import render
 
-from community.models import CommunityPost, CommunityComment, CommunityCommentLike
+from community.models import CommunityPost, CommunityComment, CommunityCommentLike, CommunityLike
 from community.serializers import CommunityPostSerializer, CommunityLikeSerializer, CommunityCommentSerializer, CommunityCommentLikeSerializer
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet as viewSet
@@ -40,9 +40,8 @@ class CommunityPostView(viewSet):
     def post(self, request):
         serializer = CommunityPostSerializer(data=request.data, context={"request": request})
         author = get_profile_id_from_token(request)
-        serializer.initial_data['author'] = author
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(author_id=author)
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
 
@@ -160,9 +159,10 @@ class CommunityPostCommentsView(viewSet):
         except CommunityPost.DoesNotExist:
             return Response({"error": "Post not found"}, status=404)
 
-        serializer = CommunityPostSerializer(data=request.data, context={"request": request})
+        serializer = CommunityCommentSerializer(data=request.data, context={"request": request})
+        my_profile = get_profile_id_from_token(request)
         if serializer.is_valid():
-            serializer.save(parent_post=post)
+            serializer.save(post=post, author_id=my_profile)
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
     
@@ -223,7 +223,7 @@ class CommunityPostLikesView(viewSet):
         tags=["Community"],
         summary="Like a community post",
         description="Like a specific community post",
-        responses={200: {"description": "Post liked"}, 404: {"description": "Post not found"}},
+        responses={200: CommunityLikeSerializer, 404: {"description": "Post not found"}},
     )
     def post(self, request, post_id):
         try:
@@ -232,8 +232,9 @@ class CommunityPostLikesView(viewSet):
             return Response({"error": "Post not found"}, status=404)
 
         my_profile = get_profile_id_from_token(request)
-        post.likes.add(my_profile)
-        return Response({"message": "Post liked"}, status=200)
+        like, _created = CommunityLike.objects.get_or_create(post=post, profile_id=my_profile)
+        serializer = CommunityLikeSerializer(like)
+        return Response(serializer.data, status=200)
     
     @extend_schema(
         tags=["Community"],
@@ -246,6 +247,9 @@ class CommunityPostLikesView(viewSet):
             post = CommunityPost.objects.get(id=post_id)
         except CommunityPost.DoesNotExist:
             return Response({"error": "Post not found"}, status=404)
+        my_profile = get_profile_id_from_token(request)
+        CommunityLike.objects.filter(post=post, profile_id=my_profile).delete()
+        return Response({"message": "Post unliked"}, status=200)
 class CommunityPostLikesListView(viewSet):
     permission_classes = [IsAuthenticated]
     @extend_schema(
@@ -271,7 +275,7 @@ class CommunityCommentLikesView(viewSet):
         tags=["Community"],
         summary="Like a comment",
         description="Like a specific comment",
-        responses={200: {"description": "Comment liked"}, 404: {"description": "Comment not found"}},
+        responses={200: CommunityCommentLikeSerializer, 404: {"description": "Comment not found"}},
     )
     def post(self, request, comment_id):
         try:
@@ -280,8 +284,9 @@ class CommunityCommentLikesView(viewSet):
             return Response({"error": "Comment not found"}, status=404)
 
         my_profile = get_profile_id_from_token(request)
-        CommunityCommentLike.objects.get_or_create(comment=comment, profile_id=my_profile)
-        return Response({"message": "Comment liked"}, status=200)
+        like, _created = CommunityCommentLike.objects.get_or_create(comment=comment, profile_id=my_profile)
+        serializer = CommunityCommentLikeSerializer(like)
+        return Response(serializer.data, status=200)
 
     @extend_schema(
         tags=["Community"],
