@@ -39,6 +39,8 @@ class CommunityPostView(viewSet):
     )
     def post(self, request):
         serializer = CommunityPostSerializer(data=request.data, context={"request": request})
+        author = get_profile_id_from_token(request)
+        serializer.initial_data['author'] = author
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=201)
@@ -262,11 +264,6 @@ class CommunityPostLikesListView(viewSet):
         serializer = CommunityLikeSerializer(likes, many=True)
         return Response(serializer.data)
 
-        my_profile = get_profile_id_from_token(request)
-        post.likes.remove(my_profile)
-        return Response({"message": "Post unliked"}, status=200)
-    
-    # Duplicate get removed; handled above
 
 class CommunityCommentLikesView(viewSet):
     permission_classes = [IsAuthenticated]
