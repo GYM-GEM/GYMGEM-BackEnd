@@ -1,5 +1,5 @@
-from time import timezone
 from django.db.models import Prefetch  # add at top
+from decimal import Decimal, InvalidOperation
 
 from authenticationAndAuthorization.permissions import HasRole
 from profiles.models import Profile
@@ -136,19 +136,27 @@ class TrainerListView(APIView):
 
         gender_query = request.query_params.get("gender")
         if gender_query:
-            queryset = queryset.filter(gender=gender_query)
+            queryset = queryset.filter(gender__iexact=gender_query)
 
         min_price = request.query_params.get("min_price")
         if min_price:
-            queryset = queryset.filter(trainerspecialization_set__hourly_rate__gte=min_price)
+            try:
+                min_price_dec = Decimal(min_price)
+                queryset = queryset.filter(trainerspecialization_set__hourly_rate__gte=min_price_dec)
+            except (InvalidOperation, TypeError):
+                pass  # ignore invalid min_price
 
         max_price = request.query_params.get("max_price")
         if max_price:
-            queryset = queryset.filter(trainerspecialization_set__hourly_rate__lte=max_price)
+            try:
+                max_price_dec = Decimal(max_price)
+                queryset = queryset.filter(trainerspecialization_set__hourly_rate__lte=max_price_dec)
+            except (InvalidOperation, TypeError):
+                pass  # ignore invalid max_price
 
         location_query = request.query_params.get("location")
         if location_query:
-            queryset = queryset.filter(trainerspecialization_set__service_location=location_query)
+            queryset = queryset.filter(trainerspecialization_set__service_location__iexact=location_query)
         
         queryset = queryset.distinct()
 
