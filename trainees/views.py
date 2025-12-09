@@ -116,3 +116,5 @@ class TraineeUpdateView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
+    
+    

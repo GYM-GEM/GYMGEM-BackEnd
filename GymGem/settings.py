@@ -79,6 +79,7 @@ INSTALLED_APPS = [
     'courses',
     'chat',
     'interactive_sessions',
+    'community',
 ]
 
 AUTHENTICATION_BACKENDS = [

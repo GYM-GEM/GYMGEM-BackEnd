@@ -426,7 +426,7 @@ class TokenRenewView(APIView):
     Create new JWT tokens without login credentials.
     Requires ONLY a valid refresh token.
     """
-
+    
     @extend_schema(
         tags=["Authentication"],
         summary="Renew tokens using only refresh token",
