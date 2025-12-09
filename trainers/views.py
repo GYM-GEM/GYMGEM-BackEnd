@@ -112,15 +112,15 @@ class TrainerListView(APIView):
             "profile_id__account",
         ).prefetch_related(
             Prefetch(
-                "trainerspecialization",
+                "trainerspecialization_set",
                 queryset=TrainerSpecialization.objects.select_related("specialization"),
             ),
             Prefetch(
-                "trainerexperience",
+                "trainerexperience_set",
                 queryset=TrainerExperience.objects.select_related("trainer"),
             ),
             Prefetch(
-                "trainercalendarslot",
+                "trainercalendarslot_set",
                 queryset=TrainerCalendarSlot.objects.select_related("trainer"),
             ),
         )
@@ -165,13 +165,13 @@ class TrainerListView(APIView):
             base = TrainerSerializer(trainer).data
             base["id"] = trainer.pk  # ensure id is present
             base["specializations"] = TrainerSpecializationSerializer(
-                trainer.trainerspecialization.all(), many=True
+                trainer.trainerspecialization_set.all(), many=True
             ).data
             base["experiences"] = TrainerExperienceSerializer(
-                trainer.trainerexperience.all(), many=True
+                trainer.trainerexperience_set.all(), many=True
             ).data
             base["calendar_slots"] = TrainerCalendarSlotSerializer(
-                trainer.trainercalendarslot.all(), many=True
+                trainer.trainercalendarslot_set.all(), many=True
             ).data
             trainers_data.append(base)
 
