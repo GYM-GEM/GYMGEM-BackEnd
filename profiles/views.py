@@ -1,3 +1,4 @@
+from django.http.response import JsonResponse
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from utils.views import get_account_from_token, get_profile_id_from_token
@@ -100,14 +101,22 @@ class ProfileUpdateView(APIView):
         ],
         responses={204: {'description': 'Profile deleted'}, 404: {'description': 'Profile not found'}}
     )
-    def delete(self, request):
+    def delete(self, request, profile_id):
         try:
             password = request.data.get("password", None)
-            profile_id = get_profile_id_from_token(request)
-            profile = Profile.objects.get(id=profile_id)
+            token_profile_id = get_profile_id_from_token(request)
+            if token_profile_id != profile_id:
+                return Response({"error": "Profile ID from token does not match"}, status=400)
+            profile = Profile.objects.get(pk=profile_id)
             account = get_account_from_token(request)
-            if not account.check_password(password):
-                return Response({"error": "Incorrect password"}, status=400)
+            try:
+                if account.has_usable_password():
+                    password = request.data.get("password", None)
+                    if not account.check_password(password):
+                        return JsonResponse({"error": "Incorrect password"}, status=400)
+            except Account.DoesNotExist:
+                return JsonResponse({"error": "Account not found"}, status=404)
+
             if account.default_profile and account.default_profile.id == profile.id:
                 account.default_profile = account.profiles.exclude(id=profile.id).first()
                 account.save()
