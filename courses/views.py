@@ -77,9 +77,10 @@ class CoursesView(ViewSet):
         if params.get("ordering"):
             queryset = queryset.order_by(params["ordering"])
 
-        # Annotate courses with aggregated data in a single query
+        # Annotate courses with aggregated data.
+        # NOTE: Avoid summing lesson durations here since joins with enrollments
+        # can multiply rows and inflate the sum. We'll compute duration separately.
         queryset = queryset.annotate(
-            total_duration=Sum('lessons__duration'),
             lesson_count=Count('lessons', distinct=True),
             average_rating=Avg('courseenrollment__rating', filter=models.Q(courseenrollment__status='completed')),
             total_ratings=Count('courseenrollment__rating', filter=models.Q(courseenrollment__rating__isnull=False), distinct=True),
@@ -96,10 +97,23 @@ class CoursesView(ViewSet):
             for trainer in Trainer.objects.filter(profile_id__in=trainer_profile_ids).only('profile_id', 'name')
         }
 
+        # Calculate duration separately to avoid inflated sums due to joins
+        course_ids = list(queryset.values_list('id', flat=True))
+        duration_data = (
+            CourseLesson.objects
+            .filter(course_id__in=course_ids)
+            .values('course_id')
+            .annotate(total=Sum('duration'))
+        )
+        duration_map = {d['course_id']: d['total'] for d in duration_data}
+
         # Create a mapping of annotated data to each course ID
         annotated_data = {
             course.id: {
-                'total_duration': course.total_duration or 0,
+                'total_duration': (
+                    int(duration_map.get(course.id).total_seconds())
+                    if duration_map.get(course.id) else 0
+                ),
                 'lesson_count': course.lesson_count or 0,
                 'average_rating': course.average_rating,
                 'total_ratings': course.total_ratings or 0,
