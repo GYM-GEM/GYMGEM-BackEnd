@@ -21,7 +21,6 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from django.shortcuts import get_object_or_404
-from rest_framework.permissions import IsAuthenticated
 
 # Create your views here.
 
@@ -96,10 +95,19 @@ class TrainerListView(APIView):
     @extend_schema(
         tags=["Trainers"],
         summary="List all trainers",
+        description="List all trainers with optional filtering.",
+        parameters=[
+            OpenApiParameter(name="search", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description="Search by trainer name"),
+            OpenApiParameter(name="specialization", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description="Filter by specialization name"),
+            OpenApiParameter(name="gender", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, enum=["male", "female"], description="Filter by gender"),
+            OpenApiParameter(name="min_price", type=OpenApiTypes.DECIMAL, location=OpenApiParameter.QUERY, description="Minimum hourly rate"),
+            OpenApiParameter(name="max_price", type=OpenApiTypes.DECIMAL, location=OpenApiParameter.QUERY, description="Maximum hourly rate"),
+            OpenApiParameter(name="location", type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, enum=["online", "offline", "both"], description="Filter by service location"),
+        ],
         responses=TrainerSerializer(many=True),
     )
     def get(self, request):
-        trainers = Trainer.objects.select_related(
+        queryset = Trainer.objects.select_related(
             "profile_id",
             "profile_id__account",
         ).prefetch_related(
@@ -117,8 +125,35 @@ class TrainerListView(APIView):
             ),
         )
 
+        # Filtering
+        search_query = request.query_params.get("search")
+        if search_query:
+            queryset = queryset.filter(name__icontains=search_query)
+
+        specialization_query = request.query_params.get("specialization")
+        if specialization_query:
+            queryset = queryset.filter(trainerspecialization_set__specialization__name__icontains=specialization_query)
+
+        gender_query = request.query_params.get("gender")
+        if gender_query:
+            queryset = queryset.filter(gender=gender_query)
+
+        min_price = request.query_params.get("min_price")
+        if min_price:
+            queryset = queryset.filter(trainerspecialization_set__hourly_rate__gte=min_price)
+
+        max_price = request.query_params.get("max_price")
+        if max_price:
+            queryset = queryset.filter(trainerspecialization_set__hourly_rate__lte=max_price)
+
+        location_query = request.query_params.get("location")
+        if location_query:
+            queryset = queryset.filter(trainerspecialization_set__service_location=location_query)
+        
+        queryset = queryset.distinct()
+
         trainers_data = []
-        for trainer in trainers:
+        for trainer in queryset:
             base = TrainerSerializer(trainer).data
             base["id"] = trainer.pk  # ensure id is present
             base["specializations"] = TrainerSpecializationSerializer(

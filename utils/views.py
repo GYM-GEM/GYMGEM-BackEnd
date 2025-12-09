@@ -1,3 +1,5 @@
+from utils.serializers import SpecializationSerializer
+from utils.models import Specialization
 import jwt
 from rest_framework import serializers, generics
 from GymGem import settings
@@ -97,3 +99,18 @@ class CategoryListView(generics.ListAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = []
+
+
+@extend_schema(
+    tags=["Utils"],
+    summary="List specializations",
+    description="Return a list of all specializations",
+    responses={200: SpecializationSerializer(many=True)},
+)
+class SpecializationListView(generics.ListAPIView):
+    """Return a list of all specializations."""
+
+    queryset = Specialization.objects.all()
+    serializer_class = SpecializationSerializer
+    permission_classes = []
+
