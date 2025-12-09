@@ -112,15 +112,15 @@ class TrainerListView(APIView):
             "profile_id__account",
         ).prefetch_related(
             Prefetch(
-                "trainerspecialization_set",
+                "trainerspecialization",
                 queryset=TrainerSpecialization.objects.select_related("specialization"),
             ),
             Prefetch(
-                "trainerexperience_set",
+                "trainerexperience",
                 queryset=TrainerExperience.objects.select_related("trainer"),
             ),
             Prefetch(
-                "trainercalendarslot_set",
+                "trainercalendarslot",
                 queryset=TrainerCalendarSlot.objects.select_related("trainer"),
             ),
         )
@@ -132,7 +132,7 @@ class TrainerListView(APIView):
 
         specialization_query = request.query_params.get("specialization")
         if specialization_query:
-            queryset = queryset.filter(trainerspecialization_set__specialization__name__icontains=specialization_query)
+            queryset = queryset.filter(trainerspecialization__specialization__name__icontains=specialization_query)
 
         gender_query = request.query_params.get("gender")
         if gender_query:
@@ -142,7 +142,7 @@ class TrainerListView(APIView):
         if min_price:
             try:
                 min_price_dec = Decimal(min_price)
-                queryset = queryset.filter(trainerspecialization_set__hourly_rate__gte=min_price_dec)
+                queryset = queryset.filter(trainerspecialization__hourly_rate__gte=min_price_dec)
             except (InvalidOperation, TypeError):
                 pass  # ignore invalid min_price
 
@@ -150,13 +150,13 @@ class TrainerListView(APIView):
         if max_price:
             try:
                 max_price_dec = Decimal(max_price)
-                queryset = queryset.filter(trainerspecialization_set__hourly_rate__lte=max_price_dec)
+                queryset = queryset.filter(trainerspecialization__hourly_rate__lte=max_price_dec)
             except (InvalidOperation, TypeError):
                 pass  # ignore invalid max_price
 
         location_query = request.query_params.get("location")
         if location_query:
-            queryset = queryset.filter(trainerspecialization_set__service_location__iexact=location_query)
+            queryset = queryset.filter(trainerspecialization__service_location__iexact=location_query)
         
         queryset = queryset.distinct()
 
@@ -165,13 +165,13 @@ class TrainerListView(APIView):
             base = TrainerSerializer(trainer).data
             base["id"] = trainer.pk  # ensure id is present
             base["specializations"] = TrainerSpecializationSerializer(
-                trainer.trainerspecialization_set.all(), many=True
+                trainer.trainerspecialization.all(), many=True
             ).data
             base["experiences"] = TrainerExperienceSerializer(
-                trainer.trainerexperience_set.all(), many=True
+                trainer.trainerexperience.all(), many=True
             ).data
             base["calendar_slots"] = TrainerCalendarSlotSerializer(
-                trainer.trainercalendarslot_set.all(), many=True
+                trainer.trainercalendarslot.all(), many=True
             ).data
             trainers_data.append(base)
 
