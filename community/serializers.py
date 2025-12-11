@@ -2,6 +2,8 @@ from .models import CommunityPost, CommunityComment, CommunityLike, CommunityCom
 from rest_framework import serializers
 
 class CommunityPostSerializer(serializers.ModelSerializer):
+    # `author` is derived from the authenticated request user (profile)
+    author = serializers.PrimaryKeyRelatedField(read_only=True)
     author_name = serializers.SerializerMethodField(read_only=True)
     comments_count = serializers.SerializerMethodField(read_only=True)
     likes_count = serializers.SerializerMethodField(read_only=True)
@@ -32,8 +34,18 @@ class CommunityPostSerializer(serializers.ModelSerializer):
     def get_author_profile_picture(self, obj):
         profile = getattr(obj, 'author', None)
         return _get_profile_picture(profile)
+    
+    def create(self, validated_data):
+        request = self.context.get('request')
+        if request is None:
+            raise serializers.ValidationError('Request context is required to determine author.')
+        from utils.views import get_profile_id_from_token
+        author_id = get_profile_id_from_token(request)
+        return CommunityPost.objects.create(author_id=author_id, **validated_data)
         
 class CommunityCommentSerializer(serializers.ModelSerializer):
+    # `author` is derived from the authenticated request user (profile)
+    author = serializers.PrimaryKeyRelatedField(read_only=True)
     author_name = serializers.SerializerMethodField(read_only=True)
     author_id = serializers.IntegerField(source='author.id', read_only=True)
     author_profile_picture = serializers.SerializerMethodField(read_only=True)
@@ -49,6 +61,15 @@ class CommunityCommentSerializer(serializers.ModelSerializer):
     def get_author_profile_picture(self, obj):
         profile = getattr(obj, 'author', None)
         return _get_profile_picture(profile)
+    
+    def create(self, validated_data):
+        request = self.context.get('request')
+        if request is None:
+            raise serializers.ValidationError('Request context is required to determine author.')
+        from utils.views import get_profile_id_from_token
+        author_id = get_profile_id_from_token(request)
+        # `post` must be provided either in validated_data or passed via view `.save(post=...)`
+        return CommunityComment.objects.create(author_id=author_id, **validated_data)
         
 class CommunityLikeSerializer(serializers.ModelSerializer):
     profile_name = serializers.SerializerMethodField(read_only=True)
