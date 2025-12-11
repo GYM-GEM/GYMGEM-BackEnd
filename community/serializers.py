@@ -13,7 +13,7 @@ class CommunityPostSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CommunityPost
-        fields = ['id', 'title', 'content', 'author', 'author_id', 'author_name', 'author_profile_picture', 'created_at', 'updated_at', 'comments_count', 'likes_count']
+        fields = ['id', 'title', 'content', 'author', 'author_id', 'author_name', 'author_profile_picture', 'created_at', 'updated_at', 'comments_count', 'likes_count', 'attachment', 'attachment_type']
     
     def get_author_name(self, obj):
         profile = getattr(obj, 'author', None)

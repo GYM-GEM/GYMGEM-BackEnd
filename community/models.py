@@ -5,6 +5,8 @@ class CommunityPost(models.Model):
     title = models.CharField(max_length=200)
     content = models.TextField()
     author = models.ForeignKey('profiles.Profile', on_delete=models.CASCADE)
+    attachment = models.URLField(max_length=500, blank=True, null=True)
+    attachment_type = models.CharField(max_length=20, choices=[('image', 'Image'), ('video', 'Video'), ('document', 'Document'), ('other', 'Other')], blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
