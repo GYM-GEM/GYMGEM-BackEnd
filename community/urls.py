@@ -44,7 +44,6 @@ urlpatterns = [
 
 	# Post likes: like/unlike and list
 	path("posts/<int:post_id>/like/", CommunityPostLikesView.as_view({"post": "post"})),
-	path("posts/<int:post_id>/unlike/", CommunityPostLikesView.as_view({"delete": "delete"})),
 	path("posts/<int:post_id>/likes/", CommunityPostLikesListView.as_view({"get": "get"})),
 
 	# Comment likes: like/unlike and list

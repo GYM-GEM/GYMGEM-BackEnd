@@ -232,24 +232,18 @@ class CommunityPostLikesView(viewSet):
             return Response({"error": "Post not found"}, status=404)
 
         my_profile = get_profile_id_from_token(request)
-        like, _created = CommunityLike.objects.get_or_create(post=post, profile_id=my_profile)
-        serializer = CommunityLikeSerializer(like)
-        return Response(serializer.data, status=200)
-    
-    @extend_schema(
-        tags=["Community"],
-        summary="Unlike a community post",
-        description="Unlike a specific community post",
-        responses={200: {"description": "Post unliked"}, 404: {"description": "Post not found"}},
-    )
-    def delete(self, request, post_id):
         try:
-            post = CommunityPost.objects.get(id=post_id)
-        except CommunityPost.DoesNotExist:
-            return Response({"error": "Post not found"}, status=404)
-        my_profile = get_profile_id_from_token(request)
-        CommunityLike.objects.filter(post=post, profile_id=my_profile).delete()
-        return Response({"message": "Post unliked"}, status=200)
+            if CommunityLike.objects.filter(post=post, profile_id=my_profile).exists():
+                CommunityLike.objects.filter(post=post, profile_id=my_profile).delete()
+                return Response({"message": "Post unliked"}, status=400)
+            else:
+                like, _created = CommunityLike.objects.get_or_create(post=post, profile_id=my_profile)
+                serializer = CommunityLikeSerializer(like)
+                return Response(serializer.data, status=200)
+        except CommunityLike.DoesNotExist:
+            pass
+
+
 class CommunityPostLikesListView(viewSet):
     permission_classes = [IsAuthenticated]
     @extend_schema(
