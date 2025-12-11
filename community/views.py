@@ -235,7 +235,7 @@ class CommunityPostLikesView(viewSet):
         try:
             if CommunityLike.objects.filter(post=post, profile_id=my_profile).exists():
                 CommunityLike.objects.filter(post=post, profile_id=my_profile).delete()
-                return Response({"message": "Post unliked"}, status=400)
+                return Response({"message": "Post unliked"}, status=204)
             else:
                 like, _created = CommunityLike.objects.get_or_create(post=post, profile_id=my_profile)
                 serializer = CommunityLikeSerializer(like)
