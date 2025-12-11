@@ -17,12 +17,26 @@ class CommunityPostView(viewSet):
         responses={200: CommunityPostSerializer(many=True)},
     )
     def get(self, request):
-        from django.db.models import Count
+        from django.db.models import Count, Q
+        
+        # Get search query from request parameters
+        search_query = request.query_params.get('search', '').strip()
+        
+        posts = CommunityPost.objects.all()
+        
+        # Apply search filter if search query exists
+        if search_query:
+            posts = posts.filter(
+                Q(content__icontains=search_query) |
+                Q(title__icontains=search_query) 
+            )
+        
         posts = (
-            CommunityPost.objects.all()
+            posts
             .select_related('author__account')
             .order_by('-created_at')
         )
+        
         comments = CommunityComment.objects.filter(post_id__in=posts.values_list('id', flat=True)).values('post_id').annotate(count=Count('id'))
         likes = CommunityLike.objects.filter(post_id__in=posts.values_list('id', flat=True)).values('post_id').annotate(count=Count('id'))
         comments_count_map = {item['post_id']: item['count'] for item in comments}
