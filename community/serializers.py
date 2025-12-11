@@ -1,6 +1,7 @@
 from .models import CommunityPost, CommunityComment, CommunityLike, CommunityCommentLike
 from rest_framework import serializers
-
+from utils.views import get_profile_id_from_token
+from profiles.models import Profile
 class CommunityPostSerializer(serializers.ModelSerializer):
     # `author` is derived from the authenticated request user (profile)
     author = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -39,11 +40,8 @@ class CommunityPostSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if request is None:
             raise serializers.ValidationError('Request context is required to determine author.')
-        from utils.views import get_profile_id_from_token
-        author_id = get_profile_id_from_token(request)
         try:
-            author_id = int(author_id)
-            post = CommunityPost.objects.create(author_id=author_id, **validated_data)
+            post = CommunityPost.objects.create(**validated_data)
         except (TypeError, ValueError):
             raise serializers.ValidationError('Invalid author profile id from token.')
         return post
@@ -71,14 +69,8 @@ class CommunityCommentSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if request is None:
             raise serializers.ValidationError('Request context is required to determine author.')
-        from utils.views import get_profile_id_from_token
-        author_id = get_profile_id_from_token(request)
-        try:
-            author_id = int(author_id)
-        except (TypeError, ValueError):
-            raise serializers.ValidationError('Invalid author profile id from token.')
         # `post` must be provided either in validated_data or passed via view `.save(post=...)`
-        return CommunityComment.objects.create(author_id=author_id, **validated_data)
+        return CommunityComment.objects.create(**validated_data)
         
 class CommunityLikeSerializer(serializers.ModelSerializer):
     profile_name = serializers.SerializerMethodField(read_only=True)
