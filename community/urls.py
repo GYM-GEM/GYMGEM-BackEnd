@@ -48,7 +48,6 @@ urlpatterns = [
 
 	# Comment likes: like/unlike and list
 	path("comments/<int:comment_id>/like/", CommunityCommentLikesView.as_view({"post": "post"})),
-	path("comments/<int:comment_id>/unlike/", CommunityCommentLikesView.as_view({"delete": "delete"})),
 	path("comments/<int:comment_id>/likes/", CommunityCommentLikesListView.as_view({"get": "get"})),
 ]
 

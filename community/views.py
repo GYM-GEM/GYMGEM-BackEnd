@@ -195,7 +195,7 @@ class CommunityPostCommentDetailView(viewSet):
             comment = CommunityComment.objects.get(id=comment_id, author_id=my_profile)
         except CommunityComment.DoesNotExist:
             return Response({"error": "Comment not found"}, status=404)
-        serializer = CommunityCommentSerializer(comment, data=request.data, context={"request": request})
+        serializer = CommunityCommentSerializer(comment, data={**request.data, "post": comment.post_id}, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
