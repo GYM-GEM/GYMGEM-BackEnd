@@ -21,12 +21,15 @@ class CommunityPostView(viewSet):
         posts = (
             CommunityPost.objects.all()
             .select_related('author__account')
-            .annotate(
-                comments_count=Count('comments'),
-                likes_count=Count('likes')
-            )
             .order_by('-created_at')
         )
+        comments = CommunityComment.objects.filter(post_id__in=posts.values_list('id', flat=True)).values('post_id').annotate(count=Count('id'))
+        likes = CommunityLike.objects.filter(post_id__in=posts.values_list('id', flat=True)).values('post_id').annotate(count=Count('id'))
+        comments_count_map = {item['post_id']: item['count'] for item in comments}
+        likes_count_map = {item['post_id']: item['count'] for item in likes}
+        for post in posts:
+            post.comments_count = comments_count_map.get(post.id, 0)
+            post.likes_count = likes_count_map.get(post.id, 0)
         serializer = CommunityPostSerializer(posts, many=True)
         return Response(serializer.data)
 
