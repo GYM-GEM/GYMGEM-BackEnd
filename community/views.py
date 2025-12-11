@@ -159,7 +159,7 @@ class CommunityPostCommentsView(viewSet):
         except CommunityPost.DoesNotExist:
             return Response({"error": "Post not found"}, status=404)
 
-        serializer = CommunityCommentSerializer(data=request.data, context={"request": request})
+        serializer = CommunityCommentSerializer(data={**request.data, "post": post_id}, context={"request": request})
         my_profile = get_profile_id_from_token(request)
         if serializer.is_valid():
             serializer.save(post=post, author_id=my_profile)
@@ -276,27 +276,17 @@ class CommunityCommentLikesView(viewSet):
             comment = CommunityComment.objects.get(id=comment_id)
         except CommunityComment.DoesNotExist:
             return Response({"error": "Comment not found"}, status=404)
-
-        my_profile = get_profile_id_from_token(request)
-        like, _created = CommunityCommentLike.objects.get_or_create(comment=comment, profile_id=my_profile)
-        serializer = CommunityCommentLikeSerializer(like)
-        return Response(serializer.data, status=200)
-
-    @extend_schema(
-        tags=["Community"],
-        summary="Unlike a comment",
-        description="Unlike a specific comment",
-        responses={200: {"description": "Comment unliked"}, 404: {"description": "Comment not found"}},
-    )
-    def delete(self, request, comment_id):
         try:
-            comment = CommunityComment.objects.get(id=comment_id)
-        except CommunityComment.DoesNotExist:
-            return Response({"error": "Comment not found"}, status=404)
+            if CommunityCommentLike.objects.filter(comment=comment, profile_id=get_profile_id_from_token(request)).exists():
+                CommunityCommentLike.objects.filter(comment=comment, profile_id=get_profile_id_from_token(request)).delete()
+                return Response({"message": "Comment unliked"}, status=204)
+            else:
+                like, _created = CommunityCommentLike.objects.get_or_create(comment=comment, profile_id=get_profile_id_from_token(request))
+                serializer = CommunityCommentLikeSerializer(like)
+                return Response(serializer.data, status=200)
+        except CommunityCommentLike.DoesNotExist:
+            return Response({"error": "Like operation failed"}, status=400)
 
-        my_profile = get_profile_id_from_token(request)
-        CommunityCommentLike.objects.filter(comment=comment, profile_id=my_profile).delete()
-        return Response({"message": "Comment unliked"}, status=200)
 
 class CommunityCommentLikesListView(viewSet):
     permission_classes = [IsAuthenticated]
