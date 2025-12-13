@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from accounts.models import Account
-from .models import Store, StoreBranch, StoreItem, StoreItemSize, Order, OrderItem, StoreItemSizeInventory
+from .models import Store, StoreBranch, StoreItem, StoreItemSize, Order, OrderItem
 from profiles.models import Profile
 
 class StoreSerializer(serializers.ModelSerializer):
@@ -218,9 +218,6 @@ class OrderSerializer(serializers.ModelSerializer):
         instance.full_clean()
         instance.save()
         return instance
-
-
-# ============ Order Item Add Serializer ============
 
 class AddOrderItemSerializer(serializers.Serializer):
     """Used to add items to an existing order."""

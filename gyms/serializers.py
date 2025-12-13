@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Gym
+from .models import Gym, Gym_branch
 from profiles.models import Profile
 from accounts.models import Account
 
@@ -62,9 +62,9 @@ class GymBranchSerializer(serializers.ModelSerializer):
     gym_id = serializers.IntegerField(write_only=True)
 
     class Meta:
-        model = Gym.Branch
-        fields = ['gym_id', 'country', 'state', 'street', 'zip_code', 'created_at', 'updated_at']
-        read_only_fields = ['created_at', 'updated_at']
+        model = Gym_branch
+        fields = ['id', 'gym_id', 'country', 'state', 'street', 'zip_code', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
     def validate_gym_id(self, value):
         try:
@@ -76,8 +76,18 @@ class GymBranchSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         gym_id = validated_data.pop("gym_id")
         gym = Gym.objects.get(pk=gym_id)
-        branch = Gym.Branch(gym=gym, **validated_data)
+        branch = Gym_branch(gym_id=gym, **validated_data)
         branch.full_clean()
+        branch.save()
+        return branch
+
+    def update(self, instance, validated_data):
+        validated_data.pop("gym_id", None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.full_clean()
+        instance.save()
+        return instance
         branch.save()
         return branch
 
