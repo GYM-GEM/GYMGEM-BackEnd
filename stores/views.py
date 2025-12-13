@@ -100,9 +100,24 @@ class StoreBranchView(APIView):
     def post(self, request):
         serializer = StoreBranchSerializer(data=request.data)
         if serializer.is_valid():
+            store_id = serializer.validated_data.get('store_id')
+            #  Get the Store object to check ownership
+            try:
+                store = Store.objects.get(id=store_id.id) 
+            except Store.DoesNotExist:
+                return Response({"detail": "Store not found."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check if the current user owns that store
+            if not self._is_owner(request.user, store):
+                return Response({"detail": "Permission denied. You do not own this store."}, status=status.HTTP_403_FORBIDDEN)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def _is_owner(self, user, store):
+        if not user or not user.is_authenticated:
+            return False
+        return store.profile_id.account.id == user.id
     
 class StoreBranchUpdateView(APIView):
     def put(self, request, branch_id):

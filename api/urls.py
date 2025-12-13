@@ -10,4 +10,5 @@ urlpatterns = [
     path("interactive-sessions/", include("interactive_sessions.urls")),
     path("trainees/", include("trainees.urls")),
     path("utils/", include("utils.urls")),
+    path("stores/", include("stores.urls")),
 ]

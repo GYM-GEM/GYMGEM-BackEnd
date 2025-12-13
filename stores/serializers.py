@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from accounts.models import Account
-from .models import Store, StoreBranch, StoreItem, StoreItemSize, Order, OrderItem
+from .models import Store, StoreBranch, StoreItem,StoreItemInventory, StoreItemSize, Order, OrderItem
 from profiles.models import Profile
 
 class StoreSerializer(serializers.ModelSerializer):
@@ -106,8 +106,22 @@ class StoreItemSizeSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'created_at']
         read_only_fields = ['created_at']
 
+class StoreItemInventorySerializer(serializers.ModelSerializer):
+    size_name = serializers.CharField(source='size_id.name', read_only=True)
+
+    class Meta:
+        model = StoreItemInventory
+        fields = ['id', 'store_item_id', 'size_id', 'size_name', 'quantity', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate_quantity(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Quantity cannot be negative.")
+        return value
+    
 class StoreItemSerializer(serializers.ModelSerializer):
     account_id = serializers.IntegerField(write_only=True)
+    inventory = StoreItemInventorySerializer(source='storeiteminventory_set', many=True, read_only=True)
     total_quantity = serializers.SerializerMethodField()
 
     class Meta:
@@ -115,9 +129,9 @@ class StoreItemSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'account_id', 'store_id', 'branch_id', 'name', 'description',
             'price', 'category', 'brand', 'expiration_date',
-            'size_inventory', 'total_quantity', 'created_at', 'updated_at'
+            'inventory', 'total_quantity', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'size_inventory', 'total_quantity']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'inventory', 'total_quantity']
 
     def get_total_quantity(self, obj):
         return obj.get_total_quantity()
