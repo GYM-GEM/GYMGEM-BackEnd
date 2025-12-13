@@ -265,6 +265,7 @@ class SwitchProfileView(APIView):
 
         access = refresh.access_token
         access["current_profile"] = profile.pk
+        access["account_id"] = user.pk
 
         return Response(
             {"access": str(access), "refresh": str(refresh)}, status=status.HTTP_200_OK
