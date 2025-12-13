@@ -43,6 +43,7 @@ def HasRole(allowed_roles):
             print('pl', payload)
             print(profile)
             print(allowed_roles)
+            print("print:", user_role)
             return bool(user_role in allowed_roles)
 
     return _HasRole

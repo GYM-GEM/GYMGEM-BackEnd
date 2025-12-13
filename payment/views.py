@@ -9,7 +9,7 @@ from .models import Payment
 from utils.views import PaymobService, get_profile_id_from_token
 from profiles.models import Profile
 
-@permission_classes([HasRole(["Trainee","Trainer"])])
+@permission_classes([HasRole(["trainee","trainer"])])
 class StartPaymentAPIView(APIView):
     @extend_schema(
         tags=["Payment"],
