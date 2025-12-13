@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+	CommunityHashTagView,
 	CommunityPostView,
 	CommunityPostUpdateView,
 	CommunityPostDetailView,
@@ -17,6 +18,7 @@ from .views import (
 urlpatterns = [
 	# Posts list/create
 	path("posts/", CommunityPostView.as_view({"get": "get", "post": "post"})),
+	path("posts/trending-hashtags/", CommunityHashTagView.as_view({"get": "get"})),
 
 	# Post detail
 	path("posts/<int:post_id>/", CommunityPostDetailView.as_view({"get": "get"})),

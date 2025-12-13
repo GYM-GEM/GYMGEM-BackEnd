@@ -1,5 +1,8 @@
-from django.shortcuts import render
-
+from collections import Counter
+from datetime import time, timedelta
+from django.utils import timezone
+import re
+from django.db.models import Q, Count, F
 from community.models import CommunityPost, CommunityComment, CommunityCommentLike, CommunityLike
 from community.serializers import CommunityPostSerializer, CommunityLikeSerializer, CommunityCommentSerializer, CommunityCommentLikeSerializer
 from rest_framework.response import Response
@@ -17,7 +20,6 @@ class CommunityPostView(viewSet):
         responses={200: CommunityPostSerializer(many=True)},
     )
     def get(self, request):
-        from django.db.models import Count, Q
         
         # Get search query from request parameters
         search_query = request.query_params.get('search', '').strip()
@@ -61,6 +63,54 @@ class CommunityPostView(viewSet):
             serializer.save(author_id=author)
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
+
+class CommunityHashTagView(viewSet):
+    permission_classes = [IsAuthenticated]
+    @extend_schema(
+        tags=["Community"],
+        summary="List top hashtags",
+        description="Retrieve top hashtags used in community posts",
+        responses={200: {"type": "array", "items": {"type": "string"}}},
+    )
+    def get(self, request):
+        
+        three_days_ago = timezone.now() - timedelta(days=3)
+
+        posts = CommunityPost.objects.filter(
+            created_at__gte=three_days_ago
+        ).filter(
+            Q(content__isnull=False) & ~Q(content='')
+        ).filter(
+            content__icontains='#'
+        ).only('content')
+        
+        hashtags = []
+
+        for post in posts:
+            tags = re.findall(r'#\w+', post.content.lower())
+            hashtags.extend(tags)
+        trending_hashtags = Counter(hashtags).most_common(10)
+
+        # Top trainers by number of posts in the last 3 days
+        top_trainers = (
+            CommunityPost.objects
+            .filter(
+                created_at__gte=three_days_ago,
+                author__profile_type='trainer'
+            )
+            .values('author_id')
+            .annotate(
+                trainer_name=F('author__trainer__name'),
+                profile_picture=F('author__trainer__profile_picture'),
+                post_count=Count('id')
+            )
+            .order_by('-post_count')[:5]
+        )
+        return Response({
+            'trending_hashtags': trending_hashtags,
+            'top_trainers': list(top_trainers)
+        })
+
 
 class CommunityPostUpdateView(viewSet):
     permission_classes = [IsAuthenticated]
