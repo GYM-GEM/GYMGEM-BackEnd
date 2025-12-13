@@ -261,11 +261,11 @@ class SwitchProfileView(APIView):
 
         # Create new tokens with updated current_profile claim
         refresh = RefreshToken.for_user(user)
+        refresh["account_id"] = user.pk
         refresh["current_profile"] = profile.pk
-
         access = refresh.access_token
-        access["current_profile"] = profile.pk
         access["account_id"] = user.pk
+        access["current_profile"] = profile.pk
 
         return Response(
             {"access": str(access), "refresh": str(refresh)}, status=status.HTTP_200_OK
