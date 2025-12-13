@@ -4,14 +4,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.conf import settings
 from drf_spectacular.utils import extend_schema
-
+from rest_framework.decorators import permission_classes
 from .models import Payment
 from utils.views import PaymobService, get_profile_id_from_token
 from profiles.models import Profile
 
-
+@permission_classes([HasRole(["Trainee","Trainer"])])
 class StartPaymentAPIView(APIView):
-    permission_classes = [HasRole(["Trainee","Trainer"])]
     @extend_schema(
         tags=["Payment"],
         summary="Start payment",
