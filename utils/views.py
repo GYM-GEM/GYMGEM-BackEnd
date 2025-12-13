@@ -174,3 +174,23 @@ class PaymobService:
             return response.json()["token"]
         except requests.RequestException as e:
             raise RuntimeError(f"Paymob payment key failed: {e}")
+
+    @staticmethod
+    def refund_transaction(auth_token, transaction_id, amount_cents):
+        """Attempt to refund a transaction via Paymob.
+        Requires a valid auth_token, transaction_id, and amount in cents.
+        """
+        try:
+            response = requests.post(
+                f"{BASE_URL}/acceptance/void_refund/refund",
+                json={
+                    "auth_token": auth_token,
+                    "transaction_id": transaction_id,
+                    "amount_cents": amount_cents,
+                },
+                timeout=10,
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            raise RuntimeError(f"Paymob refund failed: {e}")

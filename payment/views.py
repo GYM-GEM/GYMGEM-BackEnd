@@ -8,6 +8,7 @@ from rest_framework.decorators import permission_classes
 from .models import Payment
 from utils.views import PaymobService, get_profile_id_from_token
 from profiles.models import Profile
+from courses.models import Course, CourseEnrollment
 
 @permission_classes([HasRole(["Trainee","Trainer"])])
 class StartPaymentAPIView(APIView):
@@ -15,8 +16,8 @@ class StartPaymentAPIView(APIView):
         tags=["Payment"],
         summary="Start payment",
         description="Initiate a Paymob payment and return an iframe URL",
-        request={"type": "object", "properties": {"amount": {"type": "number"}}, "required": ["amount"]},
-        responses={201: {"type": "object", "properties": {"status": {"type": "string"}, "payment_id": {"type": "integer"}, "iframe_url": {"type": "string"}}}, 400: {"description": "Invalid amount"}},
+        request={"type": "object", "properties": {"amount": {"type": "number"}, "course_id": {"type": "integer"}}, "required": ["amount"]},
+        responses={201: {"type": "object", "properties": {"status": {"type": "string"}, "payment_id": {"type": "integer"}, "iframe_url": {"type": "string"}}}, 400: {"description": "Invalid amount"}, 404: {"description": "Profile or course not found"}},
     )
     def post(self, request):
         try:
@@ -30,9 +31,32 @@ class StartPaymentAPIView(APIView):
         except Profile.DoesNotExist:
             return Response({"status": "error", "code": "PROFILE_NOT_FOUND", "detail": "Profile not found"}, status=404)
 
+        # Optional: attach purpose to payment (e.g., course enrollment)
+        course_id = request.data.get("course_id")
+        course_obj = None
+        if course_id is not None:
+            try:
+                course_obj = Course.objects.get(pk=int(course_id))
+            except (ValueError, Course.DoesNotExist):
+                return Response({"status": "error", "code": "COURSE_NOT_FOUND", "detail": "Course not found"}, status=404)
+            # Enforce amount matches course price
+            try:
+                paid_amount = Decimal(amount).quantize(Decimal('0.01'))
+                course_price = Decimal(course_obj.price).quantize(Decimal('0.01'))
+            except (InvalidOperation, TypeError):
+                return Response({"status": "error", "code": "INVALID_AMOUNT", "detail": "Invalid amount"}, status=400)
+            if paid_amount != course_price:
+                return Response({
+                    "status": "error",
+                    "code": "AMOUNT_MISMATCH",
+                    "detail": f"Amount must equal course price ({course_price}).",
+                }, status=400)
+
         payment = Payment.objects.create(
             user=profile,
-            amount=Decimal(amount)
+            amount=Decimal(amount),
+            purpose_type=("course" if course_obj else None),
+            purpose_id=(course_obj.id if course_obj else None),
         )
 
         auth_token = PaymobService.authenticate()
@@ -190,6 +214,25 @@ def paymob_webhook(request):
     if obj.get("success") is True:
         payment.status = "paid"
         payment.paymob_transaction_id = obj.get("id")
+        # If payment is for a course, enroll the user
+        if payment.purpose_type == "course" and payment.purpose_id:
+            try:
+                course = Course.objects.get(pk=payment.purpose_id)
+                # Avoid duplicate enrollment; if already enrolled, refund
+                exists = CourseEnrollment.objects.filter(course=course, trainee_profile=payment.user).exists()
+                if exists:
+                    raise RuntimeError("ALREADY_ENROLLED")
+                CourseEnrollment.objects.create(course=course, trainee_profile=payment.user, status="in_progress")
+            except Exception:
+                # Enrollment failed: Attempt refund
+                try:
+                    auth_token = PaymobService.authenticate()
+                    amount_cents = int((Decimal(payment.amount) * Decimal("100")).quantize(Decimal('1')))
+                    PaymobService.refund_transaction(auth_token, payment.paymob_transaction_id, amount_cents)
+                    payment.status = "refunded"
+                except Exception:
+                    # Refund failed; keep status as paid but log outcome
+                    payment.status = payment.status
     else:
         payment.status = "failed"
 
