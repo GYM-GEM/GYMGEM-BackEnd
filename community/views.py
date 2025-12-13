@@ -88,7 +88,7 @@ class CommunityHashTagView(viewSet):
 
         for post in posts:
             tags = re.findall(r'#\w+', post.content.lower())
-            hashtags.extend(tags)
+            hashtags.extend(set(tags))
         trending_hashtags = Counter(hashtags).most_common(10)
 
         # Top trainers by number of posts in the last 3 days
