@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     'chat',
     'interactive_sessions',
     'community',
+    'payment'
 ]
 
 AUTHENTICATION_BACKENDS = [
@@ -336,3 +337,9 @@ EMAIL_HOST_USER = os.getenv("gmail_user")
 EMAIL_HOST_PASSWORD = os.getenv("gmail_app_password")
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 EMAIL_TIMEOUT = 30
+
+# Paymob Configuration
+PAYMOB_API_KEY = os.getenv("PAYMOB_API_KEY")
+PAYMOB_CARD_INTEGRATION_ID = int(os.getenv("PAYMOB_CARD_INTEGRATION_ID"))
+PAYMOB_IFRAME_ID = os.getenv("PAYMOB_IFRAME_ID")
+PAYMOB_HMAC_SECRET = os.getenv("PAYMOB_HMAC_SECRET")

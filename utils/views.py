@@ -7,6 +7,7 @@ from accounts.models import Account
 from .models import Category
 from .serializers import CategorySerializer
 from drf_spectacular.utils import extend_schema
+import requests
 
 
 def get_account_from_token(request):
@@ -114,3 +115,62 @@ class SpecializationListView(generics.ListAPIView):
     serializer_class = SpecializationSerializer
     permission_classes = []
 
+
+
+BASE_URL = "https://accept.paymob.com/api"
+
+
+class PaymobService:
+
+    @staticmethod
+    def authenticate():
+        try:
+            response = requests.post(
+                f"{BASE_URL}/auth/tokens",
+                json={"api_key": settings.PAYMOB_API_KEY},
+                timeout=10,
+            )
+            response.raise_for_status()
+            return response.json()["token"]
+        except requests.RequestException as e:
+            raise RuntimeError(f"Paymob auth failed: {e}")
+
+    @staticmethod
+    def create_order(auth_token, amount_cents):
+        try:
+            response = requests.post(
+                f"{BASE_URL}/ecommerce/orders",
+                json={
+                    "auth_token": auth_token,
+                    "delivery_needed": "false",
+                    "amount_cents": amount_cents,
+                    "currency": "EGP",
+                    "items": []
+                },
+                timeout=10,
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            raise RuntimeError(f"Paymob order creation failed: {e}")
+
+    @staticmethod
+    def create_payment_key(auth_token, order_id, amount_cents, billing_data):
+        try:
+            response = requests.post(
+                f"{BASE_URL}/acceptance/payment_keys",
+                json={
+                    "auth_token": auth_token,
+                    "amount_cents": amount_cents,
+                    "expiration": 3600,
+                    "order_id": order_id,
+                    "billing_data": billing_data,
+                    "currency": "EGP",
+                    "integration_id": settings.PAYMOB_CARD_INTEGRATION_ID
+                },
+                timeout=10,
+            )
+            response.raise_for_status()
+            return response.json()["token"]
+        except requests.RequestException as e:
+            raise RuntimeError(f"Paymob payment key failed: {e}")
