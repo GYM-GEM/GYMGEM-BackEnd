@@ -33,6 +33,8 @@ class StartPaymentAPIView(APIView):
 
         # Optional: attach purpose to payment (e.g., course enrollment)
         course_id = request.data.get("course_id")
+        # if not course_id:
+        #     return Response({"status": "error", "code": "COURSE_NOT_FOUND", "detail": "Course not found"}, status=404)
         course_obj = None
         if course_id is not None:
             try:
