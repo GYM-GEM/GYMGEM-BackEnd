@@ -4,12 +4,12 @@ from .models import Store, StoreBranch, StoreItem,StoreItemInventory, StoreItemS
 from profiles.models import Profile
 
 class StoreSerializer(serializers.ModelSerializer):
-    account_id = serializers.IntegerField(write_only=True)
-    
+    # account_id = serializers.IntegerField(write_only=True)
+    profile_id = serializers.PrimaryKeyRelatedField(read_only=True)
     class Meta:
         model = Store
-        fields = ['id', 'account_id', 'name', 'profile_picture','description','store_type', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        fields = ['profile_id', 'name', 'profile_picture','description','store_type', 'created_at', 'updated_at']
+        read_only_fields = ['profile_id', 'created_at', 'updated_at']
 
     def validate_account_id(self, value):
         # Get the account

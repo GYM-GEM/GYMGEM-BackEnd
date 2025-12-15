@@ -1,90 +1,108 @@
+from urllib import request
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from .serializers import (
     StoreSerializer, StoreBranchSerializer, StoreItemSerializer,
     OrderSerializer, OrderItemSerializer, AddOrderItemSerializer
 )
 from .models import Store, StoreBranch, StoreItem, Order, OrderItem
+from authenticationAndAuthorization.permissions import HasRole
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
+from django.shortcuts import get_object_or_404
 
 class StoreListView(APIView):
-    """GET: Anyone can view stores | POST: Only store profile owners can create"""
-    
+    permission_classes = [HasRole(["store"])]
+
+    @extend_schema(
+        summary="List stores for the authenticated store owner",
+        description="Retrieve all stores owned by the authenticated user",
+        responses={200: StoreSerializer(many=True)}
+    )
     def get(self, request):
-        stores = Store.objects.all()
-        serializer = StoreSerializer(stores, many=True)
+        store_profile = request.user.profiles.filter(profile_type='store').first()
+        if not store_profile:
+            # If the user is authenticated but somehow lacks a store profile
+            return Response({"detail": "No store profile found for this user."}, status=status.HTTP_404_NOT_FOUND)
+        stores = Store.objects.filter(profile_id=store_profile.id)
+        serializer = StoreSerializer(stores, many=True, context={"request": request})
         return Response(serializer.data)
     
+    @extend_schema(
+        summary="Create a new store",
+        description="Create a new store for the authenticated store owner",
+        request=StoreSerializer,
+        responses={201: StoreSerializer}
+    )
     def post(self, request):
-        # Only store profile owners can create
-        if not self._is_store_owner(request.user):
-            return Response({"detail": "Only store owners can create stores."}, status=status.HTTP_403_FORBIDDEN)
-        
-        serializer = StoreSerializer(data=request.data)
+        serializer = StoreSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def _is_store_owner(self, user):
-        if not user or not user.is_authenticated:
-            return False
-        return user.groups.filter(name__iexact='store').exists()
-
 
 class StoreDetailView(APIView):
-    """GET: Anyone can view | PUT/PATCH/DELETE: Only owner"""
-    
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Get store details",
+        description="Retrieve details of a specific store",
+        responses={200: StoreSerializer}
+    )
     def get(self, request, store_id):
-        try:
-            store = Store.objects.get(id=store_id)
-        except Store.DoesNotExist:
-            return Response({"detail": "Store not found"}, status=status.HTTP_404_NOT_FOUND)
-        
-        serializer = StoreSerializer(store)
+        store = get_object_or_404(Store, pk=store_id)
+        serializer = StoreSerializer(store, context={"request": request})
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="Update store",
+        description="Update a store (only by owner)",
+        request=StoreSerializer,
+        responses={200: StoreSerializer}
+    )
     def put(self, request, store_id):
-        store = self._get_store_or_404(store_id)
-        if store is None:
-            return Response({"detail": "Store not found"}, status=status.HTTP_404_NOT_FOUND)
+        store = get_object_or_404(Store, pk=store_id)
         if not self._is_owner(request.user, store):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
-        serializer = StoreSerializer(store, data=request.data, partial=True)
+        serializer = StoreSerializer(store, data=request.data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(
+        summary="Partially update store",
+        description="Partially update a store (only by owner)",
+        request=StoreSerializer,
+        responses={200: StoreSerializer}
+    )
     def patch(self, request, store_id):
-        store = self._get_store_or_404(store_id)
-        if store is None:
-            return Response({"detail": "Store not found"}, status=status.HTTP_404_NOT_FOUND)
+        store = get_object_or_404(Store, pk=store_id)
         if not self._is_owner(request.user, store):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
-        serializer = StoreSerializer(store, data=request.data, partial=True)
+        serializer = StoreSerializer(store, data=request.data, partial=True, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(
+        summary="Delete store",
+        description="Delete a store (only by owner)",
+        responses={204: None}
+    )
     def delete(self, request, store_id):
-        store = self._get_store_or_404(store_id)
-        if store is None:
-            return Response({"detail": "Store not found"}, status=status.HTTP_404_NOT_FOUND)
+        store = get_object_or_404(Store, pk=store_id)
         if not self._is_owner(request.user, store):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
         store.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-    def _get_store_or_404(self, store_id):
-        try:
-            return Store.objects.get(id=store_id)
-        except Store.DoesNotExist:
-            return None
 
     def _is_owner(self, user, store):
         if not user or not user.is_authenticated:
@@ -92,154 +110,187 @@ class StoreDetailView(APIView):
         return store.profile_id.account.id == user.id
 
 class StoreBranchView(APIView):
+    permission_classes = [HasRole(["store"])]
+
+    @extend_schema(
+        summary="List store branches",
+        description="Retrieve all store branches",
+        responses={200: StoreBranchSerializer(many=True)}
+    )
     def get(self, request):
         storebranches = StoreBranch.objects.all()
-        serializer = StoreBranchSerializer(storebranches, many=True)
+        serializer = StoreBranchSerializer(storebranches, many=True, context={"request": request})
         return Response(serializer.data)
     
+    @extend_schema(
+        summary="Create store branch",
+        description="Create a new store branch (only by store owner)",
+        request=StoreBranchSerializer,
+        responses={201: StoreBranchSerializer}
+    )
     def post(self, request):
-        serializer = StoreBranchSerializer(data=request.data)
+        serializer = StoreBranchSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
-            store_id = serializer.validated_data.get('store_id')
-            #  Get the Store object to check ownership
-            try:
-                store = Store.objects.get(id=store_id.id) 
-            except Store.DoesNotExist:
-                return Response({"detail": "Store not found."}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Check if the current user owns that store
-            if not self._is_owner(request.user, store):
-                return Response({"detail": "Permission denied. You do not own this store."}, status=status.HTTP_403_FORBIDDEN)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    def _is_owner(self, user, store):
-        if not user or not user.is_authenticated:
-            return False
-        return store.profile_id.account.id == user.id
-    
 class StoreBranchUpdateView(APIView):
-    def put(self, request, branch_id):
-        try:
-            storebranch = StoreBranch.objects.get(id=branch_id)
-        except StoreBranch.DoesNotExist:
-            return Response({"error": "StoreBranch not found"}, status=status.HTTP_404_NOT_FOUND)
+    permission_classes = [IsAuthenticated]
 
-        serializer = StoreBranchSerializer(storebranch, data=request.data, partial=True)
+    @extend_schema(
+        summary="Update store branch",
+        description="Update a store branch (only by store owner)",
+        request=StoreBranchSerializer,
+        responses={200: StoreBranchSerializer}
+    )
+    def put(self, request, branch_id):
+        storebranch = get_object_or_404(StoreBranch, id=branch_id)
+        if not self._is_owner(request.user, storebranch.store_id):
+            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = StoreBranchSerializer(storebranch, data=request.data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(
+        summary="Delete store branch",
+        description="Delete a store branch (only by store owner)",
+        responses={204: None}
+    )
     def delete(self, request, branch_id):
-        try:
-            storebranch = StoreBranch.objects.get(id=branch_id)
-        except StoreBranch.DoesNotExist:
-            return Response({"error": "StoreBranch not found"}, status=status.HTTP_404_NOT_FOUND)
+        storebranch = get_object_or_404(StoreBranch, id=branch_id)
+        if not self._is_owner(request.user, storebranch.store_id):
+            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
 
         storebranch.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @extend_schema(
+        summary="Partially update store branch",
+        description="Partially update a store branch (only by store owner)",
+        request=StoreBranchSerializer,
+        responses={200: StoreBranchSerializer}
+    )
     def patch(self, request, branch_id):
-        try:
-            storebranch = StoreBranch.objects.get(id=branch_id)
-        except StoreBranch.DoesNotExist:
-            return Response({"error": "StoreBranch not found"}, status=status.HTTP_404_NOT_FOUND)
+        storebranch = get_object_or_404(StoreBranch, id=branch_id)
+        if not self._is_owner(request.user, storebranch.store_id):
+            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
 
-        serializer = StoreBranchSerializer(storebranch, data=request.data, partial=True)
+        serializer = StoreBranchSerializer(storebranch, data=request.data, partial=True, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def _is_owner(self, user, store):
+        if not user or not user.is_authenticated:
+            return False
+        return store.profile_id.account.id == user.id
+
 class StoreItemListView(APIView):
-    """GET: Anyone can view items | POST: Only store owner"""
-    
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="List store items",
+        description="Retrieve all store items",
+        responses={200: StoreItemSerializer(many=True)}
+    )
     def get(self, request):
         items = StoreItem.objects.all()
-        serializer = StoreItemSerializer(items, many=True)
+        serializer = StoreItemSerializer(items, many=True, context={"request": request})
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="Create store item",
+        description="Create a new store item (only by store owner)",
+        request=StoreItemSerializer,
+        responses={201: StoreItemSerializer}
+    )
     def post(self, request):
-        # Only store profile owners can add items
-        if not self._is_store_owner(request.user):
-            return Response({"detail": "Only store owners can add items."}, status=status.HTTP_403_FORBIDDEN)
-        
-        serializer = StoreItemSerializer(data=request.data)
+        serializer = StoreItemSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def _is_store_owner(self, user):
-        if not user or not user.is_authenticated:
-            return False
-        return user.groups.filter(name__iexact='store').exists()
-
 
 class StoreItemDetailView(APIView):
-    """GET: Anyone | PUT/PATCH/DELETE: Only store owner"""
-    
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Get store item details",
+        description="Retrieve details of a specific store item",
+        responses={200: StoreItemSerializer}
+    )
     def get(self, request, item_id):
-        try:
-            item = StoreItem.objects.get(id=item_id)
-        except StoreItem.DoesNotExist:
-            return Response({"detail": "Item not found"}, status=status.HTTP_404_NOT_FOUND)
-        
-        serializer = StoreItemSerializer(item)
+        item = get_object_or_404(StoreItem, id=item_id)
+        serializer = StoreItemSerializer(item, context={"request": request})
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="Update store item",
+        description="Update a store item (only by store owner)",
+        request=StoreItemSerializer,
+        responses={200: StoreItemSerializer}
+    )
     def put(self, request, item_id):
-        item = self._get_item_or_404(item_id)
-        if item is None:
-            return Response({"detail": "Item not found"}, status=status.HTTP_404_NOT_FOUND)
+        item = get_object_or_404(StoreItem, id=item_id)
         if not self._is_store_owner_of_item(request.user, item):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
-        serializer = StoreItemSerializer(item, data=request.data, partial=True)
+        serializer = StoreItemSerializer(item, data=request.data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(
+        summary="Partially update store item",
+        description="Partially update a store item (only by store owner)",
+        request=StoreItemSerializer,
+        responses={200: StoreItemSerializer}
+    )
     def patch(self, request, item_id):
-        item = self._get_item_or_404(item_id)
-        if item is None:
-            return Response({"detail": "Item not found"}, status=status.HTTP_404_NOT_FOUND)
+        item = get_object_or_404(StoreItem, id=item_id)
         if not self._is_store_owner_of_item(request.user, item):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
-        serializer = StoreItemSerializer(item, data=request.data, partial=True)
+        serializer = StoreItemSerializer(item, data=request.data, partial=True, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(
+        summary="Delete store item",
+        description="Delete a store item (only by store owner)",
+        responses={204: None}
+    )
     def delete(self, request, item_id):
-        item = self._get_item_or_404(item_id)
-        if item is None:
-            return Response({"detail": "Item not found"}, status=status.HTTP_404_NOT_FOUND)
+        item = get_object_or_404(StoreItem, id=item_id)
         if not self._is_store_owner_of_item(request.user, item):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
-        item.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-    def _get_item_or_404(self, item_id):
-        try:
-            return StoreItem.objects.get(id=item_id)
-        except StoreItem.DoesNotExist:
-            return None
-
     def _is_store_owner_of_item(self, user, item):
         if not user or not user.is_authenticated or not item:
             return False
         return item.store_id.profile_id.account.id == user.id
 
 class OrderListView(APIView):
-    """GET: Filter by store/buyer | POST: Authenticated users can create"""
-    
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="List orders",
+        description="Retrieve orders filtered by store or buyer",
+        parameters=[
+            OpenApiParameter(name='store_id', type=OpenApiTypes.INT, description='Filter by store ID'),
+            OpenApiParameter(name='buyer_id', type=OpenApiTypes.INT, description='Filter by buyer ID'),
+        ],
+        responses={200: OrderSerializer(many=True)}
+    )
     def get(self, request):
         """
         Query parameters:
@@ -270,15 +321,17 @@ class OrderListView(APIView):
         if request.user and request.user.is_authenticated and not self._is_store_owner(request.user):
             orders = orders.filter(buyer_id=request.user.id)
         
-        serializer = OrderSerializer(orders, many=True)
+        serializer = OrderSerializer(orders, many=True, context={"request": request})
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="Create order",
+        description="Create a new order",
+        request=OrderSerializer,
+        responses={201: OrderSerializer}
+    )
     def post(self, request):
-        # Any authenticated user can create an order
-        if not request.user or not request.user.is_authenticated:
-            return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
-        
-        serializer = OrderSerializer(data=request.data)
+        serializer = OrderSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
             # Set buyer as current user if not provided
             if 'buyer_id' not in request.data:
@@ -294,60 +347,66 @@ class OrderListView(APIView):
 
 
 class OrderDetailView(APIView):
-    """GET: Anyone | PUT/PATCH: Store owner or buyer | DELETE: Store owner"""
-    
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Get order details",
+        description="Retrieve details of a specific order",
+        responses={200: OrderSerializer}
+    )
     def get(self, request, order_id):
-        try:
-            order = Order.objects.get(id=order_id)
-        except Order.DoesNotExist:
-            return Response({"detail": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
-        
-        serializer = OrderSerializer(order)
+        order = get_object_or_404(Order, id=order_id)
+        serializer = OrderSerializer(order, context={"request": request})
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="Update order",
+        description="Update an order (store owner or buyer only)",
+        request=OrderSerializer,
+        responses={200: OrderSerializer}
+    )
     def put(self, request, order_id):
-        order = self._get_order_or_404(order_id)
-        if order is None:
-            return Response({"detail": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
+        order = get_object_or_404(Order, id=order_id)
         if not self._can_edit_order(request.user, order):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
-        serializer = OrderSerializer(order, data=request.data, partial=True)
+        serializer = OrderSerializer(order, data=request.data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             order.calculate_total()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(
+        summary="Partially update order",
+        description="Partially update an order (store owner or buyer only)",
+        request=OrderSerializer,
+        responses={200: OrderSerializer}
+    )
     def patch(self, request, order_id):
-        order = self._get_order_or_404(order_id)
-        if order is None:
-            return Response({"detail": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
+        order = get_object_or_404(Order, id=order_id)
         if not self._can_edit_order(request.user, order):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
-        serializer = OrderSerializer(order, data=request.data, partial=True)
+        serializer = OrderSerializer(order, data=request.data, partial=True, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             order.calculate_total()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(
+        summary="Delete order",
+        description="Delete an order (store owner only)",
+        responses={204: None}
+    )
     def delete(self, request, order_id):
-        order = self._get_order_or_404(order_id)
-        if order is None:
-            return Response({"detail": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
+        order = get_object_or_404(Order, id=order_id)
         if not self._can_delete_order(request.user, order):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
         order.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-    def _get_order_or_404(self, order_id):
-        try:
-            return Order.objects.get(id=order_id)
-        except Order.DoesNotExist:
-            return None
 
     def _can_edit_order(self, user, order):
         if not user or not user.is_authenticated or not order:
@@ -366,33 +425,38 @@ class OrderDetailView(APIView):
         return is_store_owner or is_buyer
 
 class OrderItemListView(APIView):
-    """GET: Anyone | POST: Add item to order - store owner or buyer"""
-    
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="List order items",
+        description="Retrieve all order items",
+        responses={200: OrderItemSerializer(many=True)}
+    )
     def get(self, request):
         items = OrderItem.objects.all()
-        serializer = OrderItemSerializer(items, many=True)
+        serializer = OrderItemSerializer(items, many=True, context={"request": request})
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="Add item to order",
+        description="Add an item to an order (store owner or buyer only)",
+        request=AddOrderItemSerializer,
+        responses={201: OrderItemSerializer}
+    )
     def post(self, request, order_id):
-        try:
-            order = Order.objects.get(id=order_id)
-        except Order.DoesNotExist:
-            return Response({"detail": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
+        order = get_object_or_404(Order, id=order_id)
         
         # Check permission: store owner or buyer
         if not self._can_edit_order_items(request.user, order):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
-        serializer = AddOrderItemSerializer(data=request.data)
+        serializer = AddOrderItemSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
             store_item_id = serializer.validated_data['store_item_id']
             size_id = serializer.validated_data.get('size_id')
             quantity = serializer.validated_data['quantity']
             
-            try:
-                item = StoreItem.objects.get(id=store_item_id)
-            except StoreItem.DoesNotExist:
-                return Response({"detail": "Store item not found"}, status=status.HTTP_404_NOT_FOUND)
+            item = get_object_or_404(StoreItem, id=store_item_id)
             
             # Create order item
             order_item = OrderItem.objects.create(
@@ -404,7 +468,7 @@ class OrderItemListView(APIView):
             )
             order.calculate_total()
             
-            item_serializer = OrderItemSerializer(order_item)
+            item_serializer = OrderItemSerializer(order_item, context={"request": request})
             return Response(item_serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -417,22 +481,25 @@ class OrderItemListView(APIView):
 
 
 class OrderItemDetailView(APIView):
-    """GET: Anyone | DELETE: Store owner or buyer"""
-    
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Get order item details",
+        description="Retrieve details of a specific order item",
+        responses={200: OrderItemSerializer}
+    )
     def get(self, request, order_item_id):
-        try:
-            item = OrderItem.objects.get(id=order_item_id)
-        except OrderItem.DoesNotExist:
-            return Response({"detail": "Order item not found"}, status=status.HTTP_404_NOT_FOUND)
-        
-        serializer = OrderItemSerializer(item)
+        item = get_object_or_404(OrderItem, id=order_item_id)
+        serializer = OrderItemSerializer(item, context={"request": request})
         return Response(serializer.data)
 
+    @extend_schema(
+        summary="Delete order item",
+        description="Delete an order item (store owner or buyer only)",
+        responses={204: None}
+    )
     def delete(self, request, order_item_id):
-        try:
-            item = OrderItem.objects.get(id=order_item_id)
-        except OrderItem.DoesNotExist:
-            return Response({"detail": "Order item not found"}, status=status.HTTP_404_NOT_FOUND)
+        item = get_object_or_404(OrderItem, id=order_item_id)
         
         order = item.order_id
         if not self._can_delete_item(request.user, order):
@@ -441,6 +508,14 @@ class OrderItemDetailView(APIView):
         item.delete()
         order.calculate_total()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def _can_delete_item(self, user, order):
+        if not user or not user.is_authenticated:
+            return False
+        # Only store owner or buyer
+        is_store_owner = order.store_id.profile_id.account.id == user.id
+        is_buyer = order.buyer_id.id == user.id
+        return is_store_owner or is_buyer
 
     def _can_delete_item(self, user, order):
         if not user or not user.is_authenticated:
