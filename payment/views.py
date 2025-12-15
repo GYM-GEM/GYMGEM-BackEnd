@@ -9,7 +9,7 @@ from .models import Payment
 from utils.views import PaymobService, get_profile_id_from_token
 from profiles.models import Profile
 from courses.models import Course, CourseEnrollment
-
+from rest_framework.permissions import AllowAny
 @permission_classes([HasRole(["trainee","trainer"])])
 class StartPaymentAPIView(APIView):
     @extend_schema(
@@ -190,6 +190,7 @@ def verify_hmac(obj, received_hmac):
 
 
 @csrf_exempt
+@permission_classes([AllowAny])
 @api_view(["POST"])
 @extend_schema(
     tags=["Payment"],
