@@ -151,7 +151,7 @@ class PaymentRefreshAPIView(APIView):
 
 import hmac
 import hashlib
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from django.views.decorators.csrf import csrf_exempt
 
 
@@ -192,8 +192,9 @@ def verify_hmac(obj, received_hmac):
 
 
 @csrf_exempt
-@permission_classes([AllowAny])
 @api_view(["POST"])
+@permission_classes([])
+@authentication_classes([])
 @extend_schema(
     tags=["Payment"],
     summary="Paymob webhook",
