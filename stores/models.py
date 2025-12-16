@@ -5,7 +5,7 @@ from accounts.models import Account
 # Create your models here.
 
 class Store(models.Model):
-    profile_id = models.OneToOneField(Profile, on_delete=models.CASCADE, primary_key=True)
+    profile_id = models.OneToOneField(Profile, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
     profile_picture = models.ImageField(upload_to='store_profiles/', blank=True, null=True)
     description = models.CharField(max_length=255, blank=True, null=True)

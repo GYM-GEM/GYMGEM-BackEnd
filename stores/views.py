@@ -11,7 +11,7 @@ from .models import Store, StoreBranch, StoreItem, Order, OrderItem
 from authenticationAndAuthorization.permissions import HasRole
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
-from django.shortcuts import get_object_or_404
+from utils.views import get_profile_id_from_token
 
 class StoreListView(APIView):
     permission_classes = [HasRole(["store"])]
@@ -22,13 +22,10 @@ class StoreListView(APIView):
         responses={200: StoreSerializer(many=True)}
     )
     def get(self, request):
-        store_profile = request.user.profiles.filter(profile_type='store').first()
-        if not store_profile:
-            # If the user is authenticated but somehow lacks a store profile
-            return Response({"detail": "No store profile found for this user."}, status=status.HTTP_404_NOT_FOUND)
-        stores = Store.objects.filter(profile_id=store_profile.id)
+        profile_id = get_profile_id_from_token(request)
+        stores = Store.objects.filter(profile_id=profile_id)
         serializer = StoreSerializer(stores, many=True, context={"request": request})
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     @extend_schema(
         summary="Create a new store",
@@ -65,7 +62,7 @@ class StoreDetailView(APIView):
     )
     def put(self, request, store_id):
         store = get_object_or_404(Store, pk=store_id)
-        if not self._is_owner(request.user, store):
+        if not self._is_owner(request, store):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
         serializer = StoreSerializer(store, data=request.data, context={"request": request})
@@ -82,7 +79,7 @@ class StoreDetailView(APIView):
     )
     def patch(self, request, store_id):
         store = get_object_or_404(Store, pk=store_id)
-        if not self._is_owner(request.user, store):
+        if not self._is_owner(request, store):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
         serializer = StoreSerializer(store, data=request.data, partial=True, context={"request": request})
@@ -98,16 +95,15 @@ class StoreDetailView(APIView):
     )
     def delete(self, request, store_id):
         store = get_object_or_404(Store, pk=store_id)
-        if not self._is_owner(request.user, store):
+        if not self._is_owner(request, store):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
         store.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    def _is_owner(self, user, store):
-        if not user or not user.is_authenticated:
-            return False
-        return store.profile_id.account.id == user.id
+    def _is_owner(self, request, store):
+        profile_id = get_profile_id_from_token(request)
+        return store.profile_id.id == profile_id
 
 class StoreBranchView(APIView):
     permission_classes = [HasRole(["store"])]
@@ -146,7 +142,7 @@ class StoreBranchUpdateView(APIView):
     )
     def put(self, request, branch_id):
         storebranch = get_object_or_404(StoreBranch, id=branch_id)
-        if not self._is_owner(request.user, storebranch.store_id):
+        if not self._is_owner(request, storebranch.store_id):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = StoreBranchSerializer(storebranch, data=request.data, context={"request": request})
@@ -162,7 +158,7 @@ class StoreBranchUpdateView(APIView):
     )
     def delete(self, request, branch_id):
         storebranch = get_object_or_404(StoreBranch, id=branch_id)
-        if not self._is_owner(request.user, storebranch.store_id):
+        if not self._is_owner(request, storebranch.store_id):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
 
         storebranch.delete()
@@ -176,7 +172,7 @@ class StoreBranchUpdateView(APIView):
     )
     def patch(self, request, branch_id):
         storebranch = get_object_or_404(StoreBranch, id=branch_id)
-        if not self._is_owner(request.user, storebranch.store_id):
+        if not self._is_owner(request, storebranch.store_id):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = StoreBranchSerializer(storebranch, data=request.data, partial=True, context={"request": request})
@@ -185,10 +181,9 @@ class StoreBranchUpdateView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def _is_owner(self, user, store):
-        if not user or not user.is_authenticated:
-            return False
-        return store.profile_id.account.id == user.id
+    def _is_owner(self, request, store):
+        profile_id = get_profile_id_from_token(request)
+        return store.profile_id.id == profile_id
 
 class StoreItemListView(APIView):
     permission_classes = [IsAuthenticated]
@@ -238,7 +233,7 @@ class StoreItemDetailView(APIView):
     )
     def put(self, request, item_id):
         item = get_object_or_404(StoreItem, id=item_id)
-        if not self._is_store_owner_of_item(request.user, item):
+        if not self._is_store_owner_of_item(request, item):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
         serializer = StoreItemSerializer(item, data=request.data, context={"request": request})
@@ -255,7 +250,7 @@ class StoreItemDetailView(APIView):
     )
     def patch(self, request, item_id):
         item = get_object_or_404(StoreItem, id=item_id)
-        if not self._is_store_owner_of_item(request.user, item):
+        if not self._is_store_owner_of_item(request, item):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
         serializer = StoreItemSerializer(item, data=request.data, partial=True, context={"request": request})
@@ -271,13 +266,14 @@ class StoreItemDetailView(APIView):
     )
     def delete(self, request, item_id):
         item = get_object_or_404(StoreItem, id=item_id)
-        if not self._is_store_owner_of_item(request.user, item):
+        if not self._is_store_owner_of_item(request, item):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
-    def _is_store_owner_of_item(self, user, item):
-        if not user or not user.is_authenticated or not item:
+    def _is_store_owner_of_item(self, request, item):
+        if not item:
             return False
-        return item.store_id.profile_id.account.id == user.id
+        profile_id = get_profile_id_from_token(request)
+        return item.store_id.profile_id.id == profile_id
 
 class OrderListView(APIView):
     permission_classes = [IsAuthenticated]
@@ -302,10 +298,11 @@ class OrderListView(APIView):
         orders = Order.objects.all()
         
         # If user is a store owner, filter to their store's orders
-        if request.user and request.user.is_authenticated and self._is_store_owner(request.user):
-            user_store = Store.objects.filter(profile_id__account=request.user).first()
-            if user_store:
-                orders = orders.filter(store_id=user_store)
+        profile_id = get_profile_id_from_token(request)
+        if profile_id:
+            user_stores = Store.objects.filter(profile_id=profile_id)
+            if user_stores.exists():
+                orders = orders.filter(store_id__in=user_stores)
         
         # Filter by store_id if provided
         store_id = request.query_params.get('store_id')
@@ -318,11 +315,11 @@ class OrderListView(APIView):
             orders = orders.filter(buyer_id=buyer_id)
         
         # If user is authenticated but not a store owner, show their own orders
-        if request.user and request.user.is_authenticated and not self._is_store_owner(request.user):
+        if request.user and request.user.is_authenticated and not profile_id:
             orders = orders.filter(buyer_id=request.user.id)
         
         serializer = OrderSerializer(orders, many=True, context={"request": request})
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @extend_schema(
         summary="Create order",
@@ -339,11 +336,6 @@ class OrderListView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def _is_store_owner(self, user):
-        if not user or not user.is_authenticated:
-            return False
-        return user.groups.filter(name__iexact='store').exists()
 
 
 class OrderDetailView(APIView):
@@ -367,7 +359,7 @@ class OrderDetailView(APIView):
     )
     def put(self, request, order_id):
         order = get_object_or_404(Order, id=order_id)
-        if not self._can_edit_order(request.user, order):
+        if not self._can_edit_order(request, order):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
         serializer = OrderSerializer(order, data=request.data, context={"request": request})
@@ -385,7 +377,7 @@ class OrderDetailView(APIView):
     )
     def patch(self, request, order_id):
         order = get_object_or_404(Order, id=order_id)
-        if not self._can_edit_order(request.user, order):
+        if not self._can_edit_order(request, order):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
         serializer = OrderSerializer(order, data=request.data, partial=True, context={"request": request})
@@ -402,26 +394,28 @@ class OrderDetailView(APIView):
     )
     def delete(self, request, order_id):
         order = get_object_or_404(Order, id=order_id)
-        if not self._can_delete_order(request.user, order):
+        if not self._can_delete_order(request, order):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
         order.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    def _can_edit_order(self, user, order):
-        if not user or not user.is_authenticated or not order:
+    def _can_edit_order(self, request, order):
+        if not order:
             return False
+        profile_id = get_profile_id_from_token(request)
         # Store owner or buyer can edit
-        is_store_owner = order.store_id.profile_id.account.id == user.id
-        is_buyer = order.buyer_id.id == user.id
+        is_store_owner = order.store_id.profile_id.id == profile_id
+        is_buyer = order.buyer_id.id == request.user.id
         return is_store_owner or is_buyer
 
-    def _can_delete_order(self, user, order):
-        if not user or not user.is_authenticated or not order:
+    def _can_delete_order(self, request, order):
+        if not order:
             return False
+        profile_id = get_profile_id_from_token(request)
         # Only store owner or buyer
-        is_store_owner = order.store_id.profile_id.account.id == user.id
-        is_buyer = order.buyer_id.id == user.id
+        is_store_owner = order.store_id.profile_id.id == profile_id
+        is_buyer = order.buyer_id.id == request.user.id
         return is_store_owner or is_buyer
 
 class OrderItemListView(APIView):
@@ -447,7 +441,7 @@ class OrderItemListView(APIView):
         order = get_object_or_404(Order, id=order_id)
         
         # Check permission: store owner or buyer
-        if not self._can_edit_order_items(request.user, order):
+        if not self._can_edit_order_items(request, order):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
         serializer = AddOrderItemSerializer(data=request.data, context={"request": request})
@@ -472,11 +466,10 @@ class OrderItemListView(APIView):
             return Response(item_serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def _can_edit_order_items(self, user, order):
-        if not user or not user.is_authenticated:
-            return False
-        is_store_owner = order.store_id.profile_id.account.id == user.id
-        is_buyer = order.buyer_id.id == user.id
+    def _can_edit_order_items(self, request, order):
+        profile_id = get_profile_id_from_token(request)
+        is_store_owner = order.store_id.profile_id.id == profile_id
+        is_buyer = order.buyer_id.id == request.user.id
         return is_store_owner or is_buyer
 
 
@@ -502,24 +495,16 @@ class OrderItemDetailView(APIView):
         item = get_object_or_404(OrderItem, id=order_item_id)
         
         order = item.order_id
-        if not self._can_delete_item(request.user, order):
+        if not self._can_delete_item(request, order):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
         item.delete()
         order.calculate_total()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    def _can_delete_item(self, user, order):
-        if not user or not user.is_authenticated:
-            return False
+    def _can_delete_item(self, request, order):
+        profile_id = get_profile_id_from_token(request)
         # Only store owner or buyer
-        is_store_owner = order.store_id.profile_id.account.id == user.id
-        is_buyer = order.buyer_id.id == user.id
-        return is_store_owner or is_buyer
-
-    def _can_delete_item(self, user, order):
-        if not user or not user.is_authenticated:
-            return False
-        is_store_owner = order.store_id.profile_id.account.id == user.id
-        is_buyer = order.buyer_id.id == user.id
+        is_store_owner = order.store_id.profile_id.id == profile_id
+        is_buyer = order.buyer_id.id == request.user.id
         return is_store_owner or is_buyer
