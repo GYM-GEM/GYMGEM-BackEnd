@@ -39,6 +39,9 @@ class StartPaymentAPIView(APIView):
         if course_id is not None:
             try:
                 course_obj = Course.objects.get(pk=int(course_id))
+                course_enrollment = CourseEnrollment.objects.filter(course=course_obj, trainee_profile=profile).first()
+                if course_enrollment is not None:
+                    return Response({"status": "error", "code": "ALREADY_ENROLLED", "detail": "User already enrolled in this course"}, status=400)
             except (ValueError, Course.DoesNotExist):
                 return Response({"status": "error", "code": "COURSE_NOT_FOUND", "detail": "Course not found"}, status=404)
             # Enforce amount matches course price
