@@ -8,6 +8,7 @@ from .models import Category
 from .serializers import CategorySerializer
 from drf_spectacular.utils import extend_schema
 import requests
+import time
 
 
 def get_account_from_token(request):
@@ -121,59 +122,76 @@ BASE_URL = "https://accept.paymob.com/api"
 
 
 class PaymobService:
+    DEFAULT_TIMEOUT = 25
+    MAX_RETRIES = 3
+    BACKOFF_SECONDS = 1
 
     @staticmethod
     def authenticate():
-        try:
-            response = requests.post(
-                f"{BASE_URL}/auth/tokens",
-                json={"api_key": settings.PAYMOB_API_KEY},
-                timeout=10,
-            )
-            response.raise_for_status()
-            return response.json()["token"]
-        except requests.RequestException as e:
-            raise RuntimeError(f"Paymob auth failed: {e}")
+        for attempt in range(PaymobService.MAX_RETRIES):
+            try:
+                response = requests.post(
+                    f"{BASE_URL}/auth/tokens",
+                    json={"api_key": settings.PAYMOB_API_KEY},
+                    timeout=PaymobService.DEFAULT_TIMEOUT,
+                )
+                response.raise_for_status()
+                return response.json()["token"]
+            except requests.RequestException as e:
+                if attempt < PaymobService.MAX_RETRIES - 1:
+                    time.sleep(PaymobService.BACKOFF_SECONDS)
+                    continue
+                raise RuntimeError(f"Paymob auth failed: {e}")
 
     @staticmethod
     def create_order(auth_token, amount_cents):
-        try:
-            response = requests.post(
-                f"{BASE_URL}/ecommerce/orders",
-                json={
-                    "auth_token": auth_token,
-                    "delivery_needed": "false",
-                    "amount_cents": amount_cents,
-                    "currency": "EGP",
-                    "items": []
-                },
-                timeout=10,
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.RequestException as e:
-            raise RuntimeError(f"Paymob order creation failed: {e}")
+        payload = {
+            "auth_token": auth_token,
+            "delivery_needed": "false",
+            "amount_cents": amount_cents,
+            "currency": "EGP",
+            "items": []
+        }
+        for attempt in range(PaymobService.MAX_RETRIES):
+            try:
+                response = requests.post(
+                    f"{BASE_URL}/ecommerce/orders",
+                    json=payload,
+                    timeout=PaymobService.DEFAULT_TIMEOUT,
+                )
+                response.raise_for_status()
+                return response.json()
+            except requests.RequestException as e:
+                if attempt < PaymobService.MAX_RETRIES - 1:
+                    time.sleep(PaymobService.BACKOFF_SECONDS)
+                    continue
+                raise RuntimeError(f"Paymob order creation failed: {e}")
 
     @staticmethod
     def create_payment_key(auth_token, order_id, amount_cents, billing_data):
-        try:
-            response = requests.post(
-                f"{BASE_URL}/acceptance/payment_keys",
-                json={
-                    "auth_token": auth_token,
-                    "amount_cents": amount_cents,
-                    "expiration": 3600,
-                    "order_id": order_id,
-                    "billing_data": billing_data,
-                    "currency": "EGP",
-                    "integration_id": settings.PAYMOB_CARD_INTEGRATION_ID
-                },
-                timeout=10,
-            )
-            response.raise_for_status()
-            return response.json()["token"]
-        except requests.RequestException as e:
-            raise RuntimeError(f"Paymob payment key failed: {e}")
+        payload = {
+            "auth_token": auth_token,
+            "amount_cents": amount_cents,
+            "expiration": 3600,
+            "order_id": order_id,
+            "billing_data": billing_data,
+            "currency": "EGP",
+            "integration_id": settings.PAYMOB_CARD_INTEGRATION_ID
+        }
+        for attempt in range(PaymobService.MAX_RETRIES):
+            try:
+                response = requests.post(
+                    f"{BASE_URL}/acceptance/payment_keys",
+                    json=payload,
+                    timeout=PaymobService.DEFAULT_TIMEOUT,
+                )
+                response.raise_for_status()
+                return response.json()["token"]
+            except requests.RequestException as e:
+                if attempt < PaymobService.MAX_RETRIES - 1:
+                    time.sleep(PaymobService.BACKOFF_SECONDS)
+                    continue
+                raise RuntimeError(f"Paymob payment key failed: {e}")
 
     @staticmethod
     def refund_transaction(auth_token, transaction_id, amount_cents):

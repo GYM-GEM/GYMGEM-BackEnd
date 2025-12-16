@@ -61,8 +61,15 @@ class StartPaymentAPIView(APIView):
             purpose_id=(course_obj.id if course_obj else None),
         )
 
-        auth_token = PaymobService.authenticate()
-        order = PaymobService.create_order(auth_token, amount_cents)
+        try:
+            auth_token = PaymobService.authenticate()
+            order = PaymobService.create_order(auth_token, amount_cents)
+        except RuntimeError as e:
+            return Response({
+                "status": "error",
+                "code": "PAYMOB_UNAVAILABLE",
+                "detail": str(e)
+            }, status=502)
 
         payment.paymob_order_id = order.get("id")
         payment.save()
@@ -83,12 +90,19 @@ class StartPaymentAPIView(APIView):
             "postal_code": "12345"
         }
 
-        payment_token = PaymobService.create_payment_key(
-            auth_token,
-            order["id"],
-            amount_cents,
-            billing_data
-        )
+        try:
+            payment_token = PaymobService.create_payment_key(
+                auth_token,
+                order["id"],
+                amount_cents,
+                billing_data
+            )
+        except RuntimeError as e:
+            return Response({
+                "status": "error",
+                "code": "PAYMOB_UNAVAILABLE",
+                "detail": str(e)
+            }, status=502)
 
         iframe_url = (
             f"https://accept.paymob.com/api/acceptance/iframes/"
@@ -191,8 +205,32 @@ def verify_hmac(obj, received_hmac):
     return hmac.compare_digest(calculated, received_hmac or '')
 
 
+def build_redirect_hmac_string(params):
+    # Paymob redirect (GET) HMAC uses query parameters with dotted keys
+    keys = [
+        'amount_cents', 'created_at', 'currency', 'error_occured', 'has_parent_transaction',
+        'id', 'integration_id', 'is_3d_secure', 'is_auth', 'is_capture', 'is_refunded',
+        'is_standalone_payment', 'is_voided', 'order', 'owner', 'pending',
+        'source_data.pan', 'source_data.sub_type', 'source_data.type', 'success'
+    ]
+    parts = []
+    for k in keys:
+        parts.append(_to_str(params.get(k)))
+    return ''.join(parts)
+
+
+def verify_redirect_hmac(params, received_hmac):
+    secret = settings.PAYMOB_HMAC_SECRET
+    message = build_redirect_hmac_string(params)
+    calculated = hmac.new(
+        secret.encode(),
+        message.encode(),
+        hashlib.sha512
+    ).hexdigest()
+    return hmac.compare_digest(calculated, received_hmac or '')
+
 @csrf_exempt
-@api_view(["POST"])
+@api_view(["POST", "GET"])
 @permission_classes([])
 @authentication_classes([])
 @extend_schema(
@@ -202,22 +240,36 @@ def verify_hmac(obj, received_hmac):
     responses={200: {"type": "object", "properties": {"status": {"type": "string"}}}, 403: {"description": "Invalid HMAC"}},
 )
 def paymob_webhook(request):
-    obj = request.data.get("obj", {})
-    received_hmac = request.GET.get("hmac") or request.data.get('hmac')
+    obj = request.data.get("obj") if request.method == "POST" else None
+    received_hmac = (
+        request.query_params.get("hmac")
+        or request.GET.get('hmac')
+        or (request.data.get('hmac') if request.method == "POST" else None)
+    )
 
-    if not verify_hmac(obj, received_hmac):
-        return Response({"status": "error", "code": "INVALID_HMAC", "detail": "Invalid HMAC"}, status=403)
-
-    order_id = obj.get("order", {}).get("id")
+    # Determine payload source and verify HMAC accordingly
+    if obj is not None:
+        if not verify_hmac(obj or {}, received_hmac):
+            return Response({"status": "error", "code": "INVALID_HMAC", "detail": "Invalid HMAC"}, status=403)
+        order_id = (obj or {}).get("order", {}).get("id")
+        success = bool((obj or {}).get("success") is True)
+        txn_id = (obj or {}).get("id")
+    else:
+        # Handle redirect-style GET with query params
+        if not verify_redirect_hmac(request.query_params, received_hmac):
+            return Response({"status": "error", "code": "INVALID_HMAC", "detail": "Invalid HMAC"}, status=403)
+        order_id = request.query_params.get("order")
+        success = str(request.query_params.get("success", "")).lower() == "true"
+        txn_id = request.query_params.get("id")
 
     try:
         payment = Payment.objects.get(paymob_order_id=order_id)
     except Payment.DoesNotExist:
         return Response({"status": "error", "code": "PAYMENT_NOT_FOUND", "detail": "Payment not found"}, status=404)
 
-    if obj.get("success") is True:
+    if success is True:
         payment.status = "paid"
-        payment.paymob_transaction_id = obj.get("id")
+        payment.paymob_transaction_id = txn_id
         # If payment is for a course, enroll the user
         if payment.purpose_type == "course" and payment.purpose_id:
             try:
