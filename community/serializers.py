@@ -120,13 +120,13 @@ def _get_profile_display_name(profile):
     if trainee and getattr(trainee, 'name', None):
         return trainee.name
     # Try gym
-    gym = getattr(profile, 'gym', None)
-    if gym and getattr(gym, 'name', None):
-        return gym.name
-    # Try store
-    store = getattr(profile, 'store', None)
-    if store and getattr(store, 'name', None):
-        return store.name
+    # gym = getattr(profile, 'gym', None)
+    # if gym and getattr(gym, 'name', None):
+    #     return gym.name
+    # # Try store
+    # store = getattr(profile, 'store', None)
+    # if store and getattr(store, 'name', None):
+    #     return store.name
     # Fallback to username if available via account
     account = getattr(profile, 'account', None)
     if account and getattr(account, 'username', None):
@@ -145,12 +145,12 @@ def _get_profile_picture(profile):
     if trainee and getattr(trainee, 'profile_picture', None):
         return trainee.profile_picture
     # Try gym
-    gym = getattr(profile, 'gym', None)
-    if gym and getattr(gym, 'profile_picture', None):
-        return gym.profile_picture
-    # Try store
-    store = getattr(profile, 'store', None)
-    if store and getattr(store, 'profile_picture', None):
-        return store.profile_picture
-    return None
+    # gym = getattr(profile, 'gym', None)
+    # if gym and getattr(gym, 'profile_picture', None):
+    #     return gym.profile_picture
+    # # Try store
+    # store = getattr(profile, 'store', None)
+    # if store and getattr(store, 'profile_picture', None):
+    #     return store.profile_picture
+    # return None
         
