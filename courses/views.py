@@ -363,7 +363,8 @@ class CoursesView(ViewSet):
             ).values_list("trainee_profile_id", flat=True).distinct().count()
 
         course_data["students_enrolled"] = students_count
-
+        course_data["level_name"] = course.level.name if course.level else None
+        course_data["category_name"] = course.category.name if course.category else None
         return Response(course_data)
 
 class LessonsView(ViewSet):
@@ -643,6 +644,41 @@ class LessonSectionsView(ViewSet):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(
+        tags=["Lesson Sections"],
+        summary="mark section as done",
+        description="Mark an existing section as done (trainee only)",
+        request=LessonSectionSerializer,
+        responses={
+            200: LessonSectionSerializer,
+            400: {"description": "Validation error"},
+            404: {"description": "Section or lesson not found"},
+        },
+    )
+    @action(
+        methods=["put"],
+        detail=True,
+        permission_classes=[HasRole(["trainee"])],
+        url_path="mark-as-done",
+    )
+    def mark_section_as_done(self, request, pk=None):
+        try:
+            section = CourseValidator.validate_section_exists(pk)
+            profile = get_profile_id_from_token(request)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        if CourseEnrollment.objects.filter(
+            course=section.lesson.course,
+            trainee_profile=profile,
+            status__in=['in_progress', 'completed']
+        ).count() == 0:
+            return Response({"error": "Trainee not enrolled in the course"}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = LessonSectionSerializer(section, data={"is_done": True}, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
     @extend_schema(
         tags=["Lesson Sections"],
         summary="Delete section for lesson",

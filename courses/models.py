@@ -57,14 +57,11 @@ class LessonSection(models.Model):
     content_url = models.URLField(blank=True, null=True)
     content_text = models.TextField(blank=True, null=True)
     order = models.PositiveIntegerField()
+    is_done = models.BooleanField(default=False)
     
     def clean(self):
         from django.core.exceptions import ValidationError
         errors = {}
-        
-        # Validate that either content_url or content_text is provided
-        if not self.content_url and not self.content_text:
-            errors['content'] = "Either content_url or content_text must be provided."
         
         # Check if order is unique within the lesson (excluding current instance)
         if self.lesson and self.order:
