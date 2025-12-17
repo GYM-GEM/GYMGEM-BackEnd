@@ -1070,3 +1070,39 @@ class CourseEnrollmentsView(ViewSet):
             result.append(combined)
 
         return Response(result, status=status.HTTP_200_OK)
+    
+    @extend_schema(
+        tags=["Course Enrollments"],
+        summary="review course enrollment and mark as completed",
+        description="Review a completed course enrollment and mark it as completed (trainee only)",
+        request=CourseEnrollmentSerializer,
+        responses={
+            200: CourseEnrollmentSerializer,
+            400: {"description": "Validation error"},
+            404: {"description": "Enrollment not found"},
+        },
+    )
+    @action(
+        methods=["put"],
+        detail=True,
+        permission_classes=[HasRole(["trainee"])],
+        url_path="review-and-complete-enrollment",
+    )
+    def review_and_complete_course_enrollment(self, request, pk=None):
+        try:
+            profile_id = get_profile_id_from_token(request)
+            enrollment = CourseEnrollment.objects.get(
+                pk=pk, trainee_profile=profile_id
+            )
+            CourseValidator.validate_enrollment_belongs_to_trainee(
+                enrollment, request
+            )
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = CourseEnrollmentSerializer(enrollment, data=request.data, partial=True)
+        if serializer.is_valid():
+            enrollment.status = "completed"
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
