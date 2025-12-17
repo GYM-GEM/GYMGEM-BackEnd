@@ -865,16 +865,19 @@ class CourseEnrollmentsView(ViewSet):
         courses_data = CourseSerializer(courses, many=True).data
         
         # Create mapping of annotated data
-        annotated_data = {
-            course.id: {
+        annotated_data = {}
+        for course in courses:
+            total_sections = LessonSection.objects.filter(lesson__course_id=course.id).count()
+            done_sections = LessonSection.objects.filter(lesson__course_id=course.id, is_done=True).count()
+            progress = (done_sections / total_sections * 100) if total_sections > 0 else 0
+            annotated_data[course.id] = {
                 'total_duration': int(course.total_duration.total_seconds()) if course.total_duration else 0,
                 'lesson_count': course.lesson_count or 0,
                 'average_rating': course.average_rating,
                 'total_ratings': course.total_ratings or 0,
                 'students_enrolled': course.students_enrolled or 0,
+                'progress': progress,
             }
-            for course in courses
-        }
         
         # Attach annotations to courses
         for course_data in courses_data:
