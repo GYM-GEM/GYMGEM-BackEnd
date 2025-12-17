@@ -1089,16 +1089,25 @@ class CourseEnrollmentsView(ViewSet):
         url_path="review-and-complete-enrollment",
     )
     def review_and_complete_course_enrollment(self, request, pk=None):
+        """
+        Treats `pk` as course_id instead of enrollment_id.
+        Finds the current user's enrollment for that course, updates review fields,
+        and marks it as completed.
+        """
         try:
             profile_id = get_profile_id_from_token(request)
+            # Ensure course exists; pk is course_id here
+            course = CourseValidator.validate_course_exists(pk)
             enrollment = CourseEnrollment.objects.get(
-                pk=pk, trainee_profile=profile_id
+                course=course, trainee_profile=profile_id
             )
             CourseValidator.validate_enrollment_belongs_to_trainee(
                 enrollment, request
             )
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except CourseEnrollment.DoesNotExist:
+            return Response({"error": "Enrollment not found for this course"}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = CourseEnrollmentSerializer(enrollment, data=request.data, partial=True)
         if serializer.is_valid():
