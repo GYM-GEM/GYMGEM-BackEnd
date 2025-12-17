@@ -306,7 +306,7 @@ def paymob_webhook(request):
             "status": frontend_status,
             "course_id": payment.purpose_id,
         }
-        target = f"http://127.0.0.1:4040/payment-status?{urlencode(params)}"
+        target = f"http://localhost:4040/payment-status?{urlencode(params)}"
         return redirect(target)
 
     return Response({"status": "ok"})
