@@ -300,12 +300,13 @@ def paymob_webhook(request):
 
     payment.save()
     if request.method == "GET":
+        # Normalize status for frontend
+        frontend_status = "success" if payment.status == "paid" else "failed"
         params = {
-            "payment_id": payment.id,
-            "order": order_id,
-            "status": payment.status,  # "paid"/"failed"/"refunded"
+            "status": frontend_status,
+            "course_id": payment.purpose_id,
         }
-        target = f"http://localhost:4040/courses"
+        target = f"http://127.0.0.1:4040/payment-status?{urlencode(params)}"
         return redirect(target)
 
     return Response({"status": "ok"})
