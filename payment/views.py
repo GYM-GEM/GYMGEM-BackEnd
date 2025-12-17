@@ -305,7 +305,7 @@ def paymob_webhook(request):
             "order": order_id,
             "status": payment.status,  # "paid"/"failed"/"refunded"
         }
-        target = f"http://127.0.0.1:4040/courses"
+        target = f"http://localhost:4040/courses"
         return redirect(target)
 
     return Response({"status": "ok"})
