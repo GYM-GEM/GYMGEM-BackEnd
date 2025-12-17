@@ -118,6 +118,10 @@ class CoursesView(ViewSet):
                 'average_rating': course.average_rating,
                 'total_ratings': course.total_ratings or 0,
                 'students_enrolled': course.students_enrolled or 0,
+                'enrolled': CourseEnrollment.objects.filter(
+                    course=course,
+                    trainee_profile=get_profile_id_from_token(request)
+                ).exists(),
             }
             for course in queryset
         }
