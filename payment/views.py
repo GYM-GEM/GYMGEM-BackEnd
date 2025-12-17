@@ -10,6 +10,9 @@ from utils.views import PaymobService, get_profile_id_from_token
 from profiles.models import Profile
 from courses.models import Course, CourseEnrollment
 from rest_framework.permissions import AllowAny
+from django.shortcuts import redirect
+from urllib.parse import urlencode
+
 @permission_classes([HasRole(["trainee","trainer"])])
 class StartPaymentAPIView(APIView):
     @extend_schema(
@@ -296,4 +299,13 @@ def paymob_webhook(request):
         payment.status = "failed"
 
     payment.save()
+    if request.method == "GET":
+        params = {
+            "payment_id": payment.id,
+            "order": order_id,
+            "status": payment.status,  # "paid"/"failed"/"refunded"
+        }
+        target = f"http://127.0.0.1:4040/courses"
+        return redirect(target)
+
     return Response({"status": "ok"})
