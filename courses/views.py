@@ -367,8 +367,8 @@ class CoursesView(ViewSet):
         course_data["category_name"] = course.category.name if course.category else None
         course_data["trainer_data"] = {
             "id": course.trainer_profile.id,
-            "name": course.trainer_profile.trainee.name if hasattr(course.trainer_profile, 'trainee') else None,
-            "profile_picture": course.trainer_profile.trainee.profile_picture if hasattr(course.trainer_profile, 'trainee') else None,
+            "name": course.trainer_profile.trainer.name if hasattr(course.trainer_profile, 'trainer') else None,
+            "profile_picture": course.trainer_profile.trainer.profile_picture if hasattr(course.trainer_profile, 'trainer') else None,
         }
         return Response(course_data)
 
