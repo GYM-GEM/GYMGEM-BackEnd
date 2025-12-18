@@ -75,8 +75,14 @@ class CourseProgressSerializer(serializers.ModelSerializer):
     class Meta:
         model = CourseProgress
         fields = "__all__"
+        extra_kwargs = {
+            'completed_at': {'read_only': True},
+        }
+    
     def create(self, validated_data):
         try:
             return super().create(validated_data)
         except DjangoValidationError as e:
             raise serializers.ValidationError(e.message_dict)
+        
+    

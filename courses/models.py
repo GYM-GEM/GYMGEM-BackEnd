@@ -88,7 +88,7 @@ class CourseProgress(models.Model):
     trainee_profile = models.ForeignKey('profiles.Profile', on_delete=models.CASCADE)
     is_completed = models.BooleanField(default=True)
     completed_at = models.DateTimeField(blank=True, null=True)
-
+    
     def save(self, *args, **kwargs):
         if self.is_completed and not self.completed_at:
             self.completed_at = timezone.now()
@@ -96,6 +96,14 @@ class CourseProgress(models.Model):
 
     def __str__(self):
         return f"Progress of {self.trainee_profile} on Section {self.lesson_section.title}: {'Completed' if self.is_completed else 'Not Completed'}"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lesson_section", "trainee_profile"],
+                name="uniq_courseprogress_trainee_section",
+            )
+        ]
     
 class CourseEnrollment(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
