@@ -1090,7 +1090,7 @@ class CourseEnrollmentsView(ViewSet):
         },
     )
     @action(
-        methods=["put"],
+        methods=["post"],
         detail=True,
         permission_classes=[HasRole(["trainee"])],
         url_path="review-and-complete-enrollment",
