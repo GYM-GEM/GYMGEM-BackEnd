@@ -855,8 +855,14 @@ class CourseEnrollmentsView(ViewSet):
         # Create mapping of annotated data
         annotated_data = {}
         for course in courses:
-            total_sections = LessonSection.objects.filter(lesson__course_id=course.id).count()
-            done_sections = LessonSection.objects.filter(lesson__course_id=course.id, is_done=True).count()
+            total_sections = LessonSection.objects.filter(
+                lesson__course_id=course.id
+            ).count()
+            done_sections = CourseProgress.objects.filter(
+                trainee_profile=trainee_profile,
+                lesson_section__lesson__course_id=course.id,
+                is_completed=True,
+            ).values_list('lesson_section_id', flat=True).distinct().count()
             progress = (done_sections / total_sections * 100) if total_sections > 0 else 0
             annotated_data[course.id] = {
                 'total_duration': int(course.total_duration.total_seconds()) if course.total_duration else 0,
