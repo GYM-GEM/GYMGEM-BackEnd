@@ -1130,7 +1130,7 @@ class CourseEnrollmentsView(ViewSet):
         except CourseEnrollment.DoesNotExist:
             return Response({"error": "Enrollment not found for this course"}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = CourseEnrollmentSerializer(enrollment, data=request.data)
+        serializer = CourseEnrollmentSerializer(enrollment, data=request.data, partial=True)
         if serializer.is_valid():
             enrollment.status = "completed"
             serializer.save()
