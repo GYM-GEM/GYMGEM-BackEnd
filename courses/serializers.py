@@ -51,7 +51,21 @@ class LessonSectionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(e.message_dict)
 
 class CourseEnrollmentSerializer(serializers.ModelSerializer):
+    trainee_name = serializers.SerializerMethodField()
+    trainee_profile_picture = serializers.SerializerMethodField()
     class Meta:
         model = CourseEnrollment
         fields = "__all__"
         read_only_fields = ("enrollment_date",)
+
+    def get_trainee_name(self, obj):
+        try:
+            return getattr(getattr(obj.trainee_profile, 'trainee', None), 'name', None)
+        except Exception:
+            return None
+
+    def get_trainee_profile_picture(self, obj):
+        try:
+            return getattr(getattr(obj.trainee_profile, 'trainee', None), 'profile_picture', None)
+        except Exception:
+            return None

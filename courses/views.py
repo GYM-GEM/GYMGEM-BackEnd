@@ -21,7 +21,8 @@ from .validators import CourseValidator
 from drf_spectacular.utils import extend_schema
 from trainers.models import Trainer
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db.models import Sum, Count, Avg
+from django.db.models import Sum, Count, Avg, F
+from django.db.models.functions import Coalesce
 
 # Create your views here.
 class CoursesView(ViewSet):
@@ -336,15 +337,27 @@ class CoursesView(ViewSet):
             'id', flat=True
         ).filter(course=course, status="completed", review__isnull=False,rating__isnull=False)
         random_ids = sample(list(enrollments_ids), 10) if len(enrollments_ids) > 10 else enrollments_ids
-        reviews = CourseEnrollment.objects.filter(
-            id__in=random_ids
-        ).values("trainee_profile__trainee__name","trainee_profile__trainee__profile_picture", "rating", "review", "review_date")
+        reviews = (
+            CourseEnrollment.objects
+            .filter(
+                id__in=random_ids,
+                trainee_profile__profile_type='trainee'
+            )
+            .annotate(
+                reviewer_name=Coalesce(
+                    F('trainee_profile__trainee__name'),
+                    F('trainee_profile__account__username')
+                ),
+                reviewer_profile_picture=F('trainee_profile__trainee__profile_picture')
+            )
+            .values("reviewer_name", "reviewer_profile_picture", "rating", "review", "review_date")
+        )
         
         # Format reviews for better frontend consumption
         course_data["reviews"] = [
             {
-                "username": review["trainee_profile__trainee__name"],
-                "profile_picture": review["trainee_profile__trainee__profile_picture"],
+                "username": review["reviewer_name"],
+                "profile_picture": review["reviewer_profile_picture"],
                 "rating": review["rating"],
                 "review": review["review"],
                 "review_date": review["review_date"]
@@ -1116,7 +1129,7 @@ class CourseEnrollmentsView(ViewSet):
         except CourseEnrollment.DoesNotExist:
             return Response({"error": "Enrollment not found for this course"}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = CourseEnrollmentSerializer(enrollment, data=request.data, partial=True)
+        serializer = CourseEnrollmentSerializer(enrollment, data=request.data)
         if serializer.is_valid():
             enrollment.status = "completed"
             serializer.save()
