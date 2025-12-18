@@ -318,11 +318,15 @@ class CoursesView(ViewSet):
                     lesson.sections.all().order_by("order", "id"),
                     many=True
                 ).data
-                progress = CourseProgress.objects.filter(
-                    trainee_profile_id=trainee_id,
-                    lesson_section__lesson__course=course
-                ).values_list(
-                    'lesson_section_id', flat=True
+                progress = (
+                    CourseProgress.objects
+                    .filter(
+                        trainee_profile_id=trainee_id,
+                        lesson_section__lesson__course=course,
+                        is_completed=True,
+                    )
+                    .values_list('lesson_section_id', flat=True)
+                    .distinct()
                 )
                 lesson_data["completed_section_ids"] = list(progress)
                 lessons_details.append(lesson_data)
@@ -851,18 +855,38 @@ class CourseEnrollmentsView(ViewSet):
         
         # Serialize courses and add annotations
         courses_data = CourseSerializer(courses, many=True).data
-        
+
+        # Precompute section totals per course
+        total_sections_map = {
+            row['lesson__course_id']: row['total']
+            for row in (
+                LessonSection.objects
+                .filter(lesson__course_id__in=course_ids)
+                .values('lesson__course_id')
+                .annotate(total=Count('id'))
+            )
+        }
+
+        # Precompute done sections per course for this trainee
+        done_sections_map = {
+            row['lesson_section__lesson__course_id']: row['done']
+            for row in (
+                CourseProgress.objects
+                .filter(
+                    trainee_profile=trainee_profile,
+                    is_completed=True,
+                    lesson_section__lesson__course_id__in=course_ids,
+                )
+                .values('lesson_section__lesson__course_id')
+                .annotate(done=Count('lesson_section_id', distinct=True))
+            )
+        }
+
         # Create mapping of annotated data
         annotated_data = {}
         for course in courses:
-            total_sections = LessonSection.objects.filter(
-                lesson__course_id=course.id
-            ).count()
-            done_sections = CourseProgress.objects.filter(
-                trainee_profile=trainee_profile,
-                lesson_section__lesson__course_id=course.id,
-                is_completed=True,
-            ).values_list('lesson_section_id', flat=True).distinct().count()
+            total_sections = total_sections_map.get(course.id, 0)
+            done_sections = done_sections_map.get(course.id, 0)
             progress = (done_sections / total_sections * 100) if total_sections > 0 else 0
             annotated_data[course.id] = {
                 'total_duration': int(course.total_duration.total_seconds()) if course.total_duration else 0,
@@ -1139,13 +1163,20 @@ class CourseProgressView(ViewSet):
         try:
             profile_id = get_profile_id_from_token(request)
             trainee_profile = Profile.objects.get(pk=profile_id)
-            CourseValidator.validate_trainee_profile_belongs_to_user(trainee_profile, request)
             section = CourseValidator.validate_section_exists(pk)
         except (ValueError, Profile.DoesNotExist) as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = CourseProgressSerializer(data={**request.data,"lesson_section": pk, "trainee_profile": trainee_profile.pk})
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Default to marking as completed unless explicitly overridden
+        is_completed = request.data.get("is_completed", True)
+
+        # Upsert to avoid duplicate progress rows per trainee/section
+        progress, created = CourseProgress.objects.update_or_create(
+            trainee_profile=trainee_profile,
+            lesson_section=section,
+            defaults={"is_completed": bool(is_completed)},
+        )
+
+        # Serialize the updated/created progress
+        serializer = CourseProgressSerializer(progress)
+        return Response(serializer.data, status=status.HTTP_200_OK if not created else status.HTTP_201_CREATED)

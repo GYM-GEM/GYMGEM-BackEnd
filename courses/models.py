@@ -86,7 +86,7 @@ class LessonSection(models.Model):
 class CourseProgress(models.Model):
     lesson_section = models.ForeignKey(LessonSection, on_delete=models.CASCADE)
     trainee_profile = models.ForeignKey('profiles.Profile', on_delete=models.CASCADE)
-    is_completed = models.BooleanField(default=False)
+    is_completed = models.BooleanField(default=True)
     completed_at = models.DateTimeField(blank=True, null=True)
 
     def save(self, *args, **kwargs):
