@@ -6,6 +6,7 @@ from courses.models import (
     CourseLesson,
     LessonSection,
     CourseEnrollment,
+    CourseProgress,
 )
 
 class CourseSerializer(serializers.ModelSerializer):
@@ -69,3 +70,13 @@ class CourseEnrollmentSerializer(serializers.ModelSerializer):
             return getattr(getattr(obj.trainee_profile, 'trainee', None), 'profile_picture', None)
         except Exception:
             return None
+
+class CourseProgressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CourseProgress
+        fields = "__all__"
+    def create(self, validated_data):
+        try:
+            return super().create(validated_data)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(e.message_dict)

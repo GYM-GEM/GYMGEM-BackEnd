@@ -57,7 +57,8 @@ class LessonSection(models.Model):
     content_url = models.URLField(blank=True, null=True)
     content_text = models.TextField(blank=True, null=True)
     order = models.PositiveIntegerField()
-    is_done = models.BooleanField(default=False)
+    
+    # is_done = models.BooleanField(default=False)
     
     def clean(self):
         from django.core.exceptions import ValidationError
@@ -81,7 +82,20 @@ class LessonSection(models.Model):
 
     def __str__(self):
         return f"Section {self.order}: {self.title} for Lesson {self.lesson.title}"
-    
+
+class CourseProgress(models.Model):
+    lesson_section = models.ForeignKey(LessonSection, on_delete=models.CASCADE)
+    trainee_profile = models.ForeignKey('profiles.Profile', on_delete=models.CASCADE)
+    is_completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        if self.is_completed and not self.completed_at:
+            self.completed_at = timezone.now()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Progress of {self.trainee_profile} on Section {self.lesson_section.title}: {'Completed' if self.is_completed else 'Not Completed'}"
     
 class CourseEnrollment(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE)

@@ -3,15 +3,14 @@ from django.db.models import Q, Prefetch
 from django.db import models
 from rest_framework.viewsets import ViewSet
 from profiles.models import Profile
-from trainees.models import Trainee
 from utils.views import get_profile_id_from_token
-from .models import Course, CourseLesson, LessonSection
+from .models import Course, CourseLesson, LessonSection , CourseEnrollment, CourseProgress
 from .serializers import (
     CourseLessonSerializer,
     CourseSerializer,
     CourseEnrollmentSerializer,
-    CourseEnrollment,
     LessonSectionSerializer,
+    CourseProgressSerializer,
 )
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -319,6 +318,13 @@ class CoursesView(ViewSet):
                     lesson.sections.all().order_by("order", "id"),
                     many=True
                 ).data
+                progress = CourseProgress.objects.filter(
+                    trainee_profile_id=trainee_id,
+                    lesson_section__lesson__course=course
+                ).values_list(
+                    'lesson_section_id', flat=True
+                )
+                lesson_data["completed_section_ids"] = list(progress)
                 lessons_details.append(lesson_data)
 
             course_data["lessons_details"] = lessons_details
@@ -661,41 +667,6 @@ class LessonSectionsView(ViewSet):
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = LessonSectionSerializer(section, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    @extend_schema(
-        tags=["Lesson Sections"],
-        summary="mark section as done",
-        description="Mark an existing section as done (trainee only)",
-        request=LessonSectionSerializer,
-        responses={
-            200: LessonSectionSerializer,
-            400: {"description": "Validation error"},
-            404: {"description": "Section or lesson not found"},
-        },
-    )
-    @action(
-        methods=["put"],
-        detail=True,
-        permission_classes=[HasRole(["trainee"])],
-        url_path="mark-as-done",
-    )
-    def mark_section_as_done(self, request, pk=None):
-        try:
-            section = CourseValidator.validate_section_exists(pk)
-            profile = get_profile_id_from_token(request)
-        except ValueError as e:
-            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
-        if CourseEnrollment.objects.filter(
-            course=section.lesson.course,
-            trainee_profile=profile,
-            status__in=['in_progress', 'completed']
-        ).count() == 0:
-            return Response({"error": "Trainee not enrolled in the course"}, status=status.HTTP_400_BAD_REQUEST)
-        serializer = LessonSectionSerializer(section, data={"is_done": True}, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -1134,4 +1105,41 @@ class CourseEnrollmentsView(ViewSet):
             enrollment.status = "completed"
             serializer.save()
             return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+class CourseProgressView(ViewSet):
+    serializer_class = CourseProgressSerializer
+    queryset = CourseProgress.objects.all()
+
+    @extend_schema(
+        tags=["Course Progress"],
+        summary="Mark section as completed",
+        description="Mark a lesson section as completed for the logged-in trainee",
+        request=CourseProgressSerializer,
+        responses={
+            201: CourseProgressSerializer,
+            400: {"description": "Validation error"},
+            404: {"description": "Section not found"},
+        },
+    )
+    @action(
+        methods=["post"],
+        detail=False,
+        permission_classes=[HasRole(["trainee"])],
+        url_path="mark-section-completed",
+    )
+    def mark_section_as_completed(self, request,pk=None):
+        try:
+            profile_id = get_profile_id_from_token(request)
+            trainee_profile = Profile.objects.get(pk=profile_id)
+            CourseValidator.validate_trainee_profile_belongs_to_user(trainee_profile, request)
+            section = CourseValidator.validate_section_exists(pk)
+        except (ValueError, Profile.DoesNotExist) as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = CourseProgressSerializer(data={**request.data,"lesson_section": pk, "trainee_profile": trainee_profile.pk})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
