@@ -1131,7 +1131,7 @@ class CourseProgressView(ViewSet):
     )
     @action(
         methods=["post"],
-        detail=False,
+        detail=True,
         permission_classes=[HasRole(["trainee"])],
         url_path="mark-section-completed",
     )
