@@ -235,7 +235,7 @@ class TrainerExperienceSerializer(serializers.ModelSerializer):
 
 
 class TrainerCalendarSlotSerializer(serializers.ModelSerializer):
-    trainer_id = serializers.PrimaryKeyRelatedField(
+    trainer = serializers.PrimaryKeyRelatedField(
         queryset=Trainer.objects.all(),
         write_only=True,
         required=False,
@@ -248,7 +248,7 @@ class TrainerCalendarSlotSerializer(serializers.ModelSerializer):
             "slot_start_time",
             "slot_end_time",
             "is_available",
-            "trainer_id",
+            "trainer",
         ]
         read_only_fields = ["is_available",]
 
@@ -276,10 +276,10 @@ class TrainerCalendarSlotSerializer(serializers.ModelSerializer):
             validated_data["trainer"] = trainer
         else:
             # For superusers, use the provided trainer_id
-            trainer = validated_data.pop("trainer_id", None)
+            trainer = validated_data.pop("trainer", None)
             if not trainer:
                 raise serializers.ValidationError(
-                    "trainer_id is required for superusers."
+                    "trainer is required for superusers."
                 )
             validated_data["trainer"] = trainer
 
