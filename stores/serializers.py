@@ -50,39 +50,34 @@ class StoreSerializer(serializers.ModelSerializer):
         return instance
 
 class StoreBranchSerializer(serializers.ModelSerializer):
-    account_id = serializers.IntegerField(write_only=True)
     
     class Meta:
         model = StoreBranch
-        fields = ['id', 'account_id', 'store_id', 'opening_time', 'closing_time', 'country', 'state', 'street', 'zip_code', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
-
-    def validate_account_id(self, value):
-        try:
-            account = Account.objects.get(pk=value)
-        except Account.DoesNotExist:
-            raise serializers.ValidationError("Account does not exist.")
-
-        store_profile = account.profiles.filter(profile_type="store").first() if hasattr(account, 'profiles') else Profile.objects.filter(account=account, profile_type="store").first()
-        if not store_profile:
-            raise serializers.ValidationError('Account must have a store profile.')
-        return value
+        fields = ['id', 'store_id', 'opening_time', 'closing_time', 'country', 'state', 'street', 'zip_code', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'store_id', 'created_at', 'updated_at']
 
     def create(self, validated_data):
-        account_id = validated_data.pop("account_id")
-        account = Account.objects.get(pk=account_id)
-        store_profile = account.profiles.filter(profile_type="store").first() if hasattr(account, 'profiles') else Profile.objects.filter(account=account, profile_type="store").first()
-
-        if not store_profile:
-            raise serializers.ValidationError({"account_id": "Account does not have a store profile."})
-
+        # Get profile_id from token
+        profile_id = get_profile_id_from_token(self.context.get("request"))
+        
+        if not profile_id:
+            raise serializers.ValidationError("Profile ID not found in token.")
+        
+        # Get the store for this profile
+        try:
+            store = Store.objects.get(profile_id=profile_id)
+        except Store.DoesNotExist:
+            raise serializers.ValidationError("Store does not exist for this profile.")
+        
+        # Set store_id
+        validated_data['store_id'] = store
+        
         store_branch = StoreBranch(**validated_data)
         store_branch.full_clean()
         store_branch.save()
         return store_branch
 
     def update(self, instance, validated_data):
-        validated_data.pop("account_id", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.full_clean()
@@ -109,32 +104,20 @@ class StoreItemInventorySerializer(serializers.ModelSerializer):
         return value
     
 class StoreItemSerializer(serializers.ModelSerializer):
-    account_id = serializers.IntegerField(write_only=True)
     inventory = StoreItemInventorySerializer(source='storeiteminventory_set', many=True, read_only=True)
     total_quantity = serializers.SerializerMethodField()
 
     class Meta:
         model = StoreItem
         fields = [
-            'id', 'account_id', 'store_id', 'branch_id', 'name', 'description',
+            'id', 'store_id', 'branch_id', 'name', 'description',
             'price', 'category', 'brand', 'expiration_date',
             'inventory', 'total_quantity', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'inventory', 'total_quantity']
+        read_only_fields = ['id', 'store_id', 'created_at', 'updated_at', 'inventory', 'total_quantity']
 
     def get_total_quantity(self, obj):
         return obj.get_total_quantity()
-
-    def validate_account_id(self, value):
-        try:
-            account = Account.objects.get(pk=value)
-        except Account.DoesNotExist:
-            raise serializers.ValidationError("Account does not exist.")
-
-        store_profile = account.profiles.filter(profile_type="store").first() if hasattr(account, 'profiles') else Profile.objects.filter(account=account, profile_type="store").first()
-        if not store_profile:
-            raise serializers.ValidationError('Account must have a store profile.')
-        return value
 
     def validate_price(self, value):
         if value <= 0:
@@ -142,14 +125,25 @@ class StoreItemSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        account_id = validated_data.pop("account_id")
-        account = Account.objects.get(pk=account_id)
-        store_profile = account.profiles.filter(profile_type="store").first() if hasattr(account, 'profiles') else Profile.objects.filter(account=account, profile_type="store").first()
+        # Get profile_id from token
+        profile_id = get_profile_id_from_token(self.context.get("request"))
+        
+        if not profile_id:
+            raise serializers.ValidationError("Profile ID not found in token.")
+        
+        # Get the store for this profile
+        try:
+            store = Store.objects.get(profile_id=profile_id)
+        except Store.DoesNotExist:
+            raise serializers.ValidationError("Store does not exist for this profile.")
+        
+        # Set store_id
+        validated_data['store_id'] = store
 
-        # Get or verify store
-        store_id = validated_data.get('store_id')
-        if not store_id or store_id.profile_id != store_profile:
-            raise serializers.ValidationError({"store_id": "Store must belong to the authenticated store profile."})
+        # Validate branch_id if provided
+        branch_id = validated_data.get('branch_id')
+        if branch_id and branch_id.store_id != store:
+            raise serializers.ValidationError("Branch must belong to the authenticated user's store.")
 
         item = StoreItem(**validated_data)
         item.full_clean()
@@ -157,7 +151,6 @@ class StoreItemSerializer(serializers.ModelSerializer):
         return item
 
     def update(self, instance, validated_data):
-        validated_data.pop("account_id", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.full_clean()
@@ -185,7 +178,6 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    account_id = serializers.IntegerField(write_only=True)
     order_items = OrderItemSerializer(source='orderitem_set', many=True, read_only=True)
     store_name = serializers.CharField(source='store_id.name', read_only=True)
     buyer_name = serializers.CharField(source='buyer_id.username', read_only=True)
@@ -193,28 +185,19 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            'id', 'account_id', 'store_id', 'store_name', 'buyer_id',
+            'id', 'store_id', 'store_name', 'buyer_id',
             'buyer_name', 'total_price', 'status', 'notes',
             'order_items', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'total_price', 'order_items', 'created_at', 'updated_at']
 
-    def validate_account_id(self, value):
-        try:
-            account = Account.objects.get(pk=value)
-        except Account.DoesNotExist:
-            raise serializers.ValidationError("Account does not exist.")
-        return value
-
     def create(self, validated_data):
-        validated_data.pop("account_id", None)
         order = Order(**validated_data)
         order.full_clean()
         order.save()
         return order
 
     def update(self, instance, validated_data):
-        validated_data.pop("account_id", None)
         for attr, value in validated_data.items():
             if attr != 'store_id':  # prevent store change
                 setattr(instance, attr, value)

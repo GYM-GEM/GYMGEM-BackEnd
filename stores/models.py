@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from profiles.models import Profile
 from accounts.models import Account
 # Create your models here.
@@ -98,7 +99,7 @@ class StoreItem(models.Model):
         return f"StoreItem<{self.name}> of Store {self.store_id.name}"  
     def clean(self):
         """Validate StoreItem fields."""
-        if self.expiration_date and self.expiration_date <= models.DateField().to_python('today'):
+        if self.expiration_date and self.expiration_date <= timezone.now().date():
             raise ValidationError({
                 'expiration_date': 'Expiration date must be in the future.'
             })

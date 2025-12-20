@@ -1,4 +1,3 @@
-from urllib import request
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -12,6 +11,7 @@ from authenticationAndAuthorization.permissions import HasRole
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from utils.views import get_profile_id_from_token
+from django.shortcuts import get_object_or_404
 
 class StoreListView(APIView):
     permission_classes = [HasRole(["store"])]
@@ -134,6 +134,16 @@ class StoreBranchView(APIView):
 class StoreBranchUpdateView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="Get store branch details",
+        description="Retrieve details of a specific store branch",
+        responses={200: StoreBranchSerializer}
+    )
+    def get(self, request, branch_id):
+        storebranch = get_object_or_404(StoreBranch, id=branch_id)
+        serializer = StoreBranchSerializer(storebranch, context={"request": request})
+        return Response(serializer.data)
+    
     @extend_schema(
         summary="Update store branch",
         description="Update a store branch (only by store owner)",
@@ -269,7 +279,8 @@ class StoreItemDetailView(APIView):
         if not self._is_store_owner_of_item(request, item):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
-    def _is_store_owner_of_item(self, request, item):
+        item.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
         if not item:
             return False
         profile_id = get_profile_id_from_token(request)
@@ -456,7 +467,7 @@ class OrderItemListView(APIView):
             order_item = OrderItem.objects.create(
                 order_id=order,
                 store_item_id=item,
-                size_id_id=size_id,
+                size_id=size_id,
                 quantity=quantity,
                 price_at_order=item.price
             )
