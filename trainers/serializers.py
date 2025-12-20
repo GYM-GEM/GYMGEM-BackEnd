@@ -250,8 +250,10 @@ class TrainerCalendarSlotSerializer(serializers.ModelSerializer):
             "slot_end_time",
             "is_available",
             "trainer_profile_id",
+            "pk",  # Explicitly include pk in the fields
         ]
-        read_only_fields = ["is_available",]
+        read_only_fields = ["is_available","pk","slot_end_time"]
+    pk = serializers.IntegerField(read_only=True)  # Declare pk as read-only
 
     def create(self, validated_data):
         request = self.context.get("request")
