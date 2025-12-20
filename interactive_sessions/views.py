@@ -1,116 +1,222 @@
-from authenticationAndAuthorization.permissions import HasRole
-from rest_framework import viewsets, permissions
-from rest_framework.filters import SearchFilter, OrderingFilter
-from rest_framework.pagination import PageNumberPagination
+from rest_framework.views import APIView
+from rest_framework.response import Response
 from interactive_sessions.models import InteractiveSession
-from .serializers import InteractiveSessionSerializer
-from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
+from interactive_sessions.serializers import InteractiveSessionSerializer
+from utils.views import get_profile_id_from_token
+from .validators import InteractiveSessionValidator
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
-import django_filters.rest_framework as filters
+from django.db import transaction
+from trainers.models import TrainerCalendarSlot
+from authenticationAndAuthorization.permissions import HasRole
+from django.db import models
 
-class InteractiveSessionFilter(filters.FilterSet):
-    status = filters.CharFilter(field_name='status', lookup_expr='exact')
-    first_participant = filters.NumberFilter(field_name='first_participant__id')
-    second_participant = filters.NumberFilter(field_name='second_participant__id')
-    scheduled_slot = filters.NumberFilter(field_name='scheduled_at__id')
-    created_from = filters.DateTimeFilter(field_name='created_at', lookup_expr='gte')
-    created_to = filters.DateTimeFilter(field_name='created_at', lookup_expr='lte')
-
-    class Meta:
-        model = InteractiveSession
-        fields = ['status', 'first_participant', 'second_participant', 'scheduled_slot', 'created_from', 'created_to']
-
-class InteractiveSessionPagination(PageNumberPagination):
-    page_size = 10
-    page_size_query_param = 'page_size'
-    max_page_size = 100
-
-
-@extend_schema_view(
-    list=extend_schema(
+class SessionRequestView(APIView):
+    permission_classes = [HasRole(['trainee'])]
+    @extend_schema(
         tags=["Interactive Sessions"],
-        summary="List interactive sessions",
-        description="Get a list of interactive sessions with optional filtering, searching, and ordering.",
-        parameters=[
-            OpenApiParameter('status', OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description='Filter by status'),
-            OpenApiParameter('first_participant', OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description='Filter by first participant ID'),
-            OpenApiParameter('second_participant', OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description='Filter by second participant ID'),
-            OpenApiParameter('scheduled_slot', OpenApiTypes.INT, OpenApiParameter.QUERY, required=False, description='Filter by scheduled slot ID'),
-            OpenApiParameter('created_from', OpenApiTypes.DATETIME, OpenApiParameter.QUERY, required=False, description='Created at from (>=)'),
-            OpenApiParameter('created_to', OpenApiTypes.DATETIME, OpenApiParameter.QUERY, required=False, description='Created at to (<=)'),
-            OpenApiParameter('search', OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description='Search title, description, trainer/trainee name'),
-            OpenApiParameter('ordering', OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description='Order by created_at, updated_at, scheduled_at'),
-        ],
-        responses={200: InteractiveSessionSerializer(many=True)},
-    ),
-    retrieve=extend_schema(
-        tags=["Interactive Sessions"],
-        summary="Retrieve interactive session",
-        responses={200: InteractiveSessionSerializer},
-    ),
-    create=extend_schema(
-        tags=["Interactive Sessions"],
-        summary="Create interactive session (trainer only)",
-        request=InteractiveSessionSerializer,
-        responses={201: InteractiveSessionSerializer, 400: {"description": "Validation error"}},
-    ),
-    update=extend_schema(
-        tags=["Interactive Sessions"],
-        summary="Update interactive session (trainer only)",
-        request=InteractiveSessionSerializer,
-        responses={200: InteractiveSessionSerializer, 400: {"description": "Validation error"}},
-    ),
-    partial_update=extend_schema(
-        tags=["Interactive Sessions"],
-        summary="Partially update interactive session (trainer only)",
-        request=InteractiveSessionSerializer,
-        responses={200: InteractiveSessionSerializer, 400: {"description": "Validation error"}},
-    ),
-    destroy=extend_schema(
-        tags=["Interactive Sessions"],
-        summary="Delete interactive session (trainer only)",
-        responses={204: {"description": "Session deleted"}},
-    ),
-)
-class InteractiveSessionView(viewsets.ModelViewSet):
-    """
-    ViewSet for managing interactive sessions between trainers and trainees.
+        summary="Request an interactive session",
+        description="Trainee requests an interactive session with a trainer at a specified time slot.",
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {
+                    "trainer_id": {"type": "integer", "description": "ID of the trainer"},
+                    "time_slot_id": {"type": "integer", "description": "ID of the trainer's calendar slot"},
+                    "session_title": {"type": "string", "description": "Title of the session"},
+                    "description": {"type": "string", "description": "Description of the session"}
+                },
+                "required": ["trainer_id", "time_slot_id", "session_title", "description"]
+            }
+        },
+        responses={
+            201: InteractiveSessionSerializer,
+            400: {"description": "Validation error"}
+        }
+    )
+    def post(self, request):
+        trainer = request.data.get('trainer_id')
+        trainee = get_profile_id_from_token(request)  # Assume this function extracts profile ID from request
+        time_slot = request.data.get('time_slot_id')
+        session_title = request.data.get('session_title')
+        description = request.data.get('description')
+        
+        InteractiveSessionValidator.time_slot_belongs_to_trainer_and_available(time_slot, trainer)
+        
+        serializer = InteractiveSessionSerializer(data={
+            'trainer': [trainer],
+            'trainee': [trainee],
+            'scheduled_at': time_slot,
+            'session_title': session_title,
+            'description': description,
+            'status': 'requested'
+        }, context={'request': request})
+        with transaction.atomic():
+            if serializer.is_valid():
+                serializer.save()
+            TrainerCalendarSlot.objects.filter(id=time_slot).update(is_available=False)
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
     
-    list: Get all interactive sessions with optional filtering, searching, and ordering.
-    create: Create a new interactive session (trainer only).
-    retrieve: Get details of a specific interactive session.
-    update: Update an interactive session (trainer only).
-    partial_update: Partially update an interactive session (trainer only).
-    destroy: Delete an interactive session (trainer only).
-    """
-    queryset = InteractiveSession.objects.all().select_related(
-        'scheduled_at',
-        'scheduled_at__trainer'  # If TrainerCalendarSlot has trainer FK
-    ).prefetch_related(
-        'first_participant',  # ManyToMany
-        'second_participant',  # ManyToMany
-        'first_participant__account',
-        'second_participant__account'
-    ).order_by('id')
-    serializer_class = InteractiveSessionSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    pagination_class = InteractiveSessionPagination
-    filter_backends = [filters.DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_class = InteractiveSessionFilter
-    search_fields = [
-        'session_title',
-        'description',
-        'status',
-        'first_participant__account__username',
-        'second_participant__account__username',
-    ]
-    ordering_fields = ['created_at', 'updated_at', 'scheduled_at']
-    ordering = ['-created_at']
+class SessionAcceptView(APIView):
+    
+    permission_classes = [HasRole(['trainer'])]
+    @extend_schema(
+        tags=["Interactive Sessions"],
+        summary="Accept an interactive session request",
+        description="Trainer accepts a requested interactive session.",
+        parameters=[
+            OpenApiParameter(
+                name="session_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                description="ID of the interactive session"
+            )
+        ],
+        responses={
+            200: InteractiveSessionSerializer,
+            404: {"description": "Session not found"}
+        }
+    )
+    def post(self, request, session_id):
+        try:
+            session = InteractiveSession.objects.get(id=session_id)
+        except InteractiveSession.DoesNotExist:
+            return Response({'error': 'Session not found'}, status=404)
+        
+        session.status = 'pending'  # Update status to pending upon acceptance
+        session.save()
+        serializer = InteractiveSessionSerializer(session, context={'request': request})
+        return Response(serializer.data, status=200)
+    
+# class SessionCompleteView(APIView):
+#     def post(self, request, session_id):
+#         try:
+#             session = InteractiveSession.objects.get(id=session_id)
+#         except InteractiveSession.DoesNotExist:
+#             return Response({'error': 'Session not found'}, status=404)
+        
+#         session.status = 'completed'  # Update status to completed
+#         session.save()
+#         serializer = InteractiveSessionSerializer(session, context={'request': request})
+#         return Response(serializer.data, status=200)
 
-    def get_permissions(self):
-        perms = super().get_permissions()
-        if self.action in {"create", "update", "partial_update", "destroy"}:
-            perms.insert(0, HasRole(['trainer']))  # remove the trailing ()
-        return perms
+class SessionCancelView(APIView):
+    permission_classes = [HasRole(['trainee'])]
+    @extend_schema(
+        tags=["Interactive Sessions"],  
+        summary="Cancel an interactive session",
+        description="Trainee cancels a scheduled or pending interactive session.",
+        parameters=[
+            OpenApiParameter(
+                name="session_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                description="ID of the interactive session"
+            )
+        ],
+        responses={
+            200: InteractiveSessionSerializer,
+            404: {"description": "Session not found"},
+            400: {"description": "Invalid session status for cancellation"}
+        }
+    )
+    def post(self, request, session_id):
+        try:
+            session = InteractiveSession.objects.get(id=session_id)
+        except InteractiveSession.DoesNotExist:
+            return Response({'error': 'Session not found'}, status=404)
+        with transaction.atomic():
+            if session.status not in ['scheduled', 'pending', 'requested']:
+                return Response({'error': 'Only scheduled, pending, or requested sessions can be canceled'}, status=400)
+            session.status = 'canceled'  # Update status to canceled
+            session.save()
+            TrainerCalendarSlot.objects.filter(id=session.scheduled_at.id).update(is_available=True)
+            serializer = InteractiveSessionSerializer(session, context={'request': request})
+        return Response(serializer.data, status=200)  
 
-    # Methods inherit schema from extend_schema_view above.
+class SessionAbortView(APIView):
+    permission_classes = [HasRole(['trainer'])]
+    @extend_schema(
+        tags=["Interactive Sessions"],
+        summary="Abort an interactive session",
+        description="Trainer aborts a scheduled interactive session.",
+        parameters=[
+            OpenApiParameter(
+                name="session_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                description="ID of the interactive session"
+            )
+        ],
+        responses={
+            200: InteractiveSessionSerializer,
+            404: {"description": "Session not found"},
+            400: {"description": "Invalid session status for abortion"}
+        }
+    )
+    def post(self, request, session_id):
+        try:
+            session = InteractiveSession.objects.get(id=session_id)
+        except InteractiveSession.DoesNotExist:
+            return Response({'error': 'Session not found'}, status=404)
+        with transaction.atomic():
+            if session.status != 'scheduled':
+                return Response({'error': 'Only scheduled sessions can be aborted'}, status=400)
+            session.status = 'aborted'  # Update status to aborted
+            session.save()
+            TrainerCalendarSlot.objects.filter(id=session.scheduled_at.id).update(is_available=True)
+            serializer = InteractiveSessionSerializer(session, context={'request': request})
+        return Response(serializer.data, status=200)
+
+class SessionRejectView(APIView):
+    permission_classes = [HasRole(['trainer'])]
+    @extend_schema(
+        tags=["Interactive Sessions"],
+        summary="Reject an interactive session request",
+        description="Trainer rejects a requested interactive session.",
+        parameters=[
+            OpenApiParameter(
+                name="session_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                description="ID of the interactive session"
+            )
+        ],
+        responses={
+            200: InteractiveSessionSerializer,
+            404: {"description": "Session not found"},
+            400: {"description": "Invalid session status for rejection"}
+        }
+    )
+    def post(self, request, session_id):
+        try:
+            session = InteractiveSession.objects.get(id=session_id)
+        except InteractiveSession.DoesNotExist:
+            return Response({'error': 'Session not found'}, status=404)
+        with transaction.atomic():
+            if session.status != 'requested':
+                return Response({'error': 'Only requested sessions can be rejected'}, status=400)
+            session.status = 'rejected'  # Update status to rejected
+            session.save()
+            TrainerCalendarSlot.objects.filter(id=session.scheduled_at.id).update(is_available=True)
+            serializer = InteractiveSessionSerializer(session, context={'request': request})
+        return Response(serializer.data, status=200)
+
+class SessionListView(APIView):
+    permission_classes = [HasRole(['trainer', 'trainee'])]
+    @extend_schema(
+        tags=["Interactive Sessions"],
+        summary="List interactive sessions for the user",
+        description="Retrieve all interactive sessions associated with the requesting user.",
+        responses={
+            200: InteractiveSessionSerializer(many=True),
+        }
+    )
+    def get(self, request):
+        profile_id = get_profile_id_from_token(request)
+        sessions = InteractiveSession.objects.filter(
+            models.Q(trainer__id=profile_id) | models.Q(trainee__id=profile_id)
+        ).distinct()
+        serializer = InteractiveSessionSerializer(sessions, many=True, context={'request': request})
+        return Response(serializer.data, status=200)

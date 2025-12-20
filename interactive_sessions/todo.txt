@@ -1,7 +1,7 @@
-* get calendar for the trainer profile 
+* get calendar for the trainer profile  DONE
 * post request fora session (on the post change the status for the booking slot / limit the requests for 1 request per trainee until the status is changed from waiting)
 * notifications though email to inform trainer if a trainee requested a session and a remaider before the session and to inform the trainee when the trainer accepted or refused the session and also a remainder
 * hide profile for the trainer 
-* CRUD for calendar 
+* CRUD for calendar  DONE 
 * get sessions for trainer, trainee 
 * accept session from the trainer side 
