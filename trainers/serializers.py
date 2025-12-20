@@ -276,11 +276,11 @@ class TrainerCalendarSlotSerializer(serializers.ModelSerializer):
             validated_data["trainer"] = trainer
         else:
             # For superusers, use the provided trainer
-            trainer = validated_data.pop("trainer", get_profile_id_from_token(request))
+            trainer = validated_data.pop("trainer", None)
             if not trainer:
-                raise serializers.ValidationError(
-                    "trainer is required for superusers."
-                )
+                trainer = Trainer.objects.filter(
+                    profile_id=user.profiles.filter(profile_type="trainer").first()
+                ).first()
             validated_data["trainer"] = trainer
 
         slot = TrainerCalendarSlot(**validated_data)
