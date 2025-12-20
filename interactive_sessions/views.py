@@ -73,8 +73,8 @@ class SessionRequestView(APIView):
             scheduled_at_id=time_slot,
             status__in=['requested', 'pending', 'scheduled'],
             trainee__id=trainee
-        ).exists():
-            return Response({'error': 'You already have a session scheduled/requested for this slot.'}, status=400)
+        ).count() > 2:
+            return Response({'error': 'You already have 2 sessions scheduled/requested for this slot.'}, status=400)
 
         serializer = InteractiveSessionSerializer(data={
             'trainer': [trainer],
