@@ -18,7 +18,7 @@ from .models import (
 )
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
 from django.shortcuts import get_object_or_404
 
@@ -560,6 +560,33 @@ class TrainerCalendarSlotView(APIView):
         operation_id="calendar_slots_create",
         request=TrainerCalendarSlotSerializer,
         responses={201: TrainerCalendarSlotSerializer, 400: {"description": "Validation error"}},
+        examples=[
+            OpenApiExample(
+                name="Create slot (UTC)",
+                description="Send ISO 8601 date-time string; end time auto-calculated.",
+                value={
+                    "slot_start_time": "2025-12-20T20:00:00Z"
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Create slot (+02:00)",
+                description="Timezone-aware example with offset.",
+                value={
+                    "slot_start_time": "2025-12-20T20:00:00+02:00"
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Provide explicit end time",
+                description="Optional end time if not 30 minutes.",
+                value={
+                    "slot_start_time": "2025-12-20T20:00:00Z",
+                    "slot_end_time": "2025-12-20T20:30:00Z"
+                },
+                request_only=True,
+            ),
+        ],
     )
     def post(self, request, *args, **kwargs):
         serializer = TrainerCalendarSlotSerializer(
