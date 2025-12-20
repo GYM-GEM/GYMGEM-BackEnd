@@ -52,7 +52,7 @@ class SessionRequestView(APIView):
             return Response({'error': 'Selected time slot does not exist.'}, status=400)
 
         has_time_conflict = InteractiveSession.objects.filter(
-            trainee_id=trainee,
+            trainee__id=trainee,
             status__in=['requested', 'pending', 'scheduled'],
             scheduled_at__slot_start_time=slot_obj.slot_start_time,
         ).exists()
@@ -63,13 +63,13 @@ class SessionRequestView(APIView):
         if InteractiveSession.objects.filter(
             scheduled_at_id=time_slot,
             status__in=['requested', 'pending', 'scheduled'],
-            trainee_id=trainee
+            trainee__id=trainee
         ).exists():
             return Response({'error': 'You already have a session scheduled/requested for this slot.'}, status=400)
 
         serializer = InteractiveSessionSerializer(data={
-            'trainer': trainer,
-            'trainee': trainee,
+            'trainer': [trainer],
+            'trainee': [trainee],
             'scheduled_at': time_slot,
             'session_title': session_title,
             'description': description,
