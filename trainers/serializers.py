@@ -257,7 +257,7 @@ class TrainerCalendarSlotSerializer(serializers.ModelSerializer):
         if not request:
             raise serializers.ValidationError("Request context is required.")
 
-        user = request.user
+        user = get_account_from_token(request)
         if not user.is_superuser:
             # For non-superusers, set trainer based on their profile
             profile_id = get_profile_id_from_token(request)
@@ -275,7 +275,7 @@ class TrainerCalendarSlotSerializer(serializers.ModelSerializer):
                 )
             validated_data["trainer"] = trainer
         else:
-            # For superusers, use the provided trainer_id
+            # For superusers, use the provided trainer
             trainer = validated_data.pop("trainer", None)
             if not trainer:
                 raise serializers.ValidationError(
