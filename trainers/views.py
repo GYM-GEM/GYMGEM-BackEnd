@@ -551,10 +551,13 @@ class TrainerExperienceUpdateView(APIView):
 
 class TrainerCalendarSlotView(APIView):
     @extend_schema(
-        tags=["Trainers"],
+        tags=["Calendar"],
         summary="Create calendar slot",
-        description="Create a new trainer calendar slot.",
-        operation_id="trainers_calendar_slots_create_root",
+        description=(
+            "Create a new 30-minute trainer calendar slot. End time is auto-set "
+            "to start time + 30 minutes and overlapping slots are rejected."
+        ),
+        operation_id="calendar_slots_create",
         request=TrainerCalendarSlotSerializer,
         responses={201: TrainerCalendarSlotSerializer, 400: {"description": "Validation error"}},
     )
@@ -568,6 +571,13 @@ class TrainerCalendarSlotView(APIView):
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
 
+    @extend_schema(
+        tags=["Calendar"],
+        summary="List my calendar slots",
+        description="List all calendar slots for the authenticated trainer profile.",
+        operation_id="calendar_slots_list_my",
+        responses=TrainerCalendarSlotSerializer(many=True),
+    )
     def get(self, request, *args, **kwargs):
         trainer = get_object_or_404(Trainer, profile_id__id=get_profile_id_from_token(request))
         slots = TrainerCalendarSlot.objects.filter(trainer=trainer).select_related(
@@ -579,20 +589,20 @@ class TrainerCalendarSlotView(APIView):
     
 class TrainerCalendarSlotDetailView(APIView):
     @extend_schema(
-        tags=["Trainers"],
-        summary="Retrieve calendar slot",
-        description="Retrieve an existing trainer calendar slot.",
-        operation_id="trainers_calendar_slots_retrieve_root",
+        tags=["Calendar"],
+        summary="List trainer's calendar slots",
+        description="List all calendar slots for a given trainer ID.",
+        operation_id="calendar_slots_list_trainer",
         parameters=[
             OpenApiParameter(
-                name="slot_id",
+                name="trainer_id",
                 type=OpenApiTypes.INT,
                 location=OpenApiParameter.PATH,
                 required=True,
-                description="Calendar Slot ID",
+                description="Trainer ID",
             ),
         ],
-        responses={200: TrainerCalendarSlotSerializer, 404: {"description": "Calendar slot not found"}},
+        responses=TrainerCalendarSlotSerializer(many=True),
     )
     def get(self, request, trainer_id, *args, **kwargs):
         slots = TrainerCalendarSlot.objects.filter(trainer__id=trainer_id).select_related(
@@ -605,10 +615,10 @@ class TrainerCalendarSlotDetailView(APIView):
 
 class TrainerCalendarSlotDeleteView(APIView):
     @extend_schema(
-        tags=["Trainers"],
+        tags=["Calendar"],
         summary="Delete calendar slot",
-        description="Delete an existing trainer calendar slot.",
-        operation_id="trainers_calendar_slots_delete_root",
+        description="Delete an existing trainer calendar slot by ID.",
+        operation_id="calendar_slots_delete",
         parameters=[
             OpenApiParameter(
                 name="slot_id",

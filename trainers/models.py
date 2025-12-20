@@ -100,8 +100,8 @@ class TrainerCalendarSlot(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        unique_together = ('trainer', 'slot_date', 'slot_start_time')
-        ordering = ['slot_date','slot_start_time']
+        unique_together = ('trainer', 'slot_start_time')
+        ordering = ['slot_start_time']
 
     def clean(self):
         # Ensure a 30-minute gap by preventing overlaps with existing slots for this trainer
@@ -139,7 +139,7 @@ class TrainerCalendarSlot(models.Model):
 
     def __str__(self):
         return f"TrainerCalenderSlot<{self.slot_start_time}> for Trainer {self.trainer.name}"
-        
+
 class TrainerRecord(models.Model):
     trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)
     record_date = models.DateField()

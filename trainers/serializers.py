@@ -249,7 +249,6 @@ class TrainerCalendarSlotSerializer(serializers.ModelSerializer):
             "slot_end_time",
             "is_available",
             "trainer_id",
-            "slot_date",
         ]
         read_only_fields = ["is_available",]
 
