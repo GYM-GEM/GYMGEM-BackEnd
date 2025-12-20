@@ -11,5 +11,5 @@ urlpatterns = [
     path('experiences/<int:experience_id>', TrainerExperienceUpdateView.as_view(), name='trainer-experience-detail'),
     path('calendar-slots/', TrainerCalendarSlotView.as_view(), name='trainer-calendar-slots'),
     path('calendar-slots/<int:slot_id>/', TrainerCalendarSlotDeleteView.as_view(), name='trainer-calendar-slot-detail'),
-    path('calendar-slots/<int:trainer_id>/detail/', TrainerCalendarSlotDetailView.as_view(), name='trainer-calendar-slot-detail-view'),
+    path('calendar-slots/<int:profile_id>/detail/', TrainerCalendarSlotDetailView.as_view(), name='trainer-calendar-slot-detail-view'),
 ]

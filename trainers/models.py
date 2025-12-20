@@ -92,7 +92,7 @@ class TrainerExperience(models.Model):
 
 
 class TrainerCalendarSlot(models.Model):
-    trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)
+    trainer = models.ForeignKey("profiles.Profile", on_delete=models.CASCADE)
     slot_start_time = models.DateTimeField()
     slot_end_time = models.DateTimeField(null=True, blank=True)
     is_available = models.BooleanField(default=True)

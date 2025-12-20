@@ -271,28 +271,23 @@ class TrainerCalendarSlotSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "No trainer profile found for this account."
                 )
-            trainer = Trainer.objects.filter(profile_id=trainer_profile).first()
-            if not trainer:
-                raise serializers.ValidationError(
-                    "No trainer found for this profile."
-                )
-            validated_data["trainer"] = trainer
+            # Assign the Profile directly to the slot's trainer FK
+            validated_data["trainer"] = trainer_profile
         else:
             # For superusers, use the provided trainer_profile_id if supplied; otherwise try fallback
             trainer_profile = validated_data.pop("trainer_profile_id", None)
-            trainer = None
+            profile = None
             if trainer_profile:
-                trainer = Trainer.objects.filter(profile_id=trainer_profile).first()
-                if not trainer:
-                    raise serializers.ValidationError("No trainer found for the provided trainer_profile_id.")
+                # Ensure provided profile is a trainer profile; assign directly
+                profile = trainer_profile
             else:
                 # Fallback: attempt to use the admin's own trainer profile if exists
                 fallback_profile = user.profiles.filter(profile_type="trainer").first()
                 if fallback_profile:
-                    trainer = Trainer.objects.filter(profile_id=fallback_profile).first()
-            if not trainer:
+                    profile = fallback_profile
+            if not profile:
                 raise serializers.ValidationError("trainer_profile_id is required or admin must have a trainer profile.")
-            validated_data["trainer"] = trainer
+            validated_data["trainer"] = profile
         if TrainerCalendarSlot.objects.filter(
             trainer=validated_data["trainer"],
             slot_start_time=validated_data["slot_start_time"]

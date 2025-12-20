@@ -73,7 +73,7 @@ class TrainerView(APIView):
             experiences = TrainerExperience.objects.filter(trainer=trainer).select_related(
                 'trainer'
             )
-            calendar_slots = TrainerCalendarSlot.objects.filter(trainer=trainer).select_related(
+            calendar_slots = TrainerCalendarSlot.objects.filter(trainer=my_profile).select_related(
                 'trainer'
             )
             return Response({
@@ -118,10 +118,6 @@ class TrainerListView(APIView):
             Prefetch(
                 "trainerexperience_set",
                 queryset=TrainerExperience.objects.select_related("trainer"),
-            ),
-            Prefetch(
-                "trainercalendarslot_set",
-                queryset=TrainerCalendarSlot.objects.select_related("trainer"),
             ),
         )
 
@@ -171,7 +167,7 @@ class TrainerListView(APIView):
                 trainer.trainerexperience_set.all(), many=True
             ).data
             base["calendar_slots"] = TrainerCalendarSlotSerializer(
-                trainer.trainercalendarslot_set.all(), many=True
+                TrainerCalendarSlot.objects.filter(trainer=trainer.profile_id), many=True
             ).data
             trainers_data.append(base)
 
@@ -615,11 +611,8 @@ class TrainerCalendarSlotView(APIView):
         responses=TrainerCalendarSlotSerializer(many=True),
     )
     def get(self, request, *args, **kwargs):
-        trainer = get_object_or_404(Trainer, profile_id__id=get_profile_id_from_token(request))
-        slots = TrainerCalendarSlot.objects.filter(trainer=trainer).select_related(
-            'trainer',
-            'trainer__profile_id'
-        )
+        profile = get_object_or_404(Profile, id=get_profile_id_from_token(request))
+        slots = TrainerCalendarSlot.objects.filter(trainer=profile).select_related('trainer')
         serializer = TrainerCalendarSlotSerializer(slots, many=True)
         return Response(serializer.data)
     
@@ -627,24 +620,22 @@ class TrainerCalendarSlotDetailView(APIView):
     @extend_schema(
         tags=["Calendar"],
         summary="List trainer's calendar slots",
-        description="List all calendar slots for a given trainer ID.",
+        description="List all calendar slots for a given trainer profile ID.",
         operation_id="calendar_slots_list_trainer",
         parameters=[
             OpenApiParameter(
-                name="trainer_id",
+                name="profile_id",
                 type=OpenApiTypes.INT,
                 location=OpenApiParameter.PATH,
                 required=True,
-                description="Trainer ID",
+                description="Trainer Profile ID",
             ),
         ],
         responses=TrainerCalendarSlotSerializer(many=True),
     )
-    def get(self, request, trainer_id, *args, **kwargs):
-        slots = TrainerCalendarSlot.objects.filter(trainer__id=trainer_id).select_related(
-            'trainer',
-            'trainer__profile_id'
-        )
+    def get(self, request, profile_id, *args, **kwargs):
+        profile = get_object_or_404(Profile, id=profile_id)
+        slots = TrainerCalendarSlot.objects.filter(trainer=profile).select_related('trainer')
         serializer = TrainerCalendarSlotSerializer(slots, many=True)
         return Response(serializer.data)
 
