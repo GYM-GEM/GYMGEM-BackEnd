@@ -134,10 +134,6 @@ class TrainerCalendarSlot(models.Model):
         # Auto-set end time to 30 minutes after start if not provided
         if self.slot_start_time and not self.slot_end_time:
             self.slot_end_time = self.slot_start_time + timedelta(minutes=30)
-        if TrainerCalendarSlot.objects.filter(trainer=self.trainer, slot_start_time=self.slot_start_time).exclude(pk=self.pk).exists():
-            raise ValidationError({
-                "slot_start_time": "This slot start time already exists for the trainer.",
-            })
         self.full_clean()
         return super().save(*args, **kwargs)
 

@@ -291,7 +291,13 @@ class TrainerCalendarSlotSerializer(serializers.ModelSerializer):
             if not trainer:
                 raise serializers.ValidationError("trainer_profile_id is required or admin must have a trainer profile.")
             validated_data["trainer"] = trainer
-
+        if TrainerCalendarSlot.objects.filter(
+            trainer=validated_data["trainer"],
+            slot_start_time=validated_data["slot_start_time"]
+        ).exists():
+            raise serializers.ValidationError(
+                "This trainer already has a slot at the specified start time."
+            )
         slot = TrainerCalendarSlot(**validated_data)
         slot.full_clean()
         slot.save()
