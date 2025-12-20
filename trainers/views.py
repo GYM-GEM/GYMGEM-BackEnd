@@ -595,8 +595,11 @@ class TrainerCalendarSlotDetailView(APIView):
         responses={200: TrainerCalendarSlotSerializer, 404: {"description": "Calendar slot not found"}},
     )
     def get(self, request, trainer_id, *args, **kwargs):
-        slot = get_object_or_404(TrainerCalendarSlot, trainer=trainer_id)
-        serializer = TrainerCalendarSlotSerializer(slot)
+        slots = TrainerCalendarSlot.objects.filter(trainer__id=trainer_id).select_related(
+            'trainer',
+            'trainer__profile_id'
+        )
+        serializer = TrainerCalendarSlotSerializer(slots, many=True)
         return Response(serializer.data)
 
 
