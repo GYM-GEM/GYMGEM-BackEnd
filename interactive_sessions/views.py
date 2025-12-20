@@ -40,8 +40,10 @@ class SessionRequestView(APIView):
         time_slot = request.data.get('time_slot_id')
         session_title = request.data.get('session_title')
         description = request.data.get('description')
-        
-        InteractiveSessionValidator.time_slot_belongs_to_trainer_and_available(time_slot, trainer)
+        try:
+            InteractiveSessionValidator.time_slot_belongs_to_trainer_and_available(time_slot, trainer)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=400)
         
         serializer = InteractiveSessionSerializer(data={
             'trainer': [trainer],
