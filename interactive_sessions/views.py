@@ -51,6 +51,15 @@ class SessionRequestView(APIView):
         except TrainerCalendarSlot.DoesNotExist:
             return Response({'error': 'Selected time slot does not exist.'}, status=400)
 
+        # Prevent multiple active sessions with the same trainer
+        has_trainer_conflict = InteractiveSession.objects.filter(
+            trainee__id=trainee,
+            trainer__id=trainer,
+            status__in=['requested', 'pending', 'scheduled'],
+        ).exists()
+        if has_trainer_conflict:
+            return Response({'error': 'You already have an active session with this trainer. Complete or cancel it before requesting another.'}, status=400)
+
         has_time_conflict = InteractiveSession.objects.filter(
             trainee__id=trainee,
             status__in=['requested', 'pending', 'scheduled'],
