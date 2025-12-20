@@ -11,7 +11,7 @@ class InteractiveSessionValidator:
     def time_slot_belongs_to_trainer_and_available(time_slot, trainer):
 
         time_slot = TrainerCalendarSlot.objects.filter(pk=time_slot,trainer=trainer).first()
+        if not time_slot:
+            raise ValueError("The time slot does not belong to the trainer.")
         if not time_slot.is_available:
             raise ValueError("The time slot is not available.")
-        if len(time_slot) == 0:
-            raise ValueError("The time slot does not belong to the trainer.")
