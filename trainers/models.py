@@ -93,9 +93,8 @@ class TrainerExperience(models.Model):
 
 class TrainerCalendarSlot(models.Model):
     trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)
-    slot_date = models.DateField()
-    slot_start_time = models.TimeField()
-    slot_end_time = models.TimeField(null=True, blank=True)
+    slot_start_time = models.DateTimeField()
+    slot_end_time = models.DateTimeField(null=True, blank=True)
     is_available = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -109,9 +108,9 @@ class TrainerCalendarSlot(models.Model):
         if not self.slot_start_time:
             raise ValidationError({"slot_start_time": "Start time is required."})
 
-        start_dt = datetime.combine(date.today(), self.slot_start_time)
+        start_dt = self.slot_start_time
         end_dt = (
-            datetime.combine(date.today(), self.slot_end_time)
+            self.slot_end_time
             if self.slot_end_time
             else start_dt + timedelta(minutes=30)
         )
@@ -123,8 +122,8 @@ class TrainerCalendarSlot(models.Model):
             .exclude(pk=self.pk)
         )
         for s in existing_slots:
-            s_start = datetime.combine(date.today(), s.slot_start_time)
-            s_end = datetime.combine(date.today(), s.slot_end_time)
+            s_start = s.slot_start_time
+            s_end = s.slot_end_time if s.slot_end_time else s_start + timedelta(minutes=30)
             # Overlap if new_start < existing_end AND new_end > existing_start
             if start_dt < s_end and end_dt > s_start:
                 raise ValidationError({
@@ -134,14 +133,13 @@ class TrainerCalendarSlot(models.Model):
     def save(self, *args, **kwargs):
         # Auto-set end time to 30 minutes after start if not provided
         if self.slot_start_time and not self.slot_end_time:
-            start_dt = datetime.combine(date.today(), self.slot_start_time)
-            self.slot_end_time = (start_dt + timedelta(minutes=30)).time()
+            self.slot_end_time = self.slot_start_time + timedelta(minutes=30)
         self.full_clean()
         return super().save(*args, **kwargs)
 
     def __str__(self):
         return f"TrainerCalenderSlot<{self.slot_start_time}> for Trainer {self.trainer.name}"
-    
+        
 class TrainerRecord(models.Model):
     trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)
     record_date = models.DateField()
