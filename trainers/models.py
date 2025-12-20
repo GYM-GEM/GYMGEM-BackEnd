@@ -93,6 +93,7 @@ class TrainerExperience(models.Model):
 
 class TrainerCalendarSlot(models.Model):
     trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)
+    slot_date = models.DateField()
     slot_start_time = models.TimeField()
     slot_end_time = models.TimeField(null=True, blank=True)
     is_available = models.BooleanField(default=True)
@@ -100,8 +101,8 @@ class TrainerCalendarSlot(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        unique_together = ('trainer', 'slot_start_time')
-        ordering = ['slot_start_time']
+        unique_together = ('trainer', 'slot_date', 'slot_start_time')
+        ordering = ['slot_date','slot_start_time']
 
     def clean(self):
         # Ensure a 30-minute gap by preventing overlaps with existing slots for this trainer
