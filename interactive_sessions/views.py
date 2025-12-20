@@ -21,7 +21,7 @@ class SessionRequestView(APIView):
             "application/json": {
                 "type": "object",
                 "properties": {
-                    "trainer_id": {"type": "integer", "description": "ID of the trainer"},
+                    "trainer_id": {"type": "integer", "description": "Profile ID of the trainer"},
                     "time_slot_id": {"type": "integer", "description": "ID of the trainer's calendar slot"},
                     "session_title": {"type": "string", "description": "Title of the session"},
                     "description": {"type": "string", "description": "Description of the session"}
@@ -44,21 +44,52 @@ class SessionRequestView(APIView):
             InteractiveSessionValidator.time_slot_belongs_to_trainer_and_available(time_slot, trainer)
         except ValueError as e:
             return Response({'error': str(e)}, status=400)
-        
+
+        # Prevent time conflicts: same start time for any active session (requested/pending/scheduled)
+        try:
+            slot_obj = TrainerCalendarSlot.objects.only('slot_start_time').get(pk=time_slot)
+        except TrainerCalendarSlot.DoesNotExist:
+            return Response({'error': 'Selected time slot does not exist.'}, status=400)
+
+        has_time_conflict = InteractiveSession.objects.filter(
+            trainee_id=trainee,
+            status__in=['requested', 'pending', 'scheduled'],
+            scheduled_at__slot_start_time=slot_obj.slot_start_time,
+        ).exists()
+        if has_time_conflict:
+            return Response({'error': 'You already have an active session at this start time.'}, status=400)
+
+        # Prevent duplicate requests for the exact same slot
+        if InteractiveSession.objects.filter(
+            scheduled_at_id=time_slot,
+            status__in=['requested', 'pending', 'scheduled'],
+            trainee_id=trainee
+        ).exists():
+            return Response({'error': 'You already have a session scheduled/requested for this slot.'}, status=400)
+
         serializer = InteractiveSessionSerializer(data={
-            'trainer': [trainer],
-            'trainee': [trainee],
+            'trainer': trainer,
+            'trainee': trainee,
             'scheduled_at': time_slot,
             'session_title': session_title,
             'description': description,
             'status': 'requested'
         }, context={'request': request})
+
         with transaction.atomic():
+            # Atomically reserve the slot if available
+            updated = TrainerCalendarSlot.objects.filter(id=time_slot, is_available=True).update(is_available=False)
+            if updated == 0:
+                return Response({'error': 'Selected time slot is no longer available.'}, status=400)
+
             if serializer.is_valid():
-                serializer.save()
-            TrainerCalendarSlot.objects.filter(id=time_slot).update(is_available=False)
-            return Response(serializer.data, status=201)
-        return Response(serializer.errors, status=400)
+                session = serializer.save()
+                out = InteractiveSessionSerializer(session, context={'request': request}).data
+                return Response(out, status=201)
+            else:
+                # Roll back slot reservation if session creation fails
+                TrainerCalendarSlot.objects.filter(id=time_slot).update(is_available=True)
+                return Response(serializer.errors, status=400)
     
 class SessionAcceptView(APIView):
     
