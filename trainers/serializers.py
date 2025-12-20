@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from accounts.models import Account
+from profiles.models import Profile
 from .models import (
     Trainer,
     TrainerCalendarSlot,
@@ -235,11 +236,11 @@ class TrainerExperienceSerializer(serializers.ModelSerializer):
 
 
 class TrainerCalendarSlotSerializer(serializers.ModelSerializer):
-    trainer = serializers.PrimaryKeyRelatedField(
-        queryset=Trainer.objects.all(),
+    trainer_profile_id = serializers.PrimaryKeyRelatedField(
+        queryset=Profile.objects.filter(profile_type="trainer"),
         write_only=True,
         required=False,
-        help_text="Only superusers may set this field.",
+        help_text="Admin-only: create slot for a specific trainer profile.",
     )
 
     class Meta:
@@ -248,7 +249,7 @@ class TrainerCalendarSlotSerializer(serializers.ModelSerializer):
             "slot_start_time",
             "slot_end_time",
             "is_available",
-            "trainer",
+            "trainer_profile_id",
         ]
         read_only_fields = ["is_available",]
 
@@ -275,12 +276,20 @@ class TrainerCalendarSlotSerializer(serializers.ModelSerializer):
                 )
             validated_data["trainer"] = trainer
         else:
-            # For superusers, use the provided trainer
-            trainer = validated_data.pop("trainer", None)
+            # For superusers, use the provided trainer_profile_id if supplied; otherwise try fallback
+            trainer_profile = validated_data.pop("trainer_profile_id", None)
+            trainer = None
+            if trainer_profile:
+                trainer = Trainer.objects.filter(profile_id=trainer_profile).first()
+                if not trainer:
+                    raise serializers.ValidationError("No trainer found for the provided trainer_profile_id.")
+            else:
+                # Fallback: attempt to use the admin's own trainer profile if exists
+                fallback_profile = user.profiles.filter(profile_type="trainer").first()
+                if fallback_profile:
+                    trainer = Trainer.objects.filter(profile_id=fallback_profile).first()
             if not trainer:
-                trainer = Trainer.objects.filter(
-                    profile_id=user.profiles.filter(profile_type="trainer").first()
-                ).first()
+                raise serializers.ValidationError("trainer_profile_id is required or admin must have a trainer profile.")
             validated_data["trainer"] = trainer
 
         slot = TrainerCalendarSlot(**validated_data)

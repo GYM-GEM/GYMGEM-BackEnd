@@ -586,6 +586,15 @@ class TrainerCalendarSlotView(APIView):
                 },
                 request_only=True,
             ),
+            OpenApiExample(
+                name="Admin creates for trainer",
+                description="Superuser may specify trainer_profile_id to create for another trainer.",
+                value={
+                    "slot_start_time": "2025-12-21T14:00:00Z",
+                    "trainer_profile_id": 42
+                },
+                request_only=True,
+            ),
         ],
     )
     def post(self, request, *args, **kwargs):
