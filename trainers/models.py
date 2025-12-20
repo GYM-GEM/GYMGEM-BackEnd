@@ -94,7 +94,7 @@ class TrainerExperience(models.Model):
 class TrainerCalendarSlot(models.Model):
     trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)
     slot_start_time = models.TimeField()
-    slot_end_time = models.TimeField(default = slot_start_time + timedelta(minutes=30))
+    slot_end_time = models.TimeField(null=True, blank=True)
     is_available = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -129,6 +129,14 @@ class TrainerCalendarSlot(models.Model):
                 raise ValidationError({
                     "slot_start_time": "Overlaps with an existing slot; a 30-minute gap is required.",
                 })
+
+    def save(self, *args, **kwargs):
+        # Auto-set end time to 30 minutes after start if not provided
+        if self.slot_start_time and not self.slot_end_time:
+            start_dt = datetime.combine(date.today(), self.slot_start_time)
+            self.slot_end_time = (start_dt + timedelta(minutes=30)).time()
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return f"TrainerCalenderSlot<{self.slot_start_time}> for Trainer {self.trainer.name}"
