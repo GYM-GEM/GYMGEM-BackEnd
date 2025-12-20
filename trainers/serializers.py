@@ -245,56 +245,55 @@ class TrainerCalendarSlotSerializer(serializers.ModelSerializer):
     class Meta:
         model = TrainerCalendarSlot
         fields = [
-            "slot_date",
             "slot_start_time",
+            "slot_end_time",
+            "is_available",
             "is_booked",
             "trainer_id",
         ]
-        read_only_fields = ["is_booked"]
+        read_only_fields = ["is_available",]
 
-    def validate_trainer_id(self, value):
-        request = self.context.get("request")
-        if not request or not request.user.is_authenticated:
-            raise serializers.ValidationError("Authentication required.")
-        if not request.user.is_superuser:
-            raise serializers.ValidationError("Only superusers may set trainer_id.")
-        return value
-
-    def _get_account(self):
+    def create(self, validated_data):
         request = self.context.get("request")
         if not request:
             raise serializers.ValidationError("Request context is required.")
-        user = getattr(request, "user", None)
-        if not user or not user.is_authenticated:
-            raise serializers.ValidationError("Authentication required.")
-        if isinstance(user, Account):
-            return user
-        try:
-            return Account.objects.get(pk=user.pk)
-        except Account.DoesNotExist:
-            raise serializers.ValidationError("Account does not exist.")
 
-    def _get_trainer_from_account(self, account):
-        if account.is_superuser:
-            return True
-        trainer_profile = account.profiles.filter(profile_type="trainer").first()
-        if not trainer_profile:
-            raise serializers.ValidationError("Account must have a trainer profile.")
-        try:
-            return Trainer.objects.get(profile_id=trainer_profile)
-        except Trainer.DoesNotExist:
-            raise serializers.ValidationError(
-                "Trainer does not exist for this account."
-            )
-
-    def create(self, validated_data):
-        explicit_trainer = validated_data.pop("trainer_id", None)
-        if explicit_trainer:
-            trainer = explicit_trainer
+        user = request.user
+        if not user.is_superuser:
+            # For non-superusers, set trainer based on their profile
+            profile_id = get_profile_id_from_token(request)
+            trainer_profile = user.profiles.filter(
+                profile_type="trainer", pk=profile_id
+            ).first()
+            if not trainer_profile:
+                raise serializers.ValidationError(
+                    "No trainer profile found for this account."
+                )
+            trainer = Trainer.objects.filter(profile_id=trainer_profile).first()
+            if not trainer:
+                raise serializers.ValidationError(
+                    "No trainer found for this profile."
+                )
+            validated_data["trainer"] = trainer
         else:
-            account = self._get_account()
-            trainer = self._get_trainer_from_account(account)
-        slot = TrainerCalendarSlot(trainer=trainer, **validated_data)
+            # For superusers, use the provided trainer_id
+            trainer = validated_data.pop("trainer_id", None)
+            if not trainer:
+                raise serializers.ValidationError(
+                    "trainer_id is required for superusers."
+                )
+            validated_data["trainer"] = trainer
+
+        slot = TrainerCalendarSlot(**validated_data)
         slot.full_clean()
         slot.save()
         return slot
+    
+    def update(self, instance, validated_data):
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.full_clean()
+        instance.save()
+        return instance
+    
+    

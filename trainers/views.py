@@ -568,64 +568,56 @@ class TrainerCalendarSlotView(APIView):
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
 
-    @extend_schema(
-        tags=["Trainers"],
-        summary="Update calendar slot",
-        description="Partially update a trainer calendar slot.",
-        operation_id="trainers_calendar_slots_partial_update_with_id",
-        parameters=[
-            OpenApiParameter(
-                name="slot_id",
-                type=OpenApiTypes.INT,
-                location=OpenApiParameter.PATH,
-                required=True,
-                description="Calendar slot ID",
-            )
-        ],
-        request=TrainerCalendarSlotSerializer,
-        responses={200: TrainerCalendarSlotSerializer, 400: {"description": "Validation error"}},
-    )
-    def patch(self, request, slot_id, *args, **kwargs):
-        slot = get_object_or_404(TrainerCalendarSlot, pk=slot_id)
-        serializer = TrainerCalendarSlotSerializer(
-            slot,
-            data=request.data,
-            partial=True,
-            context={"request": request},
+    def get(self, request, *args, **kwargs):
+        trainer = get_object_or_404(Trainer, profile_id__id=get_profile_id_from_token(request))
+        slots = TrainerCalendarSlot.objects.filter(trainer=trainer).select_related(
+            'trainer',
+            'trainer__profile_id'
         )
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=200)
-        return Response(serializer.errors, status=400)
-
-
+        serializer = TrainerCalendarSlotSerializer(slots, many=True)
+        return Response(serializer.data)
+    
 class TrainerCalendarSlotDetailView(APIView):
     @extend_schema(
         tags=["Trainers"],
-        summary="Update calendar slot (by ID)",
-        description="Partially update a trainer calendar slot by ID.",
-        operation_id="trainers_calendar_slot_partial_update",
+        summary="Retrieve calendar slot",
+        description="Retrieve an existing trainer calendar slot.",
+        operation_id="trainers_calendar_slots_retrieve_root",
         parameters=[
             OpenApiParameter(
                 name="slot_id",
                 type=OpenApiTypes.INT,
                 location=OpenApiParameter.PATH,
                 required=True,
-                description="Calendar slot ID",
-            )
+                description="Calendar Slot ID",
+            ),
         ],
-        request=TrainerCalendarSlotSerializer,
-        responses={200: TrainerCalendarSlotSerializer, 400: {"description": "Validation error"}},
+        responses={200: TrainerCalendarSlotSerializer, 404: {"description": "Calendar slot not found"}},
     )
-    def patch(self, request, slot_id, *args, **kwargs):
-        slot = get_object_or_404(TrainerCalendarSlot, pk=slot_id)
-        serializer = TrainerCalendarSlotSerializer(
-            slot,
-            data=request.data,
-            partial=True,
-            context={"request": request},
-        )
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=200)
-        return Response(serializer.errors, status=400)
+    def get(self, request, trainer_id, *args, **kwargs):
+        slot = get_object_or_404(TrainerCalendarSlot, trainer=trainer_id)
+        serializer = TrainerCalendarSlotSerializer(slot)
+        return Response(serializer.data)
+
+
+class TrainerCalendarSlotDeleteView(APIView):
+    @extend_schema(
+        tags=["Trainers"],
+        summary="Delete calendar slot",
+        description="Delete an existing trainer calendar slot.",
+        operation_id="trainers_calendar_slots_delete_root",
+        parameters=[
+            OpenApiParameter(
+                name="slot_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                required=True,
+                description="Calendar Slot ID",
+            ),
+        ],
+        responses={204: {"description": "Calendar slot deleted"}, 404: {"description": "Calendar slot not found"}},
+    )
+    def delete(self, request, slot_id, *args, **kwargs):
+        slot = get_object_or_404(TrainerCalendarSlot, id=slot_id)
+        slot.delete()
+        return Response(status=204)

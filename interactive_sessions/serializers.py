@@ -8,11 +8,11 @@ class InteractiveSessionSerializer(serializers.ModelSerializer):
     scheduled_at = serializers.PrimaryKeyRelatedField(
         queryset=TrainerCalendarSlot.objects.all()
     )
-    first_participant = serializers.PrimaryKeyRelatedField(
-        queryset=Profile.objects.all(), many=True, required=False
+    trainer = serializers.PrimaryKeyRelatedField(
+        queryset=Profile.objects.filter(profile_type='trainer'), many=True, required=False
     )
-    second_participant = serializers.PrimaryKeyRelatedField(
-        queryset=Profile.objects.all(), many=True, required=False
+    trainee = serializers.PrimaryKeyRelatedField(
+        queryset=Profile.objects.filter(profile_type='trainee'), many=True, required=False
     )
 
     class Meta:
@@ -23,9 +23,10 @@ class InteractiveSessionSerializer(serializers.ModelSerializer):
             'description',
             'status',
             'scheduled_at',
-            'first_participant',
-            'second_participant',
+            'trainer',
+            'trainee',
             'created_at',
             'updated_at',
         ]
         read_only_fields = ['created_at', 'updated_at']
+

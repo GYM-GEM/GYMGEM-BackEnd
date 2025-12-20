@@ -1,3 +1,4 @@
+from datetime import timedelta, datetime, date
 from django.utils.timezone import now
 from django.db import models
 from django.core.exceptions import ValidationError
@@ -92,14 +93,45 @@ class TrainerExperience(models.Model):
 
 class TrainerCalendarSlot(models.Model):
     trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)
-    slot_date = models.DateField()
     slot_start_time = models.TimeField()
-    is_booked = models.BooleanField(default=False)
+    slot_end_time = models.TimeField(default = slot_start_time + timedelta(minutes=30))
+    is_available = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('trainer', 'slot_start_time')
+        ordering = ['slot_start_time']
+
+    def clean(self):
+        # Ensure a 30-minute gap by preventing overlaps with existing slots for this trainer
+        if not self.slot_start_time:
+            raise ValidationError({"slot_start_time": "Start time is required."})
+
+        start_dt = datetime.combine(date.today(), self.slot_start_time)
+        end_dt = (
+            datetime.combine(date.today(), self.slot_end_time)
+            if self.slot_end_time
+            else start_dt + timedelta(minutes=30)
+        )
+
+        # Check for any overlapping slots for the same trainer
+        existing_slots = (
+            TrainerCalendarSlot.objects
+            .filter(trainer=self.trainer)
+            .exclude(pk=self.pk)
+        )
+        for s in existing_slots:
+            s_start = datetime.combine(date.today(), s.slot_start_time)
+            s_end = datetime.combine(date.today(), s.slot_end_time)
+            # Overlap if new_start < existing_end AND new_end > existing_start
+            if start_dt < s_end and end_dt > s_start:
+                raise ValidationError({
+                    "slot_start_time": "Overlaps with an existing slot; a 30-minute gap is required.",
+                })
 
     def __str__(self):
-        return f"TrainerCalenderSlot<{self.slot_date} {self.slot_start_time}> for Trainer {self.trainer.name}"
+        return f"TrainerCalenderSlot<{self.slot_start_time}> for Trainer {self.trainer.name}"
     
 class TrainerRecord(models.Model):
     trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)
