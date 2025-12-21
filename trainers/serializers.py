@@ -25,7 +25,7 @@ class TrainerSerializer(serializers.ModelSerializer):
             "country",
             "state",
             "zip_code",
-            "hourly_rate",
+            "rate",
             "phone_number",
             "balance",
             "created_at",
