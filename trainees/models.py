@@ -2,6 +2,7 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from profiles.models import Profile
 from django.utils.timezone import now
+from django.core.validators import MinValueValidator
 # Create your models here.
 
 class Trainee(models.Model):
@@ -17,7 +18,7 @@ class Trainee(models.Model):
     state = models.CharField(max_length=100, blank=True, null=True)
     zip_code = models.CharField(max_length=20, blank=True, null=True)
     phone_number = models.CharField(max_length=20, blank=True, null=True)
-    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    balance = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

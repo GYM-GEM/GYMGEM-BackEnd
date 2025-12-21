@@ -1,5 +1,5 @@
 from django.db import models
-
+from django.core.validators import MinValueValidator
 # Create your models here.
 class InteractiveSession(models.Model):
     session_title = models.CharField(max_length=100)
@@ -9,7 +9,7 @@ class InteractiveSession(models.Model):
     scheduled_at = models.ForeignKey('trainers.TrainerCalendarSlot', on_delete=models.CASCADE, related_name='interactive_sessions')
     trainer = models.ManyToManyField('profiles.Profile', related_name='interactive_sessions', blank=True)
     trainee = models.ManyToManyField('profiles.Profile', related_name='interactive_sessions_second', blank=True)
-    fees = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    fees = models.IntegerField(default=50, validators=[MinValueValidator(50)])
     status = models.CharField(max_length=20, choices=[
         ('requested', 'Requested'),  #at first when session is requested from the trainee
         ('scheduled', 'Scheduled'), #when the payment is done and session is scheduled

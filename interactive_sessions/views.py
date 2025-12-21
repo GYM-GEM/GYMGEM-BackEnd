@@ -1,6 +1,5 @@
 from datetime import timedelta
 from django.utils import timezone
-from decimal import Decimal
 from profiles.models import Profile
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -192,15 +191,15 @@ class SessionCancelView(APIView):
                 return Response({'error': 'Only scheduled, pending, or requested sessions can be canceled'}, status=400)
             session.status = 'canceled'  # Update status to canceled
             if session.status == 'scheduled':
-                trainee.balance += Decimal(session.fees * 0.5)
-                trainer.balance += Decimal(session.fees * 0.25)
+                trainee.balance += int(session.fees * 0.5)
+                trainer.balance += int(session.fees * 0.25)
                 trainee.save()
                 trainer.save()
             elif session.status == 'requested' and session.scheduled_at.slot_start_time - timezone.now() > timedelta(hours=6):
-                trainee.balance += Decimal(session.fees * 0.75)
+                trainee.balance += int(session.fees * 0.75)
                 trainee.save()
             elif session.status == 'requested':
-                trainee.balance += Decimal(session.fees)
+                trainee.balance += int(session.fees)
                 trainee.save()
             session.save()
             TrainerCalendarSlot.objects.filter(id=session.scheduled_at.id).update(is_available=True)
@@ -237,7 +236,7 @@ class SessionAbortView(APIView):
                 return Response({'error': 'Only scheduled sessions can be aborted'}, status=400)
             session.status = 'aborted'  # Update status to aborted
             trainee = session.trainee.get_profile_data
-            trainee.balance += Decimal(session.fees)
+            trainee.balance += int(session.fees)
             session.save()
             TrainerCalendarSlot.objects.filter(id=session.scheduled_at.id).update(is_available=True)
             serializer = InteractiveSessionSerializer(session, context={'request': request})
