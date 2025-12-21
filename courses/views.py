@@ -772,7 +772,7 @@ class CourseEnrollmentsView(ViewSet):
             with transaction.atomic():
                 enroller.balance -= course.price
                 enroller.save()
-                trainer.balance += math.ceil(course.price * 0.85)  # assuming trainer gets 85% of the course price
+                trainer.balance += math.ceil(float(course.price) * 0.85) # assuming trainer gets 85% of the course price
                 trainer.save()
                 serializer = CourseEnrollmentSerializer(data={**request.data, "trainee_profile": profile, "course": course.pk})
                 if serializer.is_valid():
