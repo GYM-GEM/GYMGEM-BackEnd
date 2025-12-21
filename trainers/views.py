@@ -77,7 +77,7 @@ class TrainerView(APIView):
                 'trainer'
             )
             return Response({
-                "trainer": serializer.data,
+                "trainer": {k: v for k, v in serializer.data.items() if k not in ["zip_code","balance","created_at","updated_at"]},
                 "specializations": TrainerSpecializationSerializer(specializations, many=True).data,
                 "experiences": TrainerExperienceSerializer(experiences, many=True).data,
                 "calendar_slots": TrainerCalendarSlotSerializer(calendar_slots, many=True).data,
