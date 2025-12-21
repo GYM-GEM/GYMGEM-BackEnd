@@ -9,15 +9,16 @@ class InteractiveSession(models.Model):
     scheduled_at = models.ForeignKey('trainers.TrainerCalendarSlot', on_delete=models.CASCADE, related_name='interactive_sessions')
     trainer = models.ManyToManyField('profiles.Profile', related_name='interactive_sessions', blank=True)
     trainee = models.ManyToManyField('profiles.Profile', related_name='interactive_sessions_second', blank=True)
+    fees = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, choices=[
         ('requested', 'Requested'),  #at first when session is requested from the trainee
-        ('pending', 'Pending'),     #when the trainer confirm the session and waiting for payment
         ('scheduled', 'Scheduled'), #when the payment is done and session is scheduled
         ('completed', 'Completed'), #when the session is done
-        ('canceled', 'Canceled'),   #when the session is canceled by trainee after the 
+        ('canceled', 'Canceled'),   #when the session is canceled by trainee after the allowed time
         ('aborted', 'Aborted'),     #when the session is aborted by trainer due to some reason
         ('refunded', 'Refunded'),   #when the payment is refunded to the trainee due to cancellation in a good timing or abortion by trainer
-        ('rejected', 'Rejected')    #when the session is rejected by the trainer
+        ('rejected', 'Rejected'),    #when the session is rejected by the trainer
+        ('live', 'Live'),           #when the session is currently live
     ], default='requested')
     
     def __str__(self):

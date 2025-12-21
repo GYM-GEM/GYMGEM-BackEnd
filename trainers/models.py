@@ -29,7 +29,7 @@ class Trainer(models.Model):
     balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
+    hourly_rate = models.DecimalField(max_digits=7, decimal_places=2, default=0.00)
     def __str__(self):
         return f"Trainer<{self.name}> for Profile {self.profile_id}"
 
@@ -47,7 +47,6 @@ class TrainerSpecialization(models.Model):
     trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)
     specialization = models.ForeignKey(Specialization, on_delete=models.CASCADE)
     years_of_experience = models.IntegerField()
-    hourly_rate = models.DecimalField(max_digits=7, decimal_places=2)
     service_location = models.CharField(
         max_length=100,
         choices=[("online", "Online"), ("offline", "Offline"), ("both", "Both")],

@@ -25,6 +25,7 @@ class TrainerSerializer(serializers.ModelSerializer):
             "country",
             "state",
             "zip_code",
+            "hourly_rate",
             "phone_number",
             "balance",
             "created_at",
@@ -83,7 +84,6 @@ class TrainerSpecializationSerializer(serializers.ModelSerializer):
             "account_id",
             "specialization",
             "years_of_experience",
-            "hourly_rate",
             "service_location",
         ]
 
@@ -132,11 +132,6 @@ class TrainerSpecializationSerializer(serializers.ModelSerializer):
     def validate_years_of_experience(self, value):
         if value < 0:
             raise serializers.ValidationError("Years of experience cannot be negative.")
-        return value
-
-    def validate_hourly_rate(self, value):
-        if value < 0:
-            raise serializers.ValidationError("Hourly rate cannot be negative.")
         return value
 
     def create(self, validated_data):

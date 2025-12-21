@@ -27,6 +27,7 @@ class InteractiveSessionSerializer(serializers.ModelSerializer):
             'trainee',
             'created_at',
             'updated_at',
+            'fees',
         ]
         read_only_fields = ['created_at', 'updated_at']
 

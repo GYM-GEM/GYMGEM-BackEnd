@@ -1,3 +1,7 @@
+from datetime import timedelta
+from django.utils import timezone
+from decimal import Decimal
+from profiles.models import Profile
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from interactive_sessions.models import InteractiveSession
@@ -75,16 +79,20 @@ class SessionRequestView(APIView):
             trainee__id=trainee
         ).count() > 2:
             return Response({'error': 'You already have 2 sessions scheduled/requested for this slot.'}, status=400)
-
+        trainer_profile = Profile.objects.get(pk=trainer).get_profile_data
         serializer = InteractiveSessionSerializer(data={
             'trainer': [trainer],
             'trainee': [trainee],
             'scheduled_at': time_slot,
             'session_title': session_title,
             'description': description,
+            'fees': trainer_profile.hourly_rate,
             'status': 'requested'
         }, context={'request': request})
-
+        try:
+            trainee = Profile.objects.get(pk=get_profile_id_from_token(request)).get_profile_data
+        except Profile.DoesNotExist:
+            return Response({'error': 'Trainee profile not found.'}, status=404)
         with transaction.atomic():
             # Atomically reserve the slot if available
             updated = TrainerCalendarSlot.objects.filter(id=time_slot, is_available=True).update(is_available=False)
@@ -93,6 +101,8 @@ class SessionRequestView(APIView):
 
             if serializer.is_valid():
                 session = serializer.save()
+                trainee.balance -= trainer_profile.hourly_rate
+                trainee.save()
                 out = InteractiveSessionSerializer(session, context={'request': request}).data
                 return Response(out, status=201)
             else:
@@ -125,21 +135,28 @@ class SessionAcceptView(APIView):
             session = InteractiveSession.objects.get(id=session_id)
         except InteractiveSession.DoesNotExist:
             return Response({'error': 'Session not found'}, status=404)
+        if session.status != 'requested':
+            return Response({'error': 'Only requested sessions can be accepted'}, status=400)
+        with transaction.atomic():
+            session.status = 'scheduled'  # Update status to pending upon acceptance
+            session.save()
+            serializer = InteractiveSessionSerializer(session, context={'request': request})
+            return Response(serializer.data, status=200)
         
-        session.status = 'pending'  # Update status to pending upon acceptance
-        session.save()
-        serializer = InteractiveSessionSerializer(session, context={'request': request})
-        return Response(serializer.data, status=200)
-    
 # class SessionCompleteView(APIView):
 #     def post(self, request, session_id):
 #         try:
 #             session = InteractiveSession.objects.get(id=session_id)
 #         except InteractiveSession.DoesNotExist:
 #             return Response({'error': 'Session not found'}, status=404)
-        
-#         session.status = 'completed'  # Update status to completed
-#         session.save()
+#         if session.status != 'scheduled':
+#             return Response({'error': 'Only scheduled sessions can be completed'}, status=400)
+#         with transaction.atomic():
+#             trainer = session.trainer.get_profile_data
+#             session.status = 'completed'  # Update status to completed
+#             session.save()
+#             trainer.balance += Decimal((trainer.hourly_rate) * 0.92)
+#             trainer.save()
 #         serializer = InteractiveSessionSerializer(session, context={'request': request})
 #         return Response(serializer.data, status=200)
 
@@ -166,12 +183,25 @@ class SessionCancelView(APIView):
     def post(self, request, session_id):
         try:
             session = InteractiveSession.objects.get(id=session_id)
+            trainer = session.trainer.get_profile_data
+            trainee = session.trainee.get_profile_data
         except InteractiveSession.DoesNotExist:
             return Response({'error': 'Session not found'}, status=404)
         with transaction.atomic():
             if session.status not in ['scheduled', 'pending', 'requested']:
                 return Response({'error': 'Only scheduled, pending, or requested sessions can be canceled'}, status=400)
             session.status = 'canceled'  # Update status to canceled
+            if session.status == 'scheduled':
+                trainee.balance += Decimal(session.fees * 0.5)
+                trainer.balance += Decimal(session.fees * 0.25)
+                trainee.save()
+                trainer.save()
+            elif session.status == 'requested' and session.scheduled_at.slot_start_time - timezone.now() > timedelta(hours=6):
+                trainee.balance += Decimal(session.fees * 0.75)
+                trainee.save()
+            elif session.status == 'requested':
+                trainee.balance += Decimal(session.fees)
+                trainee.save()
             session.save()
             TrainerCalendarSlot.objects.filter(id=session.scheduled_at.id).update(is_available=True)
             serializer = InteractiveSessionSerializer(session, context={'request': request})
@@ -206,6 +236,8 @@ class SessionAbortView(APIView):
             if session.status != 'scheduled':
                 return Response({'error': 'Only scheduled sessions can be aborted'}, status=400)
             session.status = 'aborted'  # Update status to aborted
+            trainee = session.trainee.get_profile_data
+            trainee.balance += Decimal(session.fees)
             session.save()
             TrainerCalendarSlot.objects.filter(id=session.scheduled_at.id).update(is_available=True)
             serializer = InteractiveSessionSerializer(session, context={'request': request})
