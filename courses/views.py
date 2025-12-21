@@ -1,3 +1,4 @@
+import math
 from random import sample
 from django.db.models import Q, Prefetch
 from django.db import models
@@ -22,6 +23,7 @@ from trainers.models import Trainer
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Sum, Count, Avg, F
 from django.db.models.functions import Coalesce
+from django.db import transaction
 
 # Create your views here.
 class CoursesView(ViewSet):
@@ -225,7 +227,7 @@ class CoursesView(ViewSet):
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = CourseSerializer(course, data={**request.data, "trainer_profile": course.trainer_profile.pk})
+        serializer = CourseSerializer(course, data={**request.data,"status": "pending", "trainer_profile": course.trainer_profile.pk})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -258,6 +260,33 @@ class CoursesView(ViewSet):
         course.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @extend_schema(
+        tags=["Courses"],
+        summary="publish course",
+        description="Publish an existing course (admins only)",
+        responses={
+            200: {"description": "Course published"},
+            404: {"description": "Course not found"},
+        },
+    )
+    @action(
+        methods=["post"],
+        detail=True,
+        permission_classes=[HasRole([])],
+        url_path="publish",
+    )
+    def publish_course(self, request, pk=None):
+        try:
+            course = CourseValidator.validate_course_exists(pk)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        if course.status == "pending":
+            course.status = "published"
+        else:
+            return Response({"error": "Only pending courses can be published."}, status=status.HTTP_400_BAD_REQUEST)
+        course.save()
+        return Response({"message": "Course published successfully."}, status=status.HTTP_200_OK)
+    
     @extend_schema(
         tags=["Courses"],
         summary="Get course detail",
@@ -730,11 +759,25 @@ class CourseEnrollmentsView(ViewSet):
             profile = get_profile_id_from_token(request)
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        if CourseEnrollment.objects.filter(course=course, trainee_profile=profile, status__in=['in_progress', 'completed']).exists():
+            return Response({"error": "Already enrolled in this course."}, status=status.HTTP_400_BAD_REQUEST)
         
-        serializer = CourseEnrollmentSerializer(data={**request.data, "trainee_profile": profile, "course": course.pk})
-        if serializer.is_valid():
-            serializer.save(course=course)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        if CourseEnrollment.objects.filter(course=course, trainee_profile=profile, status='wishlist').exists():
+            CourseEnrollment.objects.filter(course=course, trainee_profile=profile, status='wishlist').delete()
+        enroller = Profile.objects.get(pk=profile).get_profile_data
+        trainer = course.trainer_profile.get_profile_data
+        if enroller.balance < course.price:
+            return Response({"error": "Insufficient balance to enroll in this course."}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            with transaction.atomic():
+                enroller.balance -= course.price
+                enroller.save()
+                trainer.balance += math.ceil(course.price * 0.85)  # assuming trainer gets 85% of the course price
+                trainer.save()
+                serializer = CourseEnrollmentSerializer(data={**request.data, "trainee_profile": profile, "course": course.pk})
+                if serializer.is_valid():
+                    serializer.save(course=course)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @extend_schema(

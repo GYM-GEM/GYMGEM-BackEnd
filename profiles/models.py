@@ -28,3 +28,23 @@ class Profile(models.Model):
 
     def __str__(self):
         return f"{self.profile_type} Profile for {self.account}"
+
+    @property
+    def user(self):
+        return self.account
+    
+    @property
+    def get_profile_data(self):
+        if self.profile_type == "trainer":
+            from trainers.models import Trainer
+            return Trainer.objects.get(profile_id=self)
+        if self.profile_type == "gym":
+            from gyms.models import Gym
+            return Gym.objects.get(profile_id=self)
+        if self.profile_type == "store":
+            from stores.models import Store
+            return Store.objects.get(profile_id=self)
+        if self.profile_type == "trainee":
+            from trainees.models import Trainee
+            return Trainee.objects.get(profile_id=self)
+        return None

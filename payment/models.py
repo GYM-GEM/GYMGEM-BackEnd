@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import MinValueValidator
 
 class Payment(models.Model):
     STATUS_CHOICES = (
@@ -12,7 +13,7 @@ class Payment(models.Model):
         'profiles.Profile',   # عدّل حسب مشروعك
         on_delete=models.CASCADE
     )
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(5)])
     paymob_order_id = models.CharField(max_length=255, blank=True, null=True, db_index=True)
     paymob_transaction_id = models.CharField(max_length=255, blank=True, null=True, db_index=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
