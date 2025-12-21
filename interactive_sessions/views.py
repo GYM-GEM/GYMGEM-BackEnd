@@ -86,7 +86,7 @@ class SessionRequestView(APIView):
             'scheduled_at': time_slot,
             'session_title': session_title,
             'description': description,
-            'fees': trainer_profile.hourly_rate,
+            'fees': trainer_profile.rate,
             'status': 'requested'
         }, context={'request': request})
         try:
@@ -101,7 +101,7 @@ class SessionRequestView(APIView):
 
             if serializer.is_valid():
                 session = serializer.save()
-                trainee.balance -= trainer_profile.hourly_rate
+                trainee.balance -= trainer_profile.rate
                 trainee.save()
                 out = InteractiveSessionSerializer(session, context={'request': request}).data
                 return Response(out, status=201)
