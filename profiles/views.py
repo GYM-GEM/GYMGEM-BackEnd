@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from rest_framework.decorators import permission_classes
-
+from rest_framework.permissions import IsAuthenticated
 @permission_classes([AllowAny])
 class ProfileView(APIView):
     
@@ -153,3 +153,21 @@ class ProfileUpdateView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
+    
+class ProfileBalanceView(APIView):
+    permission_classes = [IsAuthenticated]
+    @extend_schema(
+        tags=['Profiles'],
+        summary='Get profile balance',
+        description='Retrieve the balance of the authenticated profile',
+        responses={200: {'type': 'object', 'properties': {'balance': {'type': 'number'}}}, 404: {'description': 'Profile not found'}}
+    )
+    def get(self, request):
+        profile_id = get_profile_id_from_token(request)
+        try:
+            profile = Profile.objects.get(id=profile_id).get_profile_data
+            balance = profile.balance
+            return Response({"balance": balance})
+        except Profile.DoesNotExist:
+            return Response({"error": "Profile not found"}, status=404)
+            
