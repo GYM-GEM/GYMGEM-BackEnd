@@ -53,7 +53,7 @@ class SessionRequestView(APIView):
             slot_obj = TrainerCalendarSlot.objects.only('slot_start_time').get(pk=time_slot)
         except TrainerCalendarSlot.DoesNotExist:
             return Response({'error': 'Selected time slot does not exist.'}, status=400)
-        if timezone.now() - slot_obj.slot_start_time > timedelta(hours=6):
+        if timezone.now() + timedelta(hours=6) < slot_obj.slot_start_time :
             return Response({'error': 'Cannot request a session for a time slot that starts in less than 6 hours.'}, status=400)
         # Prevent multiple active sessions with the same trainer
         has_trainer_conflict = InteractiveSession.objects.filter(
@@ -75,7 +75,7 @@ class SessionRequestView(APIView):
         # Prevent duplicate requests for the exact same slot
         if InteractiveSession.objects.filter(
             scheduled_at_id=time_slot,
-            status__in=['requested', 'pending', 'scheduled'],
+            status__in=['requested', 'scheduled'],
             trainee__id=trainee
         ).count() > 2:
             return Response({'error': 'You already have 2 sessions scheduled/requested for this slot.'}, status=400)
@@ -93,22 +93,26 @@ class SessionRequestView(APIView):
             trainee = Profile.objects.get(pk=get_profile_id_from_token(request)).get_profile_data
         except Profile.DoesNotExist:
             return Response({'error': 'Trainee profile not found.'}, status=404)
-        with transaction.atomic():
-            # Atomically reserve the slot if available
-            updated = TrainerCalendarSlot.objects.filter(id=time_slot, is_available=True).update(is_available=False)
-            if updated == 0:
-                return Response({'error': 'Selected time slot is no longer available.'}, status=400)
+        try:
+            with transaction.atomic():
+                # Atomically reserve the slot if available
+                updated = TrainerCalendarSlot.objects.filter(id=time_slot, is_available=True).update(is_available=False)
+                if updated == 0:
+                    return Response({'error': 'Selected time slot is no longer available.'}, status=400)
 
-            if serializer.is_valid():
-                session = serializer.save()
-                trainee.balance -= trainer_profile.rate
-                trainee.save()
-                out = InteractiveSessionSerializer(session, context={'request': request}).data
-                return Response(out, status=201)
-            else:
-                # Roll back slot reservation if session creation fails
-                TrainerCalendarSlot.objects.filter(id=time_slot).update(is_available=True)
-                return Response(serializer.errors, status=400)
+                if serializer.is_valid():
+                    session = serializer.save()
+                    trainee.balance -= trainer_profile.rate
+                    trainee.save()
+                    out = InteractiveSessionSerializer(session, context={'request': request}).data
+                    return Response(out, status=201)
+                else:
+                    # Roll back slot reservation if session creation fails
+                    TrainerCalendarSlot.objects.filter(id=time_slot).update(is_available=True)
+                    return Response(serializer.errors, status=400)
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
+        
     
 class SessionAcceptView(APIView):
     
