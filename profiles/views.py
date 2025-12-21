@@ -167,6 +167,8 @@ class ProfileBalanceView(APIView):
         try:
             profile = Profile.objects.get(id=profile_id).get_profile_data
             balance = profile.balance
+            user_profiles = Profile.objects.filter(account=profile.profile_id.account)
+
             return Response({"balance": balance})
         except Profile.DoesNotExist:
             return Response({"error": "Profile not found"}, status=404)

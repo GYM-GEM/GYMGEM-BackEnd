@@ -301,7 +301,7 @@ class CoursesView(ViewSet):
     def get_course_detail(self, request, pk=None):
         try:
             # Fetch course with all related data in one go
-            course = Course.objects.filter("").select_related(
+            course = Course.objects.filter(status="published").select_related(
                 'trainer_profile',
                 'category',
                 'level',
