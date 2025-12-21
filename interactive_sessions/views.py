@@ -59,14 +59,14 @@ class SessionRequestView(APIView):
         has_trainer_conflict = InteractiveSession.objects.filter(
             trainee__id=trainee,
             trainer__id=trainer,
-            status__in=['requested', 'pending', 'scheduled'],
-        ).exists()
-        if has_trainer_conflict:
+            status__in=['requested', 'scheduled'],
+        ).count() 
+        if has_trainer_conflict > 2:
             return Response({'error': 'You already have an active session with this trainer. Complete or cancel it before requesting another.'}, status=400)
 
         has_time_conflict = InteractiveSession.objects.filter(
             trainee__id=trainee,
-            status__in=['requested', 'pending', 'scheduled'],
+            status__in=['requested', 'scheduled'],
             scheduled_at__slot_start_time=slot_obj.slot_start_time,
         ).exists()
         if has_time_conflict:
