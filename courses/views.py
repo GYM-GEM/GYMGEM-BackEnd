@@ -20,7 +20,6 @@ from authenticationAndAuthorization.permissions import HasRole
 from .validators import CourseValidator
 from drf_spectacular.utils import extend_schema
 from trainers.models import Trainer
-from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Sum, Count, Avg, F
 from django.db.models.functions import Coalesce
 from django.db import transaction
@@ -302,7 +301,7 @@ class CoursesView(ViewSet):
     def get_course_detail(self, request, pk=None):
         try:
             # Fetch course with all related data in one go
-            course = Course.objects.select_related(
+            course = Course.objects.filter("").select_related(
                 'trainer_profile',
                 'category',
                 'level',
@@ -730,7 +729,6 @@ class LessonSectionsView(ViewSet):
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
         section.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
 
 class CourseEnrollmentsView(ViewSet):
     serializer_class = CourseEnrollmentSerializer
@@ -1179,8 +1177,7 @@ class CourseEnrollmentsView(ViewSet):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    
+        
 class CourseProgressView(ViewSet):
     serializer_class = CourseProgressSerializer
     queryset = CourseProgress.objects.all()
