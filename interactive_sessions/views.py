@@ -47,13 +47,14 @@ class SessionRequestView(APIView):
             InteractiveSessionValidator.time_slot_belongs_to_trainer_and_available(time_slot, trainer)
         except ValueError as e:
             return Response({'error': str(e)}, status=400)
-
+        
         # Prevent time conflicts: same start time for any active session (requested/pending/scheduled)
         try:
             slot_obj = TrainerCalendarSlot.objects.only('slot_start_time').get(pk=time_slot)
         except TrainerCalendarSlot.DoesNotExist:
             return Response({'error': 'Selected time slot does not exist.'}, status=400)
-
+        if timezone.now() - slot_obj.slot_start_time > timedelta(hours=6):
+            return Response({'error': 'Cannot request a session for a time slot that starts in less than 6 hours.'}, status=400)
         # Prevent multiple active sessions with the same trainer
         has_trainer_conflict = InteractiveSession.objects.filter(
             trainee__id=trainee,
@@ -136,6 +137,8 @@ class SessionAcceptView(APIView):
             return Response({'error': 'Session not found'}, status=404)
         if session.status != 'requested':
             return Response({'error': 'Only requested sessions can be accepted'}, status=400)
+        if session.scheduled_at.slot_start_time - timezone.now() < timedelta(hours=1):
+            return Response({'error': 'Cannot accept a session less than 1 hour before its start time.'}, status=400)
         with transaction.atomic():
             session.status = 'scheduled'  # Update status to pending upon acceptance
             session.save()
