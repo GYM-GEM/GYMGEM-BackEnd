@@ -339,6 +339,7 @@ class SessionListView(APIView):
                     trainer__id=profile_id
                 ).select_related('scheduled_at', 'trainer', 'trainee').order_by('-scheduled_at__slot_start_time').annotate(
                     trainee_name=models.F('trainee__trainee__name'),
+                    trainer_name=models.F('trainer__trainer__name'),
                     starting_time=models.F('scheduled_at__slot_start_time')
                 )
             else:
@@ -346,6 +347,7 @@ class SessionListView(APIView):
                     trainee__id=profile_id
                 ).select_related('scheduled_at', 'trainer', 'trainee').order_by('-scheduled_at__slot_start_time').annotate(
                     trainer_name=models.F('trainer__trainer__name'),
+                    trainee_name=models.F('trainee__trainee__name'),
                     starting_time=models.F('scheduled_at__slot_start_time')
                 )
             serializer = InteractiveSessionSerializer(sessions, many=True, context={'request': request})

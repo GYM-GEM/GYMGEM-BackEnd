@@ -14,6 +14,9 @@ class InteractiveSessionSerializer(serializers.ModelSerializer):
     trainee = serializers.PrimaryKeyRelatedField(
         queryset=Profile.objects.filter(profile_type='trainee'), required=False
     )
+    trainee_name = serializers.CharField(read_only=True)
+    trainer_name = serializers.CharField(read_only=True)
+    starting_time = serializers.DateTimeField(read_only=True)
 
     class Meta:
         model = InteractiveSession
@@ -25,6 +28,9 @@ class InteractiveSessionSerializer(serializers.ModelSerializer):
             'scheduled_at',
             'trainer',
             'trainee',
+            'trainee_name',
+            'trainer_name',
+            'starting_time',
             'created_at',
             'updated_at',
             'fees',
