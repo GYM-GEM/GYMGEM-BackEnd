@@ -105,7 +105,7 @@ ROOT_URLCONF = "GymGem.urls"
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:4040",
     "http://127.0.0.1:4040",
-    "https://gymgem-backend.onrender.com"
+    "https://gymgem-theta.vercel.app"
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = list(default_headers) + [
