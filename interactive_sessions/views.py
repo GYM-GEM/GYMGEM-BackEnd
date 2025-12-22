@@ -234,12 +234,15 @@ class SessionCancelView(APIView):
         with transaction.atomic():
             if session.status not in ['scheduled', 'requested']:
                 return Response({'error': 'Only scheduled or requested sessions can be canceled'}, status=400)
-            if session.status == 'scheduled':
+            if session.status == 'scheduled' and session.scheduled_at.slot_start_time - timezone.now() < timedelta(hours=6):
                 trainee.balance += int(session.fees * 0.5)
                 trainer.balance += int(session.fees * 0.25)
                 trainee.save()
                 trainer.save()
-            elif session.status == 'requested' and session.scheduled_at.slot_start_time - timezone.now() > timedelta(hours=6):
+            elif session.status == 'scheduled':
+                trainee.balance += int(session.fees)
+                trainee.save()
+            elif session.status == 'requested' and session.scheduled_at.slot_start_time - timezone.now() < timedelta(hours=6):
                 trainee.balance += int(session.fees * 0.75)
                 trainee.save()
             elif session.status == 'requested':
