@@ -351,6 +351,7 @@ class SessionListView(APIView):
                     starting_time=models.F('scheduled_at__slot_start_time')
                 )
             serializer = InteractiveSessionSerializer(sessions, many=True, context={'request': request})
-            return Response({"data": serializer.data.exclude('scheduled_at','created_at','updated_at'), "role": role}, status=200)
+            data = [{k: v for k, v in item.items() if k not in ['scheduled_at', 'created_at', 'updated_at']} for item in serializer.data]
+            return Response({"data": data, "role": role}, status=200)
         except Exception as e:
             return Response({'error': str(e)}, status=400)
