@@ -1,5 +1,8 @@
 from django.urls import path
 from .views import TrainerCalendarSlotView, TrainerCalendarSlotDetailView, TrainerView , TrainerUpdateView , TrainerSpecializationView, TrainerSpecializationUpdateView, TrainerExperienceUpdateView, TrainerExperienceView, TrainerListView, TrainerCalendarSlotDeleteView
+from rest_framework.routers import DefaultRouter
+router = DefaultRouter()
+router.register(r'calendar-slots', TrainerCalendarSlotView, basename='trainer-calendar-slot')
 
 urlpatterns = [
     path('create', TrainerView.as_view(), name='trainer'),
@@ -13,3 +16,5 @@ urlpatterns = [
     path('calendar-slots/<int:slot_id>/', TrainerCalendarSlotDeleteView.as_view(), name='trainer-calendar-slot-detail'),
     path('calendar-slots/<int:profile_id>/detail/', TrainerCalendarSlotDetailView.as_view(), name='trainer-calendar-slot-detail-view'),
 ]
+
+urlpatterns += router.urls

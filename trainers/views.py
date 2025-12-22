@@ -6,6 +6,7 @@ from profiles.models import Profile
 from utils.views import get_profile_id_from_token
 from .serializers import (
     TrainerCalendarSlotSerializer,
+    TrainerRecordSerializer,
     TrainerSerializer,
     TrainerSpecializationSerializer,
     TrainerExperienceSerializer,
@@ -13,15 +14,16 @@ from .serializers import (
 from .models import (
     Trainer,
     TrainerCalendarSlot,
+    TrainerRecord,
     TrainerSpecialization,
     TrainerExperience,
 )
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from django.shortcuts import get_object_or_404
-
+from rest_framework.viewsets import ModelViewSet
 # Create your views here.
 
 
@@ -87,7 +89,43 @@ class TrainerView(APIView):
         except Profile.DoesNotExist:
             return Response({"error": "Profile not found"}, status=404)
 
+class MyTrainerView(APIView):
 
+    permission_classes = [HasRole(["trainer"])]
+
+    @extend_schema(
+        tags=["Trainers"],
+        summary="Get my trainer profile",
+        description="Retrieve authenticated trainer's profile with specializations, experiences, and calendar slots.",
+        responses={
+            200: TrainerSerializer,
+            404: {"description": "Trainer or Profile not found"},
+        },
+    )
+    def get(self, request):
+        try:
+            profile_id = get_profile_id_from_token(request)
+            my_profile = Profile.objects.get(pk=profile_id)
+            trainer = Trainer.objects.get(profile_id=my_profile)
+            serializer = TrainerSerializer(trainer)
+            specializations = TrainerSpecialization.objects.filter(trainer=trainer).select_related(
+                'specialization'
+            )
+            experiences = TrainerExperience.objects.filter(trainer=trainer).select_related(
+                'trainer'
+            )
+            calendar_slots = TrainerCalendarSlot.objects.filter(trainer=my_profile).select_related(
+                'trainer'
+            )
+            return Response({
+                "trainer": serializer.data,
+                "specializations": TrainerSpecializationSerializer(specializations, many=True).data,
+                "experiences": TrainerExperienceSerializer(experiences, many=True).data,
+            })
+        except Trainer.DoesNotExist:
+            return Response({"error": "Trainer not found"}, status=404)
+        except Profile.DoesNotExist:
+            return Response({"error": "Profile not found"}, status=404)
 
 class TrainerListView(APIView):
     permission_classes = [HasRole(["trainer", "trainee"])]
@@ -661,3 +699,88 @@ class TrainerCalendarSlotDeleteView(APIView):
         slot = get_object_or_404(TrainerCalendarSlot, id=slot_id)
         slot.delete()
         return Response(status=204)
+    
+    
+@extend_schema_view(
+    list=extend_schema(
+        tags=["Trainer Records"],
+        summary="List trainer records",
+        description="Retrieve a list of trainer records for the authenticated trainer.",
+        responses={200: TrainerRecordSerializer(many=True)},
+    ),
+    create=extend_schema(
+        tags=["Trainer Records"],
+        summary="Create a trainer record",
+        description="Create a new trainer record for the authenticated trainer.",
+        request=TrainerRecordSerializer,
+        responses={201: TrainerRecordSerializer, 400: {"description": "Validation error"}},
+    ),
+    retrieve=extend_schema(
+        tags=["Trainer Records"],
+        summary="Retrieve a trainer record",
+        description="Retrieve a specific trainer record by ID.",
+        parameters=[
+            OpenApiParameter(
+                name="pk",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                description="Trainer Record ID",
+            )
+        ],
+        responses={200: TrainerRecordSerializer, 404: {"description": "Not found"}},
+    ),
+    update=extend_schema(
+        tags=["Trainer Records"],
+        summary="Update a trainer record",
+        description="Update an existing trainer record.",
+        parameters=[
+            OpenApiParameter(
+                name="pk",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                description="Trainer Record ID",
+            )
+        ],
+        request=TrainerRecordSerializer,
+        responses={200: TrainerRecordSerializer, 400: {"description": "Validation error"}, 404: {"description": "Not found"}},
+    ),
+    partial_update=extend_schema(
+        tags=["Trainer Records"],
+        summary="Partially update a trainer record",
+        description="Partially update an existing trainer record.",
+        parameters=[
+            OpenApiParameter(
+                name="pk",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                description="Trainer Record ID",
+            )
+        ],
+        request=TrainerRecordSerializer,
+        responses={200: TrainerRecordSerializer, 400: {"description": "Validation error"}, 404: {"description": "Not found"}},
+    ),
+    destroy=extend_schema(
+        tags=["Trainer Records"],
+        summary="Delete a trainer record",
+        description="Delete an existing trainer record.",
+        parameters=[
+            OpenApiParameter(
+                name="pk",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                description="Trainer Record ID",
+            )
+        ],
+        responses={204: {"description": "Deleted"}, 404: {"description": "Not found"}},
+    ),
+)
+class TrainerRecordView(ModelViewSet):
+
+    def get_queryset(self):
+        profile_id = get_profile_id_from_token(self.request)
+        return TrainerRecord.objects.filter(trainer__profile_id=profile_id)
+
+    def perform_create(self, serializer):
+        profile_id = get_profile_id_from_token(self.request)
+        trainer = Profile.objects.get(id=profile_id).get_profile_data
+        serializer.save(trainer=trainer)

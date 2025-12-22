@@ -140,7 +140,7 @@ class TrainerCalendarSlot(models.Model):
         return f"TrainerCalenderSlot<{self.slot_start_time}> for Trainer {self.trainer.get_profile_data.name}"
 
 class TrainerRecord(models.Model):
-    trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)
+    trainer = models.ForeignKey("trainers.Trainer", on_delete=models.CASCADE)
     record_date = models.DateField()
     weight = models.DecimalField(max_digits=5, decimal_places=2)
     height = models.DecimalField(max_digits=5, decimal_places=2)

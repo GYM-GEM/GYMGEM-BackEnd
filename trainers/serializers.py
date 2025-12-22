@@ -7,6 +7,7 @@ from .models import (
     TrainerCalendarSlot,
     TrainerSpecialization,
     TrainerExperience,
+    TrainerRecord
 )
 import re
 from utils.views import get_account_from_token, get_profile_id_from_token
@@ -303,3 +304,19 @@ class TrainerCalendarSlotSerializer(serializers.ModelSerializer):
         return instance
     
     
+class TrainerRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TrainerRecord
+        fields = [
+            "id",
+            "record_date",
+            "weight",
+            "height",
+            "body_fat_percentage",
+            "muscle_mass",
+            "bone_mass",
+            "body_water_percentage",
+            "BMR",
+            "created_at",
+            "updated_at",
+        ]
