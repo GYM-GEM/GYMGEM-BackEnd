@@ -62,15 +62,14 @@ class SessionRequestView(APIView):
             status__in=['requested', 'scheduled'],
         ).count() 
         if has_trainer_conflict > 2:
-            return Response({'error': 'You already have an active session with this trainer. Complete or cancel it before requesting another.'}, status=400)
-
+            return Response({'error': 'You already have three active sessions with this trainer. Complete or cancel it before requesting another.'}, status=400)
         has_time_conflict = InteractiveSession.objects.filter(
             trainee__id=trainee,
             status__in=['requested', 'scheduled'],
             scheduled_at__slot_start_time=slot_obj.slot_start_time,
         ).exists()
         if has_time_conflict:
-            return Response({'error': 'You already have an active session at this start time.'}, status=400)
+            return Response({'error': 'You already have another active session at this start time.'}, status=400)
 
         # Prevent duplicate requests for the exact same slot
         if InteractiveSession.objects.filter(
@@ -78,11 +77,11 @@ class SessionRequestView(APIView):
             status__in=['requested', 'scheduled'],
             trainee__id=trainee
         ).count() > 2:
-            return Response({'error': 'You already have 2 sessions scheduled/requested for this slot.'}, status=400)
+            return Response({'error': 'You already have three sessions scheduled/requested for this slot.'}, status=400)
         trainer_profile = Profile.objects.get(pk=trainer).get_profile_data
         serializer = InteractiveSessionSerializer(data={
-            'trainer': [trainer],
-            'trainee': [trainee],
+            'trainer': trainer,
+            'trainee': trainee,
             'scheduled_at': time_slot,
             'session_title': session_title,
             'description': description,

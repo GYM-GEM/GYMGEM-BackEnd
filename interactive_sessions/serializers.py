@@ -9,10 +9,10 @@ class InteractiveSessionSerializer(serializers.ModelSerializer):
         queryset=TrainerCalendarSlot.objects.all()
     )
     trainer = serializers.PrimaryKeyRelatedField(
-        queryset=Profile.objects.filter(profile_type='trainer'), many=True, required=False
+        queryset=Profile.objects.filter(profile_type='trainer'), required=False
     )
     trainee = serializers.PrimaryKeyRelatedField(
-        queryset=Profile.objects.filter(profile_type='trainee'), many=True, required=False
+        queryset=Profile.objects.filter(profile_type='trainee'), required=False
     )
 
     class Meta:
