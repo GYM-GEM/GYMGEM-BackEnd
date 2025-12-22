@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from accounts.models import Account
 from utils.views import get_account_from_token, get_profile_id_from_token
-from .models import Trainee
+from .models import Trainee, TraineeRecords
 from profiles.models import Profile
 import re
 
@@ -42,17 +42,18 @@ class TraineeSerializer(serializers.ModelSerializer):
         account = get_account_from_token(self.context.get("request"))
         # Check if trainer already exists for this profile
         profile_id = get_profile_id_from_token(self.context.get("request"))
+        try:
+            profile = Profile.objects.get(id=profile_id)
+        except Profile.DoesNotExist:
+            raise serializers.ValidationError("Profile not found.")
+    
 
-        trainee_profile = account.profiles.filter(
-            profile_type="trainee", id=profile_id
-        ).first()
-
-        if Trainee.objects.filter(profile_id=trainee_profile).exists():
+        if Trainee.objects.filter(profile_id=profile).exists():
             raise serializers.ValidationError(
-                "Trainer already exists for this account."
+                "Trainee already exists for this account."
             )
 
-        trainee = Trainee(profile_id=trainee_profile, **validated_data)
+        trainee = Trainee(profile_id=profile, **validated_data)
         trainee.full_clean()
         trainee.save()
         return trainee
@@ -64,3 +65,22 @@ class TraineeSerializer(serializers.ModelSerializer):
         instance.full_clean()
         instance.save()
         return instance
+
+
+class TraineeRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TraineeRecords
+        fields = [
+            "id",
+            "record_date",
+            "weight",
+            "height",
+            "body_fat_percentage",
+            "muscle_mass",
+            "bone_mass",
+            "body_water_percentage",
+            "BMR",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]

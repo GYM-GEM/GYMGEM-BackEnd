@@ -6,7 +6,7 @@ from django.core.validators import MinValueValidator
 # Create your models here.
 
 class Trainee(models.Model):
-    profile_id = models.OneToOneField(Profile, on_delete=models.CASCADE, primary_key=True)
+    profile_id = models.OneToOneField("profiles.Profile", on_delete=models.CASCADE, primary_key=True)
     name = models.CharField(max_length=100)
     profile_picture = models.URLField(
         max_length=500, blank=True, null=True,
@@ -26,18 +26,12 @@ class Trainee(models.Model):
     def __str__(self):
         return f"Trainee<{self.name}> for Profile {self.profile_id}"
 
-    def clean(self):
-        if not self.profile_id:
-            raise ValidationError({'profile_id': 'Profile is required.'})
-        if getattr(self.profile_id, 'profile_type', None) != 'trainee':
-            raise ValidationError({'profile_id': 'Profile must have profile_type="trainee" to create a Trainee.'})
-
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
 
-class trainee_records(models.Model):
-    trainee_id = models.ForeignKey(Trainee, on_delete=models.CASCADE)
+class TraineeRecords(models.Model):
+    trainee_id = models.ForeignKey("trainees.Trainee", on_delete=models.CASCADE)
     record_date = models.DateField()
     weight = models.DecimalField(max_digits=5, decimal_places=2)
     height = models.DecimalField(max_digits=5, decimal_places=2)
