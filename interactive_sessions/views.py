@@ -232,9 +232,8 @@ class SessionCancelView(APIView):
         except InteractiveSession.DoesNotExist:
             return Response({'error': 'Session not found'}, status=404)
         with transaction.atomic():
-            if session.status not in ['scheduled', 'pending', 'requested']:
-                return Response({'error': 'Only scheduled, pending, or requested sessions can be canceled'}, status=400)
-            session.status = 'canceled'  # Update status to canceled
+            if session.status not in ['scheduled', 'requested']:
+                return Response({'error': 'Only scheduled or requested sessions can be canceled'}, status=400)
             if session.status == 'scheduled':
                 trainee.balance += int(session.fees * 0.5)
                 trainer.balance += int(session.fees * 0.25)
@@ -246,6 +245,7 @@ class SessionCancelView(APIView):
             elif session.status == 'requested':
                 trainee.balance += int(session.fees)
                 trainee.save()
+            session.status = 'canceled'  # Update status to canceled
             session.save()
             TrainerCalendarSlot.objects.filter(id=session.scheduled_at.id).update(is_available=True)
             serializer = InteractiveSessionSerializer(session, context={'request': request})
