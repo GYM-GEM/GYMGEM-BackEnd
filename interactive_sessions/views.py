@@ -53,7 +53,7 @@ class SessionRequestView(APIView):
             slot_obj = TrainerCalendarSlot.objects.only('slot_start_time').get(pk=time_slot)
         except TrainerCalendarSlot.DoesNotExist:
             return Response({'error': 'Selected time slot does not exist.'}, status=400)
-        if timezone.now() + timedelta(hours=6) < slot_obj.slot_start_time :
+        if timezone.now() + timedelta(hours=6) > slot_obj.slot_start_time :
             return Response({'error': 'Cannot request a session for a time slot that starts in less than 6 hours.'}, status=400)
         # Prevent multiple active sessions with the same trainer
         has_trainer_conflict = InteractiveSession.objects.filter(
