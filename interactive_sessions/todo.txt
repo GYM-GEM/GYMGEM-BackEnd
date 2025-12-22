@@ -5,3 +5,4 @@
 * CRUD for calendar  DONE 
 * get sessions for trainer, trainee 
 * accept session from the trainer side DONE
+* handle deleting the slot if the slot is booked

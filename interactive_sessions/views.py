@@ -330,10 +330,19 @@ class SessionListView(APIView):
     )
     def get(self, request):
         profile_id = get_profile_id_from_token(request)
+        if Profile.objects.filter(id=profile_id, profile_type='trainer').exists():
+            role = 'trainer'
+        else:
+            role = 'trainee'
         try:
-            sessions = InteractiveSession.objects.filter(
-                models.Q(trainer__id=profile_id) | models.Q(trainee__id=profile_id)
-            ).select_related('scheduled_at', 'trainer', 'trainee').order_by('-scheduled_at__slot_start_time')
+            if role == 'trainer':
+                sessions = InteractiveSession.objects.filter(
+                    trainer__id=profile_id
+                ).select_related('scheduled_at', 'trainer', 'trainee').order_by('-scheduled_at__slot_start_time')
+            else:
+                sessions = InteractiveSession.objects.filter(
+                    trainee__id=profile_id
+                ).select_related('scheduled_at', 'trainer', 'trainee').order_by('-scheduled_at__slot_start_time')
             serializer = InteractiveSessionSerializer(sessions, many=True, context={'request': request})
             return Response(serializer.data, status=200)
         except Exception as e:
