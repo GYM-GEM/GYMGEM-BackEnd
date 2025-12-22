@@ -775,6 +775,9 @@ class TrainerCalendarSlotDeleteView(APIView):
     ),
 )
 class TrainerRecordView(ModelViewSet):
+    queryset = TrainerRecord.objects.all()
+    serializer_class = TrainerRecordSerializer
+    permission_classes = [HasRole(["trainer"])]
 
     def get_queryset(self):
         profile_id = get_profile_id_from_token(self.request)

@@ -316,6 +316,7 @@ class SessionRejectView(APIView):
     def post(self, request, session_id):
         try:
             session = InteractiveSession.objects.get(id=session_id)
+            trainee = session.trainee.get_profile_data
             if session.trainer.id != get_profile_id_from_token(request):
                 return Response({'error': 'You do not have permission to reject this session.'}, status=403)
         except InteractiveSession.DoesNotExist:
@@ -324,6 +325,8 @@ class SessionRejectView(APIView):
             if session.status != 'requested':
                 return Response({'error': 'Only requested sessions can be rejected'}, status=400)
             session.status = 'rejected'  # Update status to rejected
+            trainee.balance += int(session.fees)
+            trainee.save()
             session.save()
             TrainerCalendarSlot.objects.filter(id=session.scheduled_at.id).update(is_available=True)
             serializer = InteractiveSessionSerializer(session, context={'request': request})
