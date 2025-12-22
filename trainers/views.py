@@ -1,6 +1,6 @@
 from django.db.models import Prefetch  # add at top
 from decimal import Decimal, InvalidOperation
-
+from drf_spectacular.utils import OpenApiExample
 from authenticationAndAuthorization.permissions import HasRole
 from profiles.models import Profile
 from utils.views import get_profile_id_from_token
