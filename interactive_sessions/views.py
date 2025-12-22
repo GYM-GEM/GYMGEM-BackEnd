@@ -337,7 +337,11 @@ class SessionListView(APIView):
             if role == 'trainer':
                 sessions = InteractiveSession.objects.filter(
                     trainer__id=profile_id
-                ).select_related('scheduled_at', 'trainer', 'trainee').order_by('-scheduled_at__slot_start_time')
+                ).select_related('scheduled_at', 'trainer', 'trainee').order_by('-scheduled_at__slot_start_time').annotate(
+                    trainee_name=models.F('trainee__name'),
+                    trainer_name=models.F('trainer__name'),
+                    starting_time=models.F('scheduled_at__slot_start_time')
+                )
             else:
                 sessions = InteractiveSession.objects.filter(
                     trainee__id=profile_id
