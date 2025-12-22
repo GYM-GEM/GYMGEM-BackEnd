@@ -4,4 +4,4 @@
 * hide profile for the trainer 
 * CRUD for calendar  DONE 
 * get sessions for trainer, trainee 
-* accept session from the trainer side 
+* accept session from the trainer side DONE

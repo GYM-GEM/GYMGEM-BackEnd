@@ -148,23 +148,58 @@ class SessionAcceptView(APIView):
             session.save()
             serializer = InteractiveSessionSerializer(session, context={'request': request})
             return Response(serializer.data, status=200)
-        
-# class SessionCompleteView(APIView):
-#     def post(self, request, session_id):
-#         try:
-#             session = InteractiveSession.objects.get(id=session_id)
-#         except InteractiveSession.DoesNotExist:
-#             return Response({'error': 'Session not found'}, status=404)
-#         if session.status != 'scheduled':
-#             return Response({'error': 'Only scheduled sessions can be completed'}, status=400)
-#         with transaction.atomic():
-#             trainer = session.trainer.get_profile_data
-#             session.status = 'completed'  # Update status to completed
-#             session.save()
-#             trainer.balance += Decimal((trainer.hourly_rate) * 0.92)
-#             trainer.save()
-#         serializer = InteractiveSessionSerializer(session, context={'request': request})
-#         return Response(serializer.data, status=200)
+
+class SessionStartView(APIView):
+    permission_classes = [HasRole(['trainer'])]
+    @extend_schema(
+        tags=["Interactive Sessions"],
+        summary="Start an interactive session",
+        description="Trainer starts a scheduled interactive session.",
+        parameters=[
+            OpenApiParameter(
+                name="session_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                description="ID of the interactive session"
+            )
+        ],
+        responses={
+            200: InteractiveSessionSerializer,
+            404: {"description": "Session not found"},
+            400: {"description": "Invalid session status for starting"}
+        }
+    )
+    def post(self, request, session_id):
+        try:
+            session = InteractiveSession.objects.get(id=session_id)
+        except InteractiveSession.DoesNotExist:
+            return Response({'error': 'Session not found'}, status=404)
+        if session.status != 'scheduled':
+            return Response({'error': 'Only scheduled sessions can be started'}, status=400)
+        if timezone.now() < session.scheduled_at.slot_start_time - timedelta(minutes=5):
+            return Response({'error': 'Cannot start the session more than 5 minutes before its scheduled time.'}, status=400)
+        with transaction.atomic():
+            session.status = 'live'  # Update status to in_progress
+            session.save()
+            serializer = InteractiveSessionSerializer(session, context={'request': request})
+            return Response(serializer.data, status=200)
+        return Response(serializer.errors, status=400)
+class SessionCompleteView(APIView):
+    def post(self, request, session_id):
+        try:
+            session = InteractiveSession.objects.get(id=session_id)
+        except InteractiveSession.DoesNotExist:
+            return Response({'error': 'Session not found'}, status=404)
+        if session.status != 'scheduled':
+            return Response({'error': 'Only scheduled sessions can be completed'}, status=400)
+        with transaction.atomic():
+            trainer = session.trainer.get_profile_data
+            session.status = 'completed'  # Update status to completed
+            session.save()
+            trainer.balance += int(session.fees) * 0.92
+            trainer.save()
+        serializer = InteractiveSessionSerializer(session, context={'request': request})
+        return Response(serializer.data, status=200)
 
 class SessionCancelView(APIView):
     permission_classes = [HasRole(['trainee'])]
@@ -295,8 +330,11 @@ class SessionListView(APIView):
     )
     def get(self, request):
         profile_id = get_profile_id_from_token(request)
-        sessions = InteractiveSession.objects.filter(
-            models.Q(trainer__id=profile_id) | models.Q(trainee__id=profile_id)
-        ).distinct()
-        serializer = InteractiveSessionSerializer(sessions, many=True, context={'request': request})
-        return Response(serializer.data, status=200)
+        try:
+            sessions = InteractiveSession.objects.filter(
+                models.Q(trainer__id=profile_id) | models.Q(trainee__id=profile_id)
+            ).select_related('scheduled_at', 'trainer', 'trainee').order_by('-scheduled_at__slot_start_time')
+            serializer = InteractiveSessionSerializer(sessions, many=True, context={'request': request})
+            return Response(serializer.data, status=200)
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)

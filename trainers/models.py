@@ -137,7 +137,7 @@ class TrainerCalendarSlot(models.Model):
         return super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"TrainerCalenderSlot<{self.slot_start_time}> for Trainer {self.trainer.name}"
+        return f"TrainerCalenderSlot<{self.slot_start_time}> for Trainer {self.trainer.get_profile_data.name}"
 
 class TrainerRecord(models.Model):
     trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)
