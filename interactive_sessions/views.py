@@ -284,6 +284,7 @@ class SessionAbortView(APIView):
             session.status = 'aborted'  # Update status to aborted
             trainee = session.trainee.get_profile_data
             trainee.balance += int(session.fees)
+            trainee.save()
             session.save()
             TrainerCalendarSlot.objects.filter(id=session.scheduled_at.id).update(is_available=True)
             serializer = InteractiveSessionSerializer(session, context={'request': request})
