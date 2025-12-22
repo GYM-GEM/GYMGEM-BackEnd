@@ -136,6 +136,8 @@ class SessionAcceptView(APIView):
     def post(self, request, session_id):
         try:
             session = InteractiveSession.objects.get(id=session_id)
+            if session.trainer.id != get_profile_id_from_token(request):
+                return Response({'error': 'You do not have permission to accept this session.'}, status=403)
         except InteractiveSession.DoesNotExist:
             return Response({'error': 'Session not found'}, status=404)
         if session.status != 'requested':
@@ -225,6 +227,8 @@ class SessionCancelView(APIView):
             session = InteractiveSession.objects.get(id=session_id)
             trainer = session.trainer.get_profile_data
             trainee = session.trainee.get_profile_data
+            if session.trainee.id != get_profile_id_from_token(request):
+                return Response({'error': 'You do not have permission to cancel this session.'}, status=403)
         except InteractiveSession.DoesNotExist:
             return Response({'error': 'Session not found'}, status=404)
         with transaction.atomic():
@@ -270,6 +274,8 @@ class SessionAbortView(APIView):
     def post(self, request, session_id):
         try:
             session = InteractiveSession.objects.get(id=session_id)
+            if session.trainer.id != get_profile_id_from_token(request):
+                return Response({'error': 'You do not have permission to abort this session.'}, status=403)
         except InteractiveSession.DoesNotExist:
             return Response({'error': 'Session not found'}, status=404)
         with transaction.atomic():
@@ -306,6 +312,8 @@ class SessionRejectView(APIView):
     def post(self, request, session_id):
         try:
             session = InteractiveSession.objects.get(id=session_id)
+            if session.trainer.id != get_profile_id_from_token(request):
+                return Response({'error': 'You do not have permission to reject this session.'}, status=403)
         except InteractiveSession.DoesNotExist:
             return Response({'error': 'Session not found'}, status=404)
         with transaction.atomic():
