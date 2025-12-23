@@ -260,7 +260,7 @@ class CoursesView(ViewSet):
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
-        course.is_deleted = True
+        course.is_deleted = not course.is_deleted
         course.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -333,27 +333,35 @@ class CoursesView(ViewSet):
             course=course,
             trainee_profile=trainee_id
         ).first()
+        is_trainer_owner = course.trainer_profile.pk == trainee_id
+        has_access_enrollment = bool(
+            enrollment and enrollment.status in ["in_progress", "completed"]
+        )
 
         course_data = CourseSerializer(course).data
 
-        # Use prefetched lessons (no additional query)
-        lessons = course.lessons.all()
-        course_data["lessons"] = CourseLessonSerializer(lessons, many=True).data
+        # Use prefetched lessons; hide soft-deleted ones for non-owners
+        lessons = list(course.lessons.all())
+        visible_lessons = lessons if is_trainer_owner else [l for l in lessons if not l.is_deleted]
+        course_data["lessons"] = CourseLessonSerializer(visible_lessons, many=True).data
         
-        if (not enrollment) and course.trainer_profile.pk != trainee_id:
+        if (not enrollment) and (not is_trainer_owner):
             course_data["lessons_details"] = []
             if course.is_deleted:
                 return Response(
                     {"error": f"Course with id {pk} does not exist"},
                     status=status.HTTP_404_NOT_FOUND
                 )
-        elif course.trainer_profile.pk == trainee_id or enrollment.status in ["in_progress", "completed"]:
+        elif is_trainer_owner or has_access_enrollment:
             lessons_details = []
-            for lesson in lessons:
+            detailed_lessons = lessons if is_trainer_owner else [l for l in lessons if not l.is_deleted]
+            for lesson in detailed_lessons:
                 lesson_data = CourseLessonSerializer(lesson).data
-                # Use prefetched sections (no additional query)
+                # Use prefetched sections; hide soft-deleted ones for non-owners
+                sections = list(lesson.sections.all().order_by("order", "id"))
+                visible_sections = sections if is_trainer_owner else [s for s in sections if not s.is_deleted]
                 lesson_data["sections"] = LessonSectionSerializer(
-                    lesson.sections.all().order_by("order", "id"),
+                    visible_sections,
                     many=True
                 ).data
                 progress = (
@@ -701,7 +709,7 @@ class LessonsView(ViewSet):
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
-        lesson.is_deleted = True
+        lesson.is_deleted = not lesson.is_deleted
         lesson.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -873,7 +881,7 @@ class LessonSectionsView(ViewSet):
             )
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
-        section.is_deleted = True
+        section.is_deleted = not section.is_deleted
         section.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
