@@ -193,7 +193,7 @@ class CoursesView(ViewSet):
     def create_course(self, request):
         profile_id = get_profile_id_from_token(request)
         trainer_profile = Profile.objects.get(pk=profile_id)
-        serializer = CourseSerializer(data={**request.data, "trainer_profile": trainer_profile.pk})
+        serializer = CourseSerializer(data={**request.data, "trainer_profile": trainer_profile.pk,"is_deleted":False})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -633,7 +633,7 @@ class LessonsView(ViewSet):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = CourseLessonSerializer(
-            data={**request.data, **{"course": course.pk}}
+            data={**request.data, **{"course": course.pk,"is_deleted":False}}
         )
         if serializer.is_valid():
             serializer.save()
@@ -810,7 +810,7 @@ class LessonSectionsView(ViewSet):
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = LessonSectionSerializer(
-            data={**request.data, **{"lesson": lesson.pk}}
+            data={**request.data, **{"lesson": lesson.pk,"is_deleted": False}}
         )
         if serializer.is_valid():
             serializer.save()

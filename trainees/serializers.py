@@ -8,7 +8,9 @@ import re
 
 class TraineeSerializer(serializers.ModelSerializer):
     profile_picture = serializers.URLField(
-        required=False, allow_null=True
+        required=False,
+        allow_null=True,
+        allow_blank=True,
     )
     birthdate = serializers.DateField(required=False)
     balance = serializers.DecimalField(max_digits=10, decimal_places=2, required=False)
