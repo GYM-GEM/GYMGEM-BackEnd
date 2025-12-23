@@ -10,7 +10,7 @@ from django.core.validators import MinValueValidator
 
 class Trainer(models.Model):
     profile_id = models.OneToOneField(
-        Profile, on_delete=models.CASCADE, primary_key=True
+        "profiles.Profile", on_delete=models.CASCADE, primary_key=True
     )
     name = models.CharField(max_length=100)
     profile_picture = models.URLField(
@@ -44,7 +44,7 @@ class Trainer(models.Model):
 
 
 class TrainerSpecialization(models.Model):
-    trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)
+    trainer = models.ForeignKey("trainers.Trainer", on_delete=models.CASCADE)
     specialization = models.ForeignKey(Specialization, on_delete=models.CASCADE)
     years_of_experience = models.IntegerField()
     service_location = models.CharField(
@@ -60,8 +60,6 @@ class TrainerSpecialization(models.Model):
             raise ValidationError(
                 {"years_of_experience": "Years of experience cannot be negative."}
             )
-        if self.hourly_rate < 0:
-            raise ValidationError({"hourly_rate": "Hourly rate cannot be negative."})
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -69,7 +67,7 @@ class TrainerSpecialization(models.Model):
 
 
 class TrainerExperience(models.Model):
-    trainer = models.ForeignKey(Trainer, on_delete=models.CASCADE)
+    trainer = models.ForeignKey("trainers.Trainer", on_delete=models.CASCADE)
     work_place = models.CharField(max_length=100, blank=True, null=True)
     position = models.CharField(max_length=100, blank=True, null=True)
     start_date = models.DateField(blank=True, null=True)

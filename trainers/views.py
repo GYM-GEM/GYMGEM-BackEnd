@@ -39,7 +39,6 @@ class TrainerView(APIView):
     )
     def post(self, request):
         serializer = TrainerSerializer(data=request.data, context={"request": request})
-        print(serializer.is_valid())
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=201)
@@ -176,7 +175,7 @@ class TrainerListView(APIView):
         if min_price:
             try:
                 min_price_dec = Decimal(min_price)
-                queryset = queryset.filter(trainerspecialization__hourly_rate__gte=min_price_dec)
+                queryset = queryset.filter(rate__gte=min_price_dec)
             except (InvalidOperation, TypeError):
                 pass  # ignore invalid min_price
 
@@ -184,7 +183,7 @@ class TrainerListView(APIView):
         if max_price:
             try:
                 max_price_dec = Decimal(max_price)
-                queryset = queryset.filter(trainerspecialization__hourly_rate__lte=max_price_dec)
+                queryset = queryset.filter(rate__lte=max_price_dec)
             except (InvalidOperation, TypeError):
                 pass  # ignore invalid max_price
 
@@ -254,75 +253,41 @@ class TrainerUpdateView(APIView):
     @extend_schema(
         tags=["Trainers"],
         summary="Delete trainer",
-        description="Delete an existing trainer",
-        parameters=[
-            OpenApiParameter(
-                name="trainer_id",
-                type=OpenApiTypes.INT,
-                location=OpenApiParameter.PATH,
-                required=True,
-                description="Trainer ID",
-            ),
-        ],
+        description="Delete the authenticated trainer profile",
         responses={
             204: {"description": "Trainer deleted"},
             404: {"description": "Trainer not found"},
         },
     )
-    def delete(self, request, trainer_id):
+    def delete(self, request):
         try:
-            trainer = Trainer.objects.get(id=trainer_id)
+            profile_id = get_profile_id_from_token(request)
+            my_profile = Profile.objects.get(id=profile_id)
+            trainer = Trainer.objects.get(profile_id=my_profile)
         except Trainer.DoesNotExist:
             return Response({"error": "Trainer not found"}, status=404)
 
         trainer.delete()
         return Response(status=204)
 
-    @extend_schema(
-        tags=["Trainers"],
-        summary="Partially update trainer",
-        description="Partially update an existing trainer",
-        parameters=[
-            OpenApiParameter(
-                name="trainer_id",
-                type=OpenApiTypes.INT,
-                location=OpenApiParameter.PATH,
-                required=True,
-                description="Trainer ID",
-            ),
-        ],
-        request=TrainerSerializer,
-        responses={
-            200: TrainerSerializer,
-            404: {"description": "Trainer not found"},
-            400: {"description": "Validation error"},
-        },
-    )
-    def patch(self, request, trainer_id):
-        try:
-            trainer = Trainer.objects.get(id=trainer_id)
-        except Trainer.DoesNotExist:
-            return Response({"error": "Trainer not found"}, status=404)
-
-        serializer = TrainerSerializer(trainer, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=400)
-
 
 class TrainerSpecializationView(APIView):
+    permission_classes = [HasRole(["trainer"])]
 
     @extend_schema(
         tags=["Trainers"],
-        summary="List all trainer specializations",
-        description="Get all trainer specializations",
+        summary="List my trainer specializations",
+        description="Get all specializations for the authenticated trainer",
         responses={200: TrainerSpecializationSerializer(many=True)},
     )
     def get(self, request):
-        specializations = TrainerSpecialization.objects.all().select_related(
+        profile_id = get_profile_id_from_token(request)
+        my_profile = Profile.objects.get(pk=profile_id)
+        trainer = Trainer.objects.get(profile_id=my_profile)
+        specializations = TrainerSpecialization.objects.filter(trainer=trainer).select_related(
             'trainer',
-            'trainer__profile_id'
+            'trainer__profile_id',
+            'specialization'
         )
         serializer = TrainerSpecializationSerializer(specializations, many=True)
         return Response(serializer.data)
@@ -338,7 +303,7 @@ class TrainerSpecializationView(APIView):
         },
     )
     def post(self, request):
-        serializer = TrainerSpecializationSerializer(data=request.data)
+        serializer = TrainerSpecializationSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=201)
@@ -346,6 +311,7 @@ class TrainerSpecializationView(APIView):
 
 
 class TrainerSpecializationUpdateView(APIView):
+    permission_classes = [HasRole(["trainer"])]
 
     @extend_schema(
         tags=["Trainers"],
@@ -369,12 +335,17 @@ class TrainerSpecializationUpdateView(APIView):
     )
     def put(self, request, specialization_id):
         try:
-            specialization = TrainerSpecialization.objects.get(id=specialization_id)
+            profile_id = get_profile_id_from_token(request)
+            my_profile = Profile.objects.get(pk=profile_id)
+            trainer = Trainer.objects.get(profile_id=my_profile)
+            specialization = TrainerSpecialization.objects.get(id=specialization_id, trainer=trainer)
         except TrainerSpecialization.DoesNotExist:
             return Response({"error": "TrainerSpecialization not found"}, status=404)
+        except Trainer.DoesNotExist:
+            return Response({"error": "Trainer not found"}, status=404)
 
         serializer = TrainerSpecializationSerializer(
-            specialization, data=request.data, partial=True
+            specialization, data=request.data, context={"request": request}, partial=True
         )
         if serializer.is_valid():
             serializer.save()
@@ -401,9 +372,14 @@ class TrainerSpecializationUpdateView(APIView):
     )
     def delete(self, request, specialization_id):
         try:
-            specialization = TrainerSpecialization.objects.get(id=specialization_id)
+            profile_id = get_profile_id_from_token(request)
+            my_profile = Profile.objects.get(pk=profile_id)
+            trainer = Trainer.objects.get(profile_id=my_profile)
+            specialization = TrainerSpecialization.objects.get(id=specialization_id, trainer=trainer)
         except TrainerSpecialization.DoesNotExist:
             return Response({"error": "TrainerSpecialization not found"}, status=404)
+        except Trainer.DoesNotExist:
+            return Response({"error": "Trainer not found"}, status=404)
 
         specialization.delete()
         return Response(status=204)
@@ -430,12 +406,17 @@ class TrainerSpecializationUpdateView(APIView):
     )
     def patch(self, request, specialization_id):
         try:
-            specialization = TrainerSpecialization.objects.get(id=specialization_id)
+            profile_id = get_profile_id_from_token(request)
+            my_profile = Profile.objects.get(pk=profile_id)
+            trainer = Trainer.objects.get(profile_id=my_profile)
+            specialization = TrainerSpecialization.objects.get(id=specialization_id, trainer=trainer)
         except TrainerSpecialization.DoesNotExist:
             return Response({"error": "TrainerSpecialization not found"}, status=404)
+        except Trainer.DoesNotExist:
+            return Response({"error": "Trainer not found"}, status=404)
 
         serializer = TrainerSpecializationSerializer(
-            specialization, data=request.data, partial=True
+            specialization, data=request.data, context={"request": request}, partial=True
         )
         if serializer.is_valid():
             serializer.save()
@@ -444,15 +425,19 @@ class TrainerSpecializationUpdateView(APIView):
 
 
 class TrainerExperienceView(APIView):
+    permission_classes = [HasRole(["trainer"])]
 
     @extend_schema(
         tags=["Trainers"],
-        summary="List all trainer experiences",
-        description="Get all trainer experiences",
+        summary="List my trainer experiences",
+        description="Get all experiences for the authenticated trainer",
         responses={200: TrainerExperienceSerializer(many=True)},
     )
     def get(self, request):
-        experiences = TrainerExperience.objects.all().select_related(
+        profile_id = get_profile_id_from_token(request)
+        my_profile = Profile.objects.get(pk=profile_id)
+        trainer = Trainer.objects.get(profile_id=my_profile)
+        experiences = TrainerExperience.objects.filter(trainer=trainer).select_related(
             'trainer',
             'trainer__profile_id'
         )
@@ -470,14 +455,13 @@ class TrainerExperienceView(APIView):
         },
     )
     def post(self, request):
-
-        data = request.data
+        data = request.data.copy()
         end_date = request.data.get("end_date")
 
-        if len(end_date) <= 0:
+        if end_date is not None and (isinstance(end_date, str) and len(end_date.strip()) == 0):
             data["end_date"] = None
 
-        serializer = TrainerExperienceSerializer(data=data)
+        serializer = TrainerExperienceSerializer(data=data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=201)
@@ -486,6 +470,7 @@ class TrainerExperienceView(APIView):
 
 
 class TrainerExperienceUpdateView(APIView):
+    permission_classes = [HasRole(["trainer"])]
 
     @extend_schema(
         tags=["Trainers"],
@@ -509,12 +494,17 @@ class TrainerExperienceUpdateView(APIView):
     )
     def put(self, request, experience_id):
         try:
-            experience = TrainerExperience.objects.get(id=experience_id)
+            profile_id = get_profile_id_from_token(request)
+            my_profile = Profile.objects.get(pk=profile_id)
+            trainer = Trainer.objects.get(profile_id=my_profile)
+            experience = TrainerExperience.objects.get(id=experience_id, trainer=trainer)
         except TrainerExperience.DoesNotExist:
             return Response({"error": "TrainerExperience not found"}, status=404)
+        except Trainer.DoesNotExist:
+            return Response({"error": "Trainer not found"}, status=404)
 
         serializer = TrainerExperienceSerializer(
-            experience, data=request.data, partial=True
+            experience, data=request.data, context={"request": request}, partial=True
         )
         if serializer.is_valid():
             serializer.save()
@@ -541,9 +531,14 @@ class TrainerExperienceUpdateView(APIView):
     )
     def delete(self, request, experience_id):
         try:
-            experience = TrainerExperience.objects.get(id=experience_id)
+            profile_id = get_profile_id_from_token(request)
+            my_profile = Profile.objects.get(pk=profile_id)
+            trainer = Trainer.objects.get(profile_id=my_profile)
+            experience = TrainerExperience.objects.get(id=experience_id, trainer=trainer)
         except TrainerExperience.DoesNotExist:
             return Response({"error": "TrainerExperience not found"}, status=404)
+        except Trainer.DoesNotExist:
+            return Response({"error": "Trainer not found"}, status=404)
 
         experience.delete()
         return Response(status=204)
@@ -570,12 +565,17 @@ class TrainerExperienceUpdateView(APIView):
     )
     def patch(self, request, experience_id):
         try:
-            experience = TrainerExperience.objects.get(id=experience_id)
+            profile_id = get_profile_id_from_token(request)
+            my_profile = Profile.objects.get(pk=profile_id)
+            trainer = Trainer.objects.get(profile_id=my_profile)
+            experience = TrainerExperience.objects.get(id=experience_id, trainer=trainer)
         except TrainerExperience.DoesNotExist:
             return Response({"error": "TrainerExperience not found"}, status=404)
+        except Trainer.DoesNotExist:
+            return Response({"error": "Trainer not found"}, status=404)
 
         serializer = TrainerExperienceSerializer(
-            experience, data=request.data, partial=True
+            experience, data=request.data, context={"request": request}, partial=True
         )
         if serializer.is_valid():
             serializer.save()

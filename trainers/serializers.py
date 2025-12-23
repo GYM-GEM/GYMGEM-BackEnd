@@ -77,51 +77,36 @@ class TrainerSerializer(serializers.ModelSerializer):
 
 
 class TrainerSpecializationSerializer(serializers.ModelSerializer):
-    account_id = serializers.IntegerField(write_only=True)
 
     class Meta:
         model = TrainerSpecialization
         fields = [
-            "account_id",
             "specialization",
             "years_of_experience",
             "service_location",
+            "trainer",
         ]
-
-    def validate_account_id(self, value):
-        # Get the account
-        try:
-            account = Account.objects.get(pk=value)
-        except Account.DoesNotExist:
-            raise serializers.ValidationError("Account does not exist.")
-
-        # Find trainer profile from the account
-        trainer_profile = account.profiles.filter(profile_type="trainer").first()
-        if not trainer_profile:
-            raise serializers.ValidationError(
-                'Account must have a profile with profile_type="trainer".'
-            )
-
-        # Check if trainer exists for this profile
-        if not Trainer.objects.filter(profile_id=trainer_profile).exists():
-            raise serializers.ValidationError(
-                "Trainer does not exist for this account."
-            )
-
-        return value
-
+        read_only_fields = ["trainer"]
+        
     def validate(self, data):
-        # Check if any trainer under this account already has this specialization
-        account_id = data.get("account_id")
+        # Check if this trainer already has this specialization
+        account = get_account_from_token(self.context.get("request"))
+        profile_id = get_profile_id_from_token(self.context.get("request"))
         specialization = data.get("specialization")
 
-        if account_id and specialization:
-            account = Account.objects.get(pk=account_id)
-            trainer_profile = account.profiles.filter(profile_type="trainer").first()
+        if profile_id and specialization:
+            trainer_profile = account.profiles.filter(
+                profile_type="trainer", pk=profile_id
+            ).first()
+            
+            if not trainer_profile:
+                raise serializers.ValidationError(
+                    "No trainer profile found for this account."
+                )
+            
             trainer = Trainer.objects.filter(profile_id=trainer_profile).first()
-
-            # Check if this trainer already has this specialization
-            if TrainerSpecialization.objects.filter(
+            
+            if trainer and TrainerSpecialization.objects.filter(
                 trainer=trainer, specialization=specialization
             ).exists():
                 raise serializers.ValidationError(
@@ -136,10 +121,19 @@ class TrainerSpecializationSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        # Get account_id and find the trainer
-        account_id = validated_data.pop("account_id")
-        account = Account.objects.get(pk=account_id)
-        trainer_profile = account.profiles.filter(profile_type="trainer").first()
+        # Get profile_id and find the trainer
+        account = get_account_from_token(self.context.get("request"))
+        profile_id = get_profile_id_from_token(self.context.get("request"))
+        
+        trainer_profile = account.profiles.filter(
+            profile_type="trainer", pk=profile_id
+        ).first()
+        
+        if not trainer_profile:
+            raise serializers.ValidationError(
+                "No trainer profile found for this account."
+            )
+        
         trainer = Trainer.objects.get(profile_id=trainer_profile)
 
         # Create specialization with the trainer
@@ -149,8 +143,6 @@ class TrainerSpecializationSerializer(serializers.ModelSerializer):
         return specialization
 
     def update(self, instance, validated_data):
-        # Remove account_id if provided (shouldn't update the trainer relationship)
-        validated_data.pop("account_id", None)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -160,41 +152,17 @@ class TrainerSpecializationSerializer(serializers.ModelSerializer):
 
 
 class TrainerExperienceSerializer(serializers.ModelSerializer):
-    account_id = serializers.IntegerField(write_only=True)
     end_date = serializers.DateField(required=False, allow_null=True)
 
     class Meta:
         model = TrainerExperience
         fields = [
-            "account_id",
             "work_place",
             "position",
             "start_date",
             "end_date",
             "description",
         ]
-
-    def validate_account_id(self, value):
-        # Get the account
-        try:
-            account = Account.objects.get(pk=value)
-        except Account.DoesNotExist:
-            raise serializers.ValidationError("Account does not exist.")
-
-        # Find trainer profile from the account
-        trainer_profile = account.profiles.filter(profile_type="trainer").first()
-        if not trainer_profile:
-            raise serializers.ValidationError(
-                'Account must have a profile with profile_type="trainer".'
-            )
-
-        # Check if trainer exists for this profile
-        if not Trainer.objects.filter(profile_id=trainer_profile).exists():
-            raise serializers.ValidationError(
-                "Trainer does not exist for this account."
-            )
-
-        return value
 
     def validate(self, data):
         start_date = data.get("start_date")
@@ -208,10 +176,19 @@ class TrainerExperienceSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        # Get account_id and find the trainer
-        account_id = validated_data.pop("account_id")
-        account = Account.objects.get(pk=account_id)
-        trainer_profile = account.profiles.filter(profile_type="trainer").first()
+        # Get profile_id and find the trainer
+        account = get_account_from_token(self.context.get("request"))
+        profile_id = get_profile_id_from_token(self.context.get("request"))
+        
+        trainer_profile = account.profiles.filter(
+            profile_type="trainer", pk=profile_id
+        ).first()
+        
+        if not trainer_profile:
+            raise serializers.ValidationError(
+                "No trainer profile found for this account."
+            )
+        
         trainer = Trainer.objects.get(profile_id=trainer_profile)
 
         # Create experience with the trainer
@@ -221,9 +198,6 @@ class TrainerExperienceSerializer(serializers.ModelSerializer):
         return experience
 
     def update(self, instance, validated_data):
-        # Remove account_id if provided (shouldn't update the trainer relationship)
-        validated_data.pop("account_id", None)
-
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.full_clean()
@@ -320,3 +294,4 @@ class TrainerRecordSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+        read_only_fields = ["id", "created_at", "updated_at"]
