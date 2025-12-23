@@ -172,4 +172,6 @@ class ProfileBalanceView(APIView):
             return Response({"balance": balance})
         except Profile.DoesNotExist:
             return Response({"error": "Profile not found"}, status=404)
+        except Exception:
+            return Response({"error": "Profile data is incomplete or corrupted"}, status=400)
             
