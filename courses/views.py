@@ -44,7 +44,7 @@ class CoursesView(ViewSet):
     def get_courses_for_trainees(self, request):
         params = request.query_params
 
-        queryset = Course.objects.filter(status="published", is_deleted=False).select_related(
+        queryset = Course.objects.filter(status="published", is_deleted=False, trainer_profile__isnull=False).select_related(
             'trainer_profile', 'category', 'level', 'language'
         )
 
