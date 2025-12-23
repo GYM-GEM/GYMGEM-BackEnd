@@ -17,6 +17,7 @@ class Course(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     description = models.TextField()
     preview_video = models.URLField(blank=True, null=True)
+    is_deleted = models.BooleanField(default=False)
 
     def __str__(self):
         return self.title
@@ -29,6 +30,7 @@ class CourseLesson(models.Model):
     duration = models.DurationField()
     status = models.CharField(max_length=20, choices=[('draft', 'Draft'), ('published', 'Published')], default='draft')
     order = models.PositiveIntegerField()
+    is_deleted = models.BooleanField(default=False)
     
     def clean(self):
         from django.core.exceptions import ValidationError
@@ -58,7 +60,7 @@ class LessonSection(models.Model):
     content_text = models.TextField(blank=True, null=True)
     order = models.PositiveIntegerField()
     
-    # is_done = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False)
     
     def clean(self):
         from django.core.exceptions import ValidationError

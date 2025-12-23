@@ -44,7 +44,7 @@ class CoursesView(ViewSet):
     def get_courses_for_trainees(self, request):
         params = request.query_params
 
-        queryset = Course.objects.filter(status="published").select_related(
+        queryset = Course.objects.filter(status="published", is_deleted=False).select_related(
             'trainer_profile', 'category', 'level', 'language'
         )
 
@@ -260,7 +260,8 @@ class CoursesView(ViewSet):
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
-        course.delete()
+        course.is_deleted = True
+        course.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(
@@ -341,6 +342,11 @@ class CoursesView(ViewSet):
         
         if (not enrollment) and course.trainer_profile.pk != trainee_id:
             course_data["lessons_details"] = []
+            if course.is_deleted:
+                return Response(
+                    {"error": f"Course with id {pk} does not exist"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
         elif course.trainer_profile.pk == trainee_id or enrollment.status in ["in_progress", "completed"]:
             lessons_details = []
             for lesson in lessons:
@@ -695,7 +701,8 @@ class LessonsView(ViewSet):
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
-        lesson.delete()
+        lesson.is_deleted = True
+        lesson.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(
@@ -866,7 +873,8 @@ class LessonSectionsView(ViewSet):
             )
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
-        section.delete()
+        section.is_deleted = True
+        section.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 class CourseEnrollmentsView(ViewSet):
