@@ -508,11 +508,11 @@ class CoursesView(ViewSet):
         enrollments_ids = CourseEnrollment.objects.values_list(
             'id', flat=True
         ).filter(course=course, status="completed", review__isnull=False,rating__isnull=False)
-        random_ids = sample(list(enrollments_ids), 10) if len(enrollments_ids) > 10 else enrollments_ids
+        # Trainer gets all reviews, no sampling
         reviews = (
             CourseEnrollment.objects
             .filter(
-                id__in=random_ids,
+                id__in=enrollments_ids,
                 trainee_profile__profile_type='trainee'
             )
             .annotate(
