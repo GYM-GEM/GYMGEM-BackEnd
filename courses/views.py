@@ -431,6 +431,141 @@ class CoursesView(ViewSet):
         }
         return Response(course_data)
 
+    @extend_schema(
+        tags=["Courses"],
+        summary="Get course detail (Trainer)",
+        description="Get detailed information about a specific course including unpublished ones. Trainer only - must own the course. Full access to all course data.",
+        responses={200: CourseSerializer, 404: {"description": "Course not found"}},
+    )
+    @action(
+        methods=["get"],
+        detail=True,
+        permission_classes=[HasRole(["trainer"])],
+        url_path="detail-trainer",
+    )
+    def get_course_detail_trainer(self, request, pk=None):
+        try:
+            # Fetch course with all related data - NO status filter for trainer
+            course = Course.objects.select_related(
+                'trainer_profile',
+                'category',
+                'level',
+                'language'
+            ).prefetch_related(
+                Prefetch(
+                    'lessons',
+                    queryset=CourseLesson.objects.prefetch_related(
+                        Prefetch(
+                            'sections',
+                            queryset=LessonSection.objects.order_by('order', 'id')
+                        )
+                    ).order_by("order", "id")
+                )
+            ).get(pk=pk)
+        except Course.DoesNotExist:
+            return Response(
+                {"error": f"Course with id {pk} does not exist"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Validate that the logged-in trainer owns this course
+        profile_id = get_profile_id_from_token(request)
+        if course.trainer_profile.pk != profile_id:
+            return Response(
+                {"error": "You do not have permission to view this course"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        course_data = CourseSerializer(course).data
+
+        # Use prefetched lessons (no additional query)
+        lessons = course.lessons.all()
+        course_data["lessons"] = CourseLessonSerializer(lessons, many=True).data
+        
+        # Trainer gets all details always
+        lessons_details = []
+        for lesson in lessons:
+            lesson_data = CourseLessonSerializer(lesson).data
+            # Use prefetched sections (no additional query)
+            lesson_data["sections"] = LessonSectionSerializer(
+                lesson.sections.all().order_by("order", "id"),
+                many=True
+            ).data
+            # Trainer doesn't need progress tracking for themselves
+            lesson_data["completed_section_ids"] = []
+            lessons_details.append(lesson_data)
+
+        course_data["lessons_details"] = lessons_details
+        course_data["enrollment"] = None  # Trainer has no enrollment
+        
+        # Ratings
+        rating_stats = CourseEnrollment.objects.filter(
+            course=course,
+            status="completed",
+            rating__isnull=False
+        ).aggregate(
+            average_rating=models.Avg("rating"),
+            total_ratings=models.Count("rating")
+        )
+        course_data["ratings"] = rating_stats
+        
+        enrollments_ids = CourseEnrollment.objects.values_list(
+            'id', flat=True
+        ).filter(course=course, status="completed", review__isnull=False,rating__isnull=False)
+        # Trainer gets all reviews, no sampling
+        reviews = (
+            CourseEnrollment.objects
+            .filter(
+                id__in=enrollments_ids,
+                trainee_profile__profile_type='trainee'
+            )
+            .annotate(
+                reviewer_name=Coalesce(
+                    F('trainee_profile__trainee__name'),
+                    F('trainee_profile__account__username')
+                ),
+                reviewer_profile_picture=F('trainee_profile__trainee__profile_picture')
+            )
+            .values("reviewer_name", "reviewer_profile_picture", "rating", "review", "review_date")
+        )
+        
+        # Format reviews for better frontend consumption
+        course_data["reviews"] = [
+            {
+                "username": review["reviewer_name"],
+                "profile_picture": review["reviewer_profile_picture"],
+                "rating": review["rating"],
+                "review": review["review"],
+                "review_date": review["review_date"]
+            }
+            for review in reviews
+        ]
+        
+        # Total duration - aggregate in single query
+        total_duration = CourseLesson.objects.filter(
+            course=course
+        ).aggregate(total=Sum('duration'))['total']
+        
+        course_data["total_duration"] = (
+            int(total_duration.total_seconds()) if total_duration else 0
+        )
+
+        # Students enrolled
+        students_count = CourseEnrollment.objects.filter(
+                course=course,
+                status__in=["in_progress", "completed"]
+            ).values_list("trainee_profile_id", flat=True).distinct().count()
+
+        course_data["students_enrolled"] = students_count
+        course_data["level_name"] = course.level.name if course.level else None
+        course_data["category_name"] = course.category.name if course.category else None
+        course_data["trainer_data"] = {
+            "id": course.trainer_profile.id,
+            "name": course.trainer_profile.trainer.name if hasattr(course.trainer_profile, 'trainer') else None,
+            "profile_picture": course.trainer_profile.trainer.profile_picture if hasattr(course.trainer_profile, 'trainer') else None,
+        }
+        return Response(course_data)
+
 class LessonsView(ViewSet):
     serializer_class = CourseLessonSerializer
     queryset = Course.objects.all()
