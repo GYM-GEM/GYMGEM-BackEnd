@@ -1,8 +1,9 @@
 from rest_framework import serializers
 from accounts.models import Account
-from .models import Store, StoreBranch, StoreItem,StoreItemInventory, StoreItemSize, Order, OrderItem
+from .models import Store, StoreBranch, StoreItem,StoreItemInventory, StoreItemSize, Order, OrderItem, InventoryLog
 from profiles.models import Profile
 from utils.views import  get_profile_id_from_token
+from django.db import transaction
 
 class StoreSerializer(serializers.ModelSerializer):
     profile_id = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -96,15 +97,35 @@ class StoreItemInventorySerializer(serializers.ModelSerializer):
     class Meta:
         model = StoreItemInventory
         fields = ['id', 'store_item_id', 'size_id', 'size_name', 'quantity', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'store_item_id', 'created_at', 'updated_at']
 
     def validate_quantity(self, value):
         if value < 0:
             raise serializers.ValidationError("Quantity cannot be negative.")
         return value
     
+    def validate_size_id(self, value):
+        if not value:
+            raise serializers.ValidationError("Size is required.")
+        try:
+            StoreItemSize.objects.get(pk=value.id if hasattr(value, 'id') else value)
+        except StoreItemSize.DoesNotExist:
+            raise serializers.ValidationError("Size does not exist.")
+        return value
+
+class InventoryLogSerializer(serializers.ModelSerializer):
+    item_name = serializers.CharField(source='store_item_id.store_item_id.name', read_only=True)
+ 
+    class Meta:
+        model = InventoryLog
+        fields = [
+            'id', 'store_item_id', 'item_name', 'change_type',
+            'quantity_changed', 'reason', 'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']
+
 class StoreItemSerializer(serializers.ModelSerializer):
-    inventory = StoreItemInventorySerializer(source='storeiteminventory_set', many=True, read_only=True)
+    inventory = StoreItemInventorySerializer(source='storeiteminventory_set', many=True, required=False, allow_null=True)
     total_quantity = serializers.SerializerMethodField()
 
     class Meta:
@@ -114,7 +135,7 @@ class StoreItemSerializer(serializers.ModelSerializer):
             'price', 'category', 'brand', 'expiration_date',
             'inventory', 'total_quantity', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'store_id', 'created_at', 'updated_at', 'inventory', 'total_quantity']
+        read_only_fields = ['id', 'store_id', 'created_at', 'updated_at', 'total_quantity']
 
     def get_total_quantity(self, obj):
         return obj.get_total_quantity()
@@ -145,16 +166,49 @@ class StoreItemSerializer(serializers.ModelSerializer):
         if branch_id and branch_id.store_id != store:
             raise serializers.ValidationError("Branch must belong to the authenticated user's store.")
 
-        item = StoreItem(**validated_data)
-        item.full_clean()
-        item.save()
-        return item
+        # Extract inventory data before creating the item
+        inventory_data = validated_data.pop('storeiteminventory_set', [])
+        
+        # Create the item
+        with transaction.atomic():
+            item = StoreItem.objects.create(**validated_data)
 
+            for inv_data in inventory_data:
+                # size_id is ALREADY the StoreItemSize object here
+                size_obj = inv_data.get('size_id')
+                quantity = inv_data.get('quantity')
+
+                # No need to call .objects.get()! DRF did it for you.
+                StoreItemInventory.objects.create(
+                    store_item_id=item,
+                    size_id=size_obj, 
+                    quantity=quantity
+                )
+
+        return item
+        
     def update(self, instance, validated_data):
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.full_clean()
-        instance.save()
+        # Extract inventory data if provided
+        inventory_data = validated_data.pop('storeiteminventory_set', None)
+        
+        with transaction.atomic():
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+
+            if inventory_data is not None:
+                instance.storeiteminventory_set.all().delete()
+                for inv_data in inventory_data:
+                    # Again, use the object directly
+                    size_obj = inv_data.get('size_id')
+                    quantity = inv_data.get('quantity')
+                    
+                    StoreItemInventory.objects.create(
+                        store_item_id=instance,
+                        size_id=size_obj,
+                        quantity=quantity
+                    )
+        
         return instance
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -225,3 +279,4 @@ class AddOrderItemSerializer(serializers.Serializer):
             except StoreItemSize.DoesNotExist:
                 raise serializers.ValidationError("Size does not exist.")
         return value
+    

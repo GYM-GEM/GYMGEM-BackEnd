@@ -46,7 +46,7 @@ class StoreBranch(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"StoreBranch<{self.branch_name}> of Store {self.store.name}"
+        return f"StoreBranch<{self.id}> of Store {self.store_id.name}"
     
     def clean(self):
         """Validate StoreBranch fields."""
@@ -65,7 +65,7 @@ class StoreItemSize(models.Model):
     description=models.CharField(max_length=255, blank=True, null=True)
 
     def __str__(self):
-        return f"StoreItemSize<{self.size}> for Item {self.store_item_id.name}"
+        return f"StoreItemSize<{self.name}> ({self.type})"
     def clean(self):
         """Validate StoreItemSize fields."""
         if not self.name:

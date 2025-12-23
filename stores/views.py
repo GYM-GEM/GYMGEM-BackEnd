@@ -281,6 +281,7 @@ class StoreItemDetailView(APIView):
         
         item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    def _is_store_owner_of_item(self, request, item):
         if not item:
             return False
         profile_id = get_profile_id_from_token(request)
