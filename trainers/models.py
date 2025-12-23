@@ -45,12 +45,15 @@ class Trainer(models.Model):
 
 class TrainerSpecialization(models.Model):
     trainer = models.ForeignKey("trainers.Trainer", on_delete=models.CASCADE)
-    specialization = models.ForeignKey(Specialization, on_delete=models.CASCADE)
+    specialization = models.ForeignKey("utils.Specialization", on_delete=models.CASCADE)
     years_of_experience = models.IntegerField()
     service_location = models.CharField(
         max_length=100,
         choices=[("online", "Online"), ("offline", "Offline"), ("both", "Both")],
     )
+    create_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    description = models.CharField(max_length=255, blank=True, null=True)
 
     def __str__(self):
         return f"TrainerSpecialization<{self.specialization}> for Trainer {self.trainer.name}"
@@ -73,7 +76,8 @@ class TrainerExperience(models.Model):
     start_date = models.DateField(blank=True, null=True)
     end_date = models.DateField(blank=True, null=True)
     description = models.TextField(blank=True, null=True)
-
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     def __str__(self):
         return f"TrainerExperience<{self.position} at {self.work_place}> for Trainer {self.trainer.name}"
 

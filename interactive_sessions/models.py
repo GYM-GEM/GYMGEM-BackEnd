@@ -7,8 +7,8 @@ class InteractiveSession(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     scheduled_at = models.ForeignKey('trainers.TrainerCalendarSlot', on_delete=models.CASCADE, related_name='interactive_sessions')
-    trainer = models.ForeignKey('profiles.Profile', related_name='interactive_sessions_trainer', blank=True, on_delete=models.CASCADE)
-    trainee = models.ForeignKey('profiles.Profile', related_name='interactive_sessions_trainee', blank=True, on_delete=models.CASCADE)
+    trainer = models.ForeignKey('profiles.Profile', related_name='interactive_sessions_trainer', blank=True, null=True, on_delete=models.CASCADE)
+    trainee = models.ForeignKey('profiles.Profile', related_name='interactive_sessions_trainee', blank=True, null=True, on_delete=models.CASCADE)
     fees = models.IntegerField(default=50, validators=[MinValueValidator(50)])
     
     started_at = models.DateTimeField(blank=True, null=True)

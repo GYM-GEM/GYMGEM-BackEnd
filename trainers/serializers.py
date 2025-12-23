@@ -77,16 +77,22 @@ class TrainerSerializer(serializers.ModelSerializer):
 
 
 class TrainerSpecializationSerializer(serializers.ModelSerializer):
+    specialization_name = serializers.CharField(source='specialization.name', read_only=True)
 
     class Meta:
         model = TrainerSpecialization
         fields = [
+            "id",
             "specialization",
+            "specialization_name",
             "years_of_experience",
             "service_location",
+            "description",
             "trainer",
+            "create_at",
+            "updated_at",
         ]
-        read_only_fields = ["trainer"]
+        read_only_fields = ["id", "trainer", "create_at", "updated_at", "specialization_name"]
         
     def validate(self, data):
         # Check if this trainer already has this specialization
@@ -157,12 +163,16 @@ class TrainerExperienceSerializer(serializers.ModelSerializer):
     class Meta:
         model = TrainerExperience
         fields = [
+            "id",
             "work_place",
             "position",
             "start_date",
             "end_date",
             "description",
+            "created_at",
+            "updated_at",
         ]
+        read_only_fields = ["id", "created_at", "updated_at"]
 
     def validate(self, data):
         start_date = data.get("start_date")

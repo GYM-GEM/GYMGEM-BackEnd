@@ -113,9 +113,6 @@ class MyTrainerView(APIView):
             experiences = TrainerExperience.objects.filter(trainer=trainer).select_related(
                 'trainer'
             )
-            calendar_slots = TrainerCalendarSlot.objects.filter(trainer=my_profile).select_related(
-                'trainer'
-            )
             return Response({
                 "trainer": serializer.data,
                 "specializations": TrainerSpecializationSerializer(specializations, many=True).data,
@@ -277,7 +274,7 @@ class TrainerSpecializationView(APIView):
     @extend_schema(
         tags=["Trainers"],
         summary="List my trainer specializations",
-        description="Get all specializations for the authenticated trainer",
+        description="Get all specializations for the authenticated trainer. Each specialization includes the area of expertise, years of experience, service location (online/offline/both), optional description, and timestamps.",
         responses={200: TrainerSpecializationSerializer(many=True)},
     )
     def get(self, request):
@@ -295,12 +292,25 @@ class TrainerSpecializationView(APIView):
     @extend_schema(
         tags=["Trainers"],
         summary="Create new trainer specialization",
-        description="Create a new trainer specialization",
+        description="Create a new trainer specialization for the authenticated trainer. Includes specialization details, years of experience, service location, and an optional description.",
         request=TrainerSpecializationSerializer,
         responses={
             201: TrainerSpecializationSerializer,
             400: {"description": "Validation error"},
         },
+        examples=[
+            OpenApiExample(
+                name="Create Specialization",
+                description="Example of creating a new specialization for a trainer",
+                value={
+                    "specialization": 1,
+                    "years_of_experience": 5,
+                    "service_location": "both",
+                    "description": "Specialized in strength training and muscle building with focus on powerlifting techniques"
+                },
+                request_only=True,
+            ),
+        ],
     )
     def post(self, request):
         serializer = TrainerSpecializationSerializer(data=request.data, context={"request": request})
@@ -316,7 +326,7 @@ class TrainerSpecializationUpdateView(APIView):
     @extend_schema(
         tags=["Trainers"],
         summary="Update trainer specialization",
-        description="Update an existing trainer specialization",
+        description="Update an existing trainer specialization. You can update years of experience, service location (online/offline/both), and the description. Timestamps are automatically managed.",
         parameters=[
             OpenApiParameter(
                 name="specialization_id",
@@ -430,7 +440,7 @@ class TrainerExperienceView(APIView):
     @extend_schema(
         tags=["Trainers"],
         summary="List my trainer experiences",
-        description="Get all experiences for the authenticated trainer",
+        description="Get all work experiences for the authenticated trainer. Includes timestamps showing when each experience was created and last updated.",
         responses={200: TrainerExperienceSerializer(many=True)},
     )
     def get(self, request):
@@ -447,12 +457,38 @@ class TrainerExperienceView(APIView):
     @extend_schema(
         tags=["Trainers"],
         summary="Create new trainer experience",
-        description="Create a new trainer experience",
+        description="Create a new work experience entry for the authenticated trainer. Include workplace, position, dates, and description. Timestamps are automatically tracked.",
         request=TrainerExperienceSerializer,
         responses={
             201: TrainerExperienceSerializer,
             400: {"description": "Validation error"},
         },
+        examples=[
+            OpenApiExample(
+                name="Create Experience (Current Job)",
+                description="Example for a current position (no end date)",
+                value={
+                    "work_place": "Gold's Gym",
+                    "position": "Senior Personal Trainer",
+                    "start_date": "2022-01-15",
+                    "end_date": None,
+                    "description": "Leading personal training programs and mentoring junior trainers"
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                name="Create Experience (Past Job)",
+                description="Example for a previous position with end date",
+                value={
+                    "work_place": "Fitness First",
+                    "position": "Personal Trainer",
+                    "start_date": "2019-03-01",
+                    "end_date": "2021-12-31",
+                    "description": "Provided one-on-one training sessions and group classes"
+                },
+                request_only=True,
+            ),
+        ],
     )
     def post(self, request):
         data = request.data.copy()
@@ -475,7 +511,7 @@ class TrainerExperienceUpdateView(APIView):
     @extend_schema(
         tags=["Trainers"],
         summary="Update trainer experience",
-        description="Update an existing trainer experience",
+        description="Update an existing work experience entry. You can modify workplace, position, dates, and description. The updated_at timestamp is automatically updated.",
         parameters=[
             OpenApiParameter(
                 name="experience_id",
