@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from django.conf import settings
 from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import permission_classes
+
+from authenticationAndAuthorization.permissions import HasRole
 from .models import Payment
 from utils.views import PaymobService, get_profile_id_from_token
 from profiles.models import Profile
@@ -13,7 +15,7 @@ from rest_framework.permissions import IsAuthenticated
 
 
 class StartPaymentAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [HasRole(["trainee"])]
     @extend_schema(
         tags=["Payment"],
         summary="Start payment",
@@ -23,7 +25,7 @@ class StartPaymentAPIView(APIView):
     )
     def post(self, request):
         try:
-            amount = request.data.get("amount")  # EGP
+            amount = request.data.get("amount")  
             amount_cents = int((Decimal(amount) * Decimal("100")).quantize(Decimal('1')))
         except (TypeError, ValueError, InvalidOperation):
             return Response({"status": "error", "code": "INVALID_AMOUNT", "detail": "Invalid amount"}, status=400)
