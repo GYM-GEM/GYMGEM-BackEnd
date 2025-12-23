@@ -5,7 +5,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 
 class Course(models.Model):
 
-    trainer_profile = models.ForeignKey('profiles.Profile', on_delete=models.CASCADE)
+    trainer_profile = models.ForeignKey('profiles.Profile', on_delete=models.SET_NULL, null=True)
     title = models.CharField(max_length=200)
     category = models.ForeignKey('utils.Category', on_delete=models.SET_NULL, null=True)
     level = models.ForeignKey('utils.Level', on_delete=models.SET_NULL, null=True)
