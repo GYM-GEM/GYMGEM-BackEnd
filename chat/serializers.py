@@ -88,34 +88,34 @@ class ConversationSerializer(serializers.ModelSerializer):
             'unread_count',
         ]
 
-    def _get_other_participant(self):
+    def _get_other_participant(self, obj):
         request = self.context.get('request')
         if not request:
             return None
         profile_id = get_profile_id_from_token(request)
         if not profile_id:
             return None
-        return self.instance.participants.exclude(id=profile_id).first()
+        return obj.participants.exclude(id=profile_id).first()
 
-    def get_other_participant_id(self, obj):  # pylint: disable=unused-argument
-        other = self._get_other_participant()
+    def get_other_participant_id(self, obj):
+        other = self._get_other_participant(obj)
         return getattr(other, 'id', None)
 
-    def get_other_participant_name(self, obj):  # pylint: disable=unused-argument
-        other = self._get_other_participant()
+    def get_other_participant_name(self, obj):
+        other = self._get_other_participant(obj)
         return _get_profile_display_name(other)
 
-    def get_other_participant_profile_picture(self, obj):  # pylint: disable=unused-argument
-        other = self._get_other_participant()
+    def get_other_participant_profile_picture(self, obj):
+        other = self._get_other_participant(obj)
         return _get_profile_picture(other)
 
-    def get_last_message(self, obj):  # pylint: disable=unused-argument
-        last_msg = self.instance.messages.order_by('-timestamp').first()
+    def get_last_message(self, obj):
+        last_msg = obj.messages.order_by('-timestamp').first()
         if not last_msg:
             return None
         return MessageSerializer(last_msg, context=self.context).data
 
-    def get_unread_count(self, obj):  # pylint: disable=unused-argument
+    def get_unread_count(self, obj):
         request = self.context.get('request')
         if not request:
             return 0
@@ -125,5 +125,5 @@ class ConversationSerializer(serializers.ModelSerializer):
         profile = Profile.objects.filter(id=profile_id).first()
         if not profile:
             return 0
-        return self.instance.messages.filter(is_read=False).exclude(sender=profile).count()
-    
+        return obj.messages.filter(is_read=False).exclude(sender=profile).count()
+
