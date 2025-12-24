@@ -3,9 +3,6 @@ import jwt
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
 from django.utils.timezone import now
-from django.contrib.auth.models import AnonymousUser
-from django.shortcuts import get_object_or_404
-
 from .models import Message, Conversation
 from profiles.models import Profile
 from GymGem import settings
@@ -448,9 +445,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         Only send to OTHER participants (not the typer themselves).
         """
         # Don't send typing indicator back to the person who is typing
-        if event.get("username") != self.scope["user"].username:
+        if event.get("profile_id") != self.profile.id:
             await self.send(json.dumps({
                 "type": "typing",
+                "profile_id": event.get("profile_id"),
                 "username": event.get("username"),
                 "is_typing": event.get("is_typing")
             }))
@@ -466,7 +464,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "message_id": event.get("message_id"),
             "content": event.get("content"),
             "edited_at": event.get("edited_at"),
-            "editor": event.get("editor")
+            "editor_id": event.get("editor_id"),
+            "editor_name": event.get("editor_name")
         }))
 
     async def message_deleted(self, event):
@@ -474,5 +473,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(json.dumps({
             "type": "delete",
             "message_id": event.get("message_id"),
-            "deleter": event.get("deleter")
+            "deleter_id": event.get("deleter_id"),
+            "deleter_name": event.get("deleter_name")
         }))
