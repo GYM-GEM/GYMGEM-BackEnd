@@ -76,7 +76,6 @@ class ConversationSerializer(serializers.ModelSerializer):
         model = Conversation
         fields = [
             'id',
-            'participants',
             'messages',
             'created_at',
             'other_participant_id',

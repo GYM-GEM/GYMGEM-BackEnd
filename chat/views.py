@@ -157,67 +157,47 @@ class ConversationViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def start(self, request):
         """
-        Start a new conversation between two users.
-        Validates user2 exists and prevents duplicate conversations.
+        Start a new conversation with another user.
         """
-        user1 = self._get_current_profile()
+        current_profile = get_profile_id_from_token(request)
+        if not current_profile:
+            return Response(
+                {'error': 'current_profile is missing in token'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         user2_id = request.data.get('user2')
-        
-        # Validate user2_id is provided
         if not user2_id:
             return Response(
-                {'error': 'user2 field is required'},
+                {'error': 'user2 is required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Validate user2_id is a valid integer
-        try:
-            user2_id = int(user2_id)
-        except (ValueError, TypeError):
-            return Response(
-                {'error': 'user2 must be a valid user ID'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Prevent user from starting conversation with themselves
-        if user1.id == user2_id:
+        if int(user2_id) == current_profile:
             return Response(
                 {'error': 'Cannot start a conversation with yourself'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Validate user2 exists
-        try:
-            user2 = Profile.objects.get(id=user2_id)
-        except Profile.DoesNotExist:
+        user2_profile = Profile.objects.filter(id=user2_id).first()
+        if not user2_profile:
             return Response(
-                {'error': f'Profile with ID {user2_id} does not exist'},
+                {'error': f'User with ID {user2_id} does not exist'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
-        # Check if conversation already exists between these two users
+        # Check for existing conversation
         existing_conversation = Conversation.objects.filter(
-            participants=user1
+            participants__id=current_profile
         ).filter(
-            participants=user2
+            participants__id=user2_id
         ).first()
-        
         if existing_conversation:
-            # Return existing conversation instead of creating duplicate
-            return Response(
-                ConversationSerializer(existing_conversation, context={'request': request}).data,
-                status=status.HTTP_200_OK
-            )
-        
+            serializer = ConversationSerializer(existing_conversation, context={'request': request})
+            return Response(serializer.data, status=status.HTTP_200_OK)
         # Create new conversation
-        convo = Conversation.objects.create()
-        convo.participants.add(user1, user2)
-        convo.save()
-        
-        return Response(
-            ConversationSerializer(convo, context={'request': request}).data,
-            status=status.HTTP_201_CREATED
-        )
+        conversation = Conversation.objects.create()
+        conversation.participants.add(current_profile, user2_id)
+        conversation.save()
+        serializer = ConversationSerializer(conversation, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+     
 
     @extend_schema(
         tags=['Chat'],
