@@ -1,33 +1,59 @@
 import json
+import jwt
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
-from .models import Message, Conversation
 from django.utils.timezone import now
 from django.contrib.auth.models import AnonymousUser
+from django.shortcuts import get_object_or_404
+
+from .models import Message, Conversation
+from profiles.models import Profile
+from GymGem import settings
 
 class ChatConsumer(AsyncWebsocketConsumer):
+    @sync_to_async
+    def _get_profile_from_token(self, token):
+        """Extract profile from JWT token."""
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+            profile_id = payload.get("current_profile")
+            if not profile_id:
+                return None
+            return Profile.objects.get(id=profile_id)
+        except (jwt.InvalidTokenError, Profile.DoesNotExist):
+            return None
+
     async def connect(self):
         try:
             self.conversation_id = self.scope['url_route']['kwargs']['conversation_id']
             self.room_group_name = f'chat_{self.conversation_id}'
             
-            # Get the user from scope (set by JWTAuthMiddleware)
-            user = self.scope.get('user')
+            # Extract token from query string
+            query_string = self.scope.get('query_string', b'').decode()
+            token = None
+            if 'token=' in query_string:
+                token = query_string.split('token=')[1].split('&')[0]
             
-            # Reject unauthenticated users
-            if not user or isinstance(user, AnonymousUser):
+            # Reject if no token
+            if not token:
                 await self.close(code=4001)  # Custom close code for authentication failure
                 return
             
-            # Check if conversation exists and user is a participant
+            # Get profile from token
+            self.profile = await self._get_profile_from_token(token)
+            if not self.profile:
+                await self.close(code=4001)  # Authentication failed
+                return
+            
+            # Check if conversation exists and profile is a participant
             try:
                 conversation = await sync_to_async(Conversation.objects.get)(id=self.conversation_id)
                 is_participant = await sync_to_async(
-                    lambda: conversation.participants.filter(id=user.id).exists()
+                    lambda: conversation.participants.filter(id=self.profile.id).exists()
                 )()
                 
                 if not is_participant:
-                    # User is not a participant in this conversation
+                    # Profile is not a participant in this conversation
                     await self.close(code=4003)  # Custom close code for permission denied
                     return
                     
@@ -36,7 +62,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.close(code=4004)  # Custom close code for not found
                 return
             
-            # User is authenticated and authorized - accept the connection
+            # Profile is authenticated and authorized - accept the connection
             await self.channel_layer.group_add(self.room_group_name, self.channel_name)
             await self.accept()
             
@@ -128,13 +154,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }))
                 return
             
-            sender = self.scope["user"]
-
             # Save message to database
             convo = await sync_to_async(Conversation.objects.get)(id=self.conversation_id)
             new_message = await sync_to_async(Message.objects.create)(
                 conversation=convo, 
-                sender=sender, 
+                sender=self.profile, 
                 content=message_content.strip()  # Strip whitespace before saving
             )
 
@@ -144,7 +168,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 {
                     "type": "chat_message", 
                     "message_id": new_message.id,
-                    "sender": sender.username, 
+                    "sender_id": self.profile.id,
+                    "sender_name": self.profile.account.username if self.profile.account else str(self.profile.id),
                     "content": message_content,
                     "timestamp": str(new_message.timestamp)
                 }
@@ -195,7 +220,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 {
                     "type": "read_receipt",
                     "message_id": message_id,
-                    "reader": self.scope["user"].username,
+                    "reader_id": self.profile.id,
+                    "reader_name": self.profile.account.username if self.profile.account else str(self.profile.id),
                     "read_at": str(msg.read_at)
                 }
             )
@@ -227,14 +253,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }))
                 return
             
-            sender = self.scope["user"]
-            
             # Broadcast typing indicator to all participants in the conversation
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
                     "type": "typing_indicator",
-                    "username": sender.username,
+                    "profile_id": self.profile.id,
+                    "username": self.profile.account.username if self.profile.account else str(self.profile.id),
                     "is_typing": is_typing
                 }
             )
@@ -296,8 +321,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # Get message from database
             msg = await sync_to_async(Message.objects.get)(id=message_id)
             
-            # Check if user is the sender
-            if msg.sender.id != self.scope["user"].id:
+            # Check if profile is the sender
+            if msg.sender.id != self.profile.id:
                 await self.send(json.dumps({
                     "type": "error",
                     "message": "You can only edit your own messages"
@@ -325,7 +350,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "message_id": message_id,
                     "content": new_content.strip(),
                     "edited_at": str(msg.edited_at),
-                    "editor": self.scope["user"].username
+                    "editor_id": self.profile.id,
+                    "editor_name": self.profile.account.username if self.profile.account else str(self.profile.id)
                 }
             )
             
@@ -369,8 +395,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # Get message from database
             msg = await sync_to_async(Message.objects.get)(id=message_id)
             
-            # Check if user is the sender
-            if msg.sender.id != self.scope["user"].id:
+            # Check if profile is the sender
+            if msg.sender.id != self.profile.id:
                 await self.send(json.dumps({
                     "type": "error",
                     "message": "You can only delete your own messages"
@@ -396,7 +422,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 {
                     "type": "message_deleted",
                     "message_id": message_id,
-                    "deleter": self.scope["user"].username
+                    "deleter_id": self.profile.id,
+                    "deleter_name": self.profile.account.username if self.profile.account else str(self.profile.id)
                 }
             )
             
