@@ -68,7 +68,6 @@ class MessageSerializer(serializers.ModelSerializer):
 
 
 class ConversationSerializer(serializers.ModelSerializer):
-    messages = MessageSerializer(many=True, read_only=True)
     other_participant_id = serializers.SerializerMethodField(read_only=True)
     other_participant_name = serializers.SerializerMethodField(read_only=True)
     other_participant_profile_picture = serializers.SerializerMethodField(read_only=True)
@@ -79,7 +78,6 @@ class ConversationSerializer(serializers.ModelSerializer):
         model = Conversation
         fields = [
             'id',
-            'messages',
             'created_at',
             'other_participant_id',
             'other_participant_name',
@@ -110,9 +108,12 @@ class ConversationSerializer(serializers.ModelSerializer):
         return _get_profile_picture(other)
 
     def get_last_message(self, obj):
-        last_msg = obj.messages.order_by('-timestamp').first()
-        if not last_msg:
+        # Sort prefetched messages in Python instead of queryset to use prefetched data
+        messages = list(obj.messages.all())
+        if not messages:
             return None
+        # Sort by timestamp descending and get the first one
+        last_msg = max(messages, key=lambda m: m.timestamp)
         return MessageSerializer(last_msg, context=self.context).data
 
     def get_unread_count(self, obj):

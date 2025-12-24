@@ -93,8 +93,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
         queryset = Conversation.objects.filter(
             participants=profile
         ).prefetch_related(
-            'messages',  # Fetch all messages in one query
-            'messages__sender',  # Fetch senders in one query
+            'messages__sender',  # Fetch senders for messages
             'participants'  # Fetch participants in one query
         )
         # Optional search by participant username
