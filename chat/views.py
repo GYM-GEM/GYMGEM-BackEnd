@@ -153,7 +153,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
             ),
         ],
     )
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['post'],url_name='start', url_path='start')
     def start(self, request):
         """
         Start a new conversation with another user.
@@ -178,9 +178,12 @@ class ConversationViewSet(viewsets.ModelViewSet):
             )
         # Check for existing conversation
 
-        existing_conversation = Conversation.objects.filter(
-            Q(participants=current_profile) & Q(participants=user2_profile)
-        ).distinct().first()
+        existing_conversation = (
+            Conversation.objects
+            .filter(participants=current_profile)
+            .filter(participants=user2_profile)
+            .first()
+        )
         if existing_conversation:
             serializer = ConversationSerializer(existing_conversation, context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)

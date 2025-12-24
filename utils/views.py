@@ -52,7 +52,6 @@ def get_profile_id_from_token(request):
         token = auth_header.split(" ")[1]
     payload = None
 
-    print("TTTTTTT:", token)
     if token:
 
         try:
