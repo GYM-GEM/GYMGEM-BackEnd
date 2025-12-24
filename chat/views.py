@@ -159,19 +159,14 @@ class ConversationViewSet(viewsets.ModelViewSet):
         """
         Start a new conversation with another user.
         """
-        current_profile = get_profile_id_from_token(request)
-        if not current_profile:
-            return Response(
-                {'error': 'current_profile is missing in token'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        current_profile = self._get_current_profile()
         user2_id = request.data.get('user2')
         if not user2_id:
             return Response(
                 {'error': 'user2 is required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        if int(user2_id) == current_profile:
+        if int(user2_id) == current_profile.id:
             return Response(
                 {'error': 'Cannot start a conversation with yourself'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -184,7 +179,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
             )
         # Check for existing conversation
         existing_conversation = Conversation.objects.filter(
-            participants__id=current_profile
+            participants__id=current_profile.id
         ).filter(
             participants__id=user2_id
         ).first()
@@ -193,7 +188,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_200_OK)
         # Create new conversation
         conversation = Conversation.objects.create()
-        conversation.participants.add(current_profile, user2_id)
+        conversation.participants.add(current_profile, user2_profile)
         conversation.save()
         serializer = ConversationSerializer(conversation, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)

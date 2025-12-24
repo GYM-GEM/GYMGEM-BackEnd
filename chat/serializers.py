@@ -56,12 +56,15 @@ def _get_profile_picture(profile):
     return None
 
 class MessageSerializer(serializers.ModelSerializer):
-    sender_name = serializers.CharField(source='sender.username', read_only=True)
+    sender_name = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Message
         fields = ['id', 'conversation', 'sender', 'sender_name', 'content', 'attachment',
                   'timestamp', 'is_read', 'read_at', 'is_deleted', 'edited_at']
+
+    def get_sender_name(self, obj):
+        return _get_profile_display_name(obj.sender)
 
 
 class ConversationSerializer(serializers.ModelSerializer):
