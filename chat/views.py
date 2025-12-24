@@ -10,7 +10,6 @@ from django.utils.timezone import now
 from django.db.models import Q
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
-
 from utils.views import get_profile_id_from_token
 from profiles.models import Profile
 from .models import Conversation, Message
@@ -178,11 +177,10 @@ class ConversationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
         # Check for existing conversation
+
         existing_conversation = Conversation.objects.filter(
-            participants__id=current_profile.id
-        ).filter(
-            participants__id=user2_id
-        ).first()
+            Q(participants=current_profile) & Q(participants=user2_profile)
+        ).distinct().first()
         if existing_conversation:
             serializer = ConversationSerializer(existing_conversation, context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)
