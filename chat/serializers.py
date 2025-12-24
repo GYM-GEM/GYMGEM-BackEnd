@@ -71,6 +71,7 @@ class ConversationSerializer(serializers.ModelSerializer):
     other_participant_id = serializers.SerializerMethodField(read_only=True)
     other_participant_name = serializers.SerializerMethodField(read_only=True)
     other_participant_profile_picture = serializers.SerializerMethodField(read_only=True)
+    other_participant_role = serializers.SerializerMethodField(read_only=True)
     last_message = serializers.SerializerMethodField(read_only=True)
     unread_count = serializers.SerializerMethodField(read_only=True)
 
