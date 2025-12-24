@@ -1,16 +1,20 @@
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
-from .models import Conversation, Message
-from .serializers import ConversationSerializer, MessageSerializer
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.contrib.auth import get_user_model
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.exceptions import ValidationError
+from django.shortcuts import get_object_or_404
 from django.utils.timezone import now
 from django.db.models import Q
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
+
+from utils.views import get_profile_id_from_token
+from profiles.models import Profile
+from .models import Conversation, Message
+from .serializers import ConversationSerializer, MessageSerializer
 
 
 class MessagePagination(PageNumberPagination):
@@ -75,27 +79,32 @@ class ConversationViewSet(viewsets.ModelViewSet):
     serializer_class = ConversationSerializer
     permission_classes = [IsAuthenticated]
 
+    def _get_current_profile(self):
+        profile_id = get_profile_id_from_token(self.request)
+        if not profile_id:
+            raise ValidationError('current_profile is missing in token')
+        return get_object_or_404(Profile, id=profile_id)
+
     def get_queryset(self):
         """
         Filter conversations to only show those where the user is a participant.
         Supports optional search parameter to filter by participant username.
         """
+        profile = self._get_current_profile()
         queryset = Conversation.objects.filter(
-            participants=self.request.user
+            participants=profile
         ).prefetch_related(
             'messages',  # Fetch all messages in one query
             'messages__sender',  # Fetch senders in one query
             'participants'  # Fetch participants in one query
         )
-        
         # Optional search by participant username
         search = self.request.query_params.get('search', None)
         if search:
             queryset = queryset.filter(
-                Q(participants__username__icontains=search) & 
-                ~Q(participants__username=self.request.user.username)
+                Q(participants__account__username__icontains=search) & 
+                ~Q(participants__account__username=profile.account.username if profile.account else None)
             ).distinct()
-        
         return queryset
 
     @extend_schema(
@@ -151,7 +160,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
         Start a new conversation between two users.
         Validates user2 exists and prevents duplicate conversations.
         """
-        user1 = request.user
+        user1 = self._get_current_profile()
         user2_id = request.data.get('user2')
         
         # Validate user2_id is provided
@@ -178,12 +187,11 @@ class ConversationViewSet(viewsets.ModelViewSet):
             )
         
         # Validate user2 exists
-        User = get_user_model()
         try:
-            user2 = User.objects.get(id=user2_id)
-        except User.DoesNotExist:
+            user2 = Profile.objects.get(id=user2_id)
+        except Profile.DoesNotExist:
             return Response(
-                {'error': f'User with ID {user2_id} does not exist'},
+                {'error': f'Profile with ID {user2_id} does not exist'},
                 status=status.HTTP_404_NOT_FOUND
             )
         
@@ -197,7 +205,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
         if existing_conversation:
             # Return existing conversation instead of creating duplicate
             return Response(
-                ConversationSerializer(existing_conversation).data,
+                ConversationSerializer(existing_conversation, context={'request': request}).data,
                 status=status.HTTP_200_OK
             )
         
@@ -207,7 +215,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
         convo.save()
         
         return Response(
-            ConversationSerializer(convo).data,
+            ConversationSerializer(convo, context={'request': request}).data,
             status=status.HTTP_201_CREATED
         )
 
@@ -245,9 +253,10 @@ class ConversationViewSet(viewsets.ModelViewSet):
         """
         # Get the conversation
         conversation = self.get_object()
+        current_profile = self._get_current_profile()
         
         # Verify user is a participant
-        if not conversation.participants.filter(id=request.user.id).exists():
+        if not conversation.participants.filter(id=current_profile.id).exists():
             return Response(
                 {'error': 'You are not a participant in this conversation'},
                 status=status.HTTP_403_FORBIDDEN
@@ -303,9 +312,10 @@ class ConversationViewSet(viewsets.ModelViewSet):
         """
         # Get the conversation
         conversation = self.get_object()
+        current_profile = self._get_current_profile()
         
         # Verify user is a participant
-        if not conversation.participants.filter(id=request.user.id).exists():
+        if not conversation.participants.filter(id=current_profile.id).exists():
             return Response(
                 {'error': 'You are not a participant in this conversation'},
                 status=status.HTTP_403_FORBIDDEN
@@ -325,7 +335,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
         # Create message
         message = Message.objects.create(
             conversation=conversation,
-            sender=request.user,
+            sender=current_profile,
             content=content,
             attachment=attachment
         )
@@ -375,12 +385,19 @@ class MessageViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     pagination_class = MessagePagination  # Enable pagination
 
+    def _get_current_profile(self):
+        profile_id = get_profile_id_from_token(self.request)
+        if not profile_id:
+            raise ValidationError('current_profile is missing in token')
+        return get_object_or_404(Profile, id=profile_id)
+
     def get_queryset(self):
         """
         Filter messages to only show those in conversations where the user is a participant.
         """
+        profile = self._get_current_profile()
         user_conversations = Conversation.objects.filter(
-            participants=self.request.user
+            participants=profile
         ).values_list('id', flat=True)  # Only get IDs
     
         return Message.objects.filter(
@@ -418,6 +435,10 @@ class MessageViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def mark_read(self, request, pk=None):
         msg = self.get_object()
+        current_profile = self._get_current_profile()
+        # Only allow marking as read if participant
+        if not msg.conversation.participants.filter(id=current_profile.id).exists():
+            return Response({'error': 'You are not a participant in this conversation'}, status=status.HTTP_403_FORBIDDEN)
         msg.is_read = True
         msg.read_at = now()
         msg.save()
@@ -472,9 +493,10 @@ class MessageViewSet(viewsets.ModelViewSet):
     def edit(self, request, pk=None):
         """Edit a message (only by sender)"""
         msg = self.get_object()
+        current_profile = self._get_current_profile()
         
         # Check if user is the sender
-        if msg.sender != request.user:
+        if msg.sender != current_profile:
             return Response(
                 {'error': 'You can only edit your own messages'},
                 status=status.HTTP_403_FORBIDDEN
@@ -537,9 +559,10 @@ class MessageViewSet(viewsets.ModelViewSet):
     def soft_delete(self, request, pk=None):
         """Soft-delete a message (only by sender)"""
         msg = self.get_object()
+        current_profile = self._get_current_profile()
         
         # Check if user is the sender
-        if msg.sender != request.user:
+        if msg.sender != current_profile:
             return Response(
                 {'error': 'You can only delete your own messages'},
                 status=status.HTTP_403_FORBIDDEN
@@ -587,13 +610,14 @@ class MessageViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def get_unread_messages_count(self, request, pk=None):
         conversation = self.get_object()
+        current_profile = self._get_current_profile()
         # Use aggregate for count - single query
         from django.db.models import Count
         
         unread_count = Message.objects.filter(
             conversation=conversation,
             is_read=False
-        ).exclude(sender=request.user).aggregate(
+        ).exclude(sender=current_profile).aggregate(
             count=Count('id')
         )['count'] or 0
         
