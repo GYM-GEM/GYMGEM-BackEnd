@@ -82,6 +82,7 @@ class ConversationSerializer(serializers.ModelSerializer):
             'other_participant_id',
             'other_participant_name',
             'other_participant_profile_picture',
+            'other_participant_role',
             'last_message',
             'unread_count',
         ]
@@ -107,6 +108,20 @@ class ConversationSerializer(serializers.ModelSerializer):
         other = self._get_other_participant(obj)
         return _get_profile_picture(other)
 
+    def get_other_participant_role(self, obj):
+        other = self._get_other_participant(obj)
+        if not other:
+            return None
+        if hasattr(other, 'trainer'):
+            return 'trainer'
+        elif hasattr(other, 'trainee'):
+            return 'trainee'
+        elif hasattr(other, 'gym'):
+            return 'gym'
+        elif hasattr(other, 'store'):
+            return 'store'
+        return 'unknown'
+    
     def get_last_message(self, obj):
         # Sort prefetched messages in Python instead of queryset to use prefetched data
         messages = list(obj.messages.all())
