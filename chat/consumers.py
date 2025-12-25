@@ -20,6 +20,33 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except (jwt.InvalidTokenError, Profile.DoesNotExist):
             return None
 
+    @sync_to_async
+    def _edit_message_sync(self, message_id, profile_id, new_content):
+        msg = Message.objects.select_related("sender").get(id=message_id)
+        if msg.sender_id != profile_id:
+            return None, "You can only edit your own messages"
+        if msg.is_deleted:
+            return None, "Cannot edit a deleted message"
+        cleaned = new_content.strip()
+        if not cleaned:
+            return None, "Content cannot be empty or whitespace only"
+        msg.content = cleaned
+        msg.edited_at = now()
+        msg.save()
+        return msg, None
+
+    @sync_to_async
+    def _delete_message_sync(self, message_id, profile_id):
+        msg = Message.objects.select_related("sender").get(id=message_id)
+        if msg.sender_id != profile_id:
+            return False, "You can only delete your own messages"
+        if msg.is_deleted:
+            return False, "Message is already deleted"
+        msg.is_deleted = True
+        msg.content = ""
+        msg.save()
+        return True, None
+
     async def connect(self):
         try:
             self.conversation_id = self.scope['url_route']['kwargs']['conversation_id']
@@ -321,29 +348,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }))
                 return
             
-            # Get message from database
-            msg = await sync_to_async(Message.objects.get)(id=message_id)
-            
-            # Check if profile is the sender
-            if msg.sender.id != self.profile.id:
+            msg, error = await self._edit_message_sync(message_id, self.profile.id, new_content)
+            if error:
                 await self.send(json.dumps({
                     "type": "error",
-                    "message": "You can only edit your own messages"
+                    "message": error
                 }))
                 return
-            
-            # Check if message is already deleted
-            if msg.is_deleted:
-                await self.send(json.dumps({
-                    "type": "error",
-                    "message": "Cannot edit a deleted message"
-                }))
-                return
-            
-            # Update message
-            msg.content = new_content.strip()
-            msg.edited_at = now()
-            await sync_to_async(msg.save)()
             
             # Broadcast edit to all participants
             editor_name = await sync_to_async(lambda: self.profile.get_profile_data.name if self.profile else "anonymous")()
@@ -397,29 +408,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }))
                 return
             
-            # Get message from database
-            msg = await sync_to_async(Message.objects.get)(id=message_id)
-            
-            # Check if profile is the sender
-            if msg.sender.id != self.profile.id:
+            success, error = await self._delete_message_sync(message_id, self.profile.id)
+            if error:
                 await self.send(json.dumps({
                     "type": "error",
-                    "message": "You can only delete your own messages"
+                    "message": error
                 }))
                 return
-            
-            # Check if already deleted
-            if msg.is_deleted:
-                await self.send(json.dumps({
-                    "type": "error",
-                    "message": "Message is already deleted"
-                }))
-                return
-            
-            # Soft delete - mark as deleted but don't remove from database
-            msg.is_deleted = True
-            msg.content = ""  # Clear content for privacy
-            await sync_to_async(msg.save)()
             
             # Broadcast deletion to all participants
             deleter_name = await sync_to_async(lambda: self.profile.get_profile_data.name if self.profile else "anonymous")()
