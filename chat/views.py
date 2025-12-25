@@ -258,7 +258,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
         
         # Serialize and return
         serializer = MessageSerializer(paginated_messages, many=True)
-        return paginator.get_paginated_response(serializer.data)
+        return paginator.get_paginated_response({"data": serializer.data,"owner": current_profile.id})
 
     @extend_schema(
         tags=['Chat'],
