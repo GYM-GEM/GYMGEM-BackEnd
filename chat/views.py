@@ -95,7 +95,9 @@ class ConversationViewSet(viewsets.ModelViewSet):
         ).prefetch_related(
             'messages__sender',  # Fetch senders for messages
             'participants'  # Fetch participants in one query
-        ).order_by('-messages__timestamp').distinct()
+        ).order_by('-messages__timestamp').distinct().filter(
+            messages__isnull=False  # Ensure conversations have messages
+        )
         # Optional search by participant username
         search = self.request.query_params.get('search', None)
         if search:
