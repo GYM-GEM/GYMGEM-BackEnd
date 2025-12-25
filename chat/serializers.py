@@ -79,12 +79,12 @@ class ConversationSerializer(serializers.ModelSerializer):
         model = Conversation
         fields = [
             'id',
-            'created_at',
             'other_participant_id',
             'other_participant_name',
             'other_participant_profile_picture',
             'other_participant_role',
             'last_message',
+            'last_message_timestamp',
             'unread_count',
         ]
 
@@ -131,6 +131,13 @@ class ConversationSerializer(serializers.ModelSerializer):
         # Sort by timestamp descending and get the first one
         last_msg = max(messages, key=lambda m: m.timestamp)
         return MessageSerializer(last_msg, context=self.context).data
+
+    def get_last_message_timestamp(self, obj):
+        messages = list(obj.messages.all())
+        if not messages:
+            return None
+        last_msg = max(messages, key=lambda m: m.timestamp)
+        return last_msg.timestamp
 
     def get_unread_count(self, obj):
         request = self.context.get('request')
