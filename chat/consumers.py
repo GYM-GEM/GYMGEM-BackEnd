@@ -170,7 +170,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "sender_id": self.profile.id,
                     "sender_name": sender_name,
                     "content": message_content,
-                    "timestamp": str(new_message.timestamp)
+                    "timestamp": str(new_message.timestamp),
+                    "is_owner": True if self.profile.id == new_message.sender.id else False
                 }
             )
         except Conversation.DoesNotExist:
