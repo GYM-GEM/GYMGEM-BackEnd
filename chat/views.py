@@ -104,7 +104,15 @@ class ConversationViewSet(viewsets.ModelViewSet):
                 ~Q(participants__account__username=profile.account.username if profile.account else None)
             ).distinct()
         return queryset
-
+    @extend_schema(
+        tags=['Chat'],
+        summary="list conversations of the authenticated user",
+        description="Retrieve all conversations where the authenticated user is a participant. and ordered by latest message timestamp.",
+    )
+    @action(detail=False, methods=['get'], url_name='list', url_path='list')
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+    
     @extend_schema(
         tags=['Chat'],
         summary="Start a new conversation",
