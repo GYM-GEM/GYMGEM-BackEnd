@@ -166,7 +166,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "type": "chat_message", 
                     "message_id": new_message.id,
                     "sender_id": self.profile.id,
-                    "sender_name": self.profile.account.username if self.profile.account else str(self.profile.id),
+                    "sender_name": self.profile.get_profile_data.name if self.profile else "anonymous",
                     "content": message_content,
                     "timestamp": str(new_message.timestamp)
                 }
@@ -218,7 +218,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "type": "read_receipt",
                     "message_id": message_id,
                     "reader_id": self.profile.id,
-                    "reader_name": self.profile.account.username if self.profile.account else str(self.profile.id),
+                    "reader_name": self.profile.get_profile_data.name if self.profile else "anonymous",
                     "read_at": str(msg.read_at)
                 }
             )
@@ -256,7 +256,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 {
                     "type": "typing_indicator",
                     "profile_id": self.profile.id,
-                    "username": self.profile.account.username if self.profile.account else str(self.profile.id),
+                    "username": self.profile.get_profile_data.name if self.profile else "anonymous",
                     "is_typing": is_typing
                 }
             )
@@ -348,7 +348,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "content": new_content.strip(),
                     "edited_at": str(msg.edited_at),
                     "editor_id": self.profile.id,
-                    "editor_name": self.profile.account.username if self.profile.account else str(self.profile.id)
+                    "editor_name": self.profile.get_profile_data.name if self.profile else "anonymous"
                 }
             )
             
@@ -420,7 +420,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "type": "message_deleted",
                     "message_id": message_id,
                     "deleter_id": self.profile.id,
-                    "deleter_name": self.profile.account.username if self.profile.account else str(self.profile.id)
+                    "deleter_name": self.profile.get_profile_data.name if self.profile else "anonymous"
                 }
             )
             
