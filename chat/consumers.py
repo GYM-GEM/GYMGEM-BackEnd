@@ -367,7 +367,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             await self.send(json.dumps({
                 "type": "error",
-                "message": "Failed to edit message"
+                "message": "Failed to edit message",
+                "error": str(e)
             }))
 
     async def handle_delete_message(self, data):
@@ -440,7 +441,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             await self.send(json.dumps({
                 "type": "error",
-                "message": "Failed to delete message"
+                "message": "Failed to delete message",
+                "error": str(e)
             }))
 
     async def read_receipt(self, event):
