@@ -109,7 +109,6 @@ class ConversationViewSet(viewsets.ModelViewSet):
         summary="list conversations of the authenticated user",
         description="Retrieve all conversations where the authenticated user is a participant. and ordered by latest message timestamp.",
     )
-    @action(detail=False, methods=['get'], url_name='list', url_path='list')
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
     
