@@ -159,6 +159,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 content=message_content.strip()  # Strip whitespace before saving
             )
 
+            sender_name = await sync_to_async(lambda: self.profile.get_profile_data.name if self.profile else "anonymous")()
+
             # Broadcast message to all participants in the conversation
             await self.channel_layer.group_send(
                 self.room_group_name,
@@ -166,7 +168,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "type": "chat_message", 
                     "message_id": new_message.id,
                     "sender_id": self.profile.id,
-                    "sender_name": self.profile.get_profile_data.name if self.profile else "anonymous",
+                    "sender_name": sender_name,
                     "content": message_content,
                     "timestamp": str(new_message.timestamp)
                 }
@@ -212,13 +214,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             msg.read_at = now()
             await sync_to_async(msg.save)()
 
+
+            reader_name = await sync_to_async(lambda: self.profile.get_profile_data.name if self.profile else "anonymous")()
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
                     "type": "read_receipt",
                     "message_id": message_id,
                     "reader_id": self.profile.id,
-                    "reader_name": self.profile.get_profile_data.name if self.profile else "anonymous",
+                    "reader_name": reader_name,
                     "read_at": str(msg.read_at)
                 }
             )
@@ -251,12 +255,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 return
             
             # Broadcast typing indicator to all participants in the conversation
+            user_name = await sync_to_async(lambda: self.profile.get_profile_data.name if self.profile else "anonymous")()
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
                     "type": "typing_indicator",
                     "profile_id": self.profile.id,
-                    "username": self.profile.get_profile_data.name if self.profile else "anonymous",
+                    "username": user_name,
                     "is_typing": is_typing
                 }
             )
@@ -340,6 +345,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await sync_to_async(msg.save)()
             
             # Broadcast edit to all participants
+            editor_name = await sync_to_async(lambda: self.profile.get_profile_data.name if self.profile else "anonymous")()
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -348,7 +354,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "content": new_content.strip(),
                     "edited_at": str(msg.edited_at),
                     "editor_id": self.profile.id,
-                    "editor_name": self.profile.get_profile_data.name if self.profile else "anonymous"
+                    "editor_name": editor_name,
                 }
             )
             
@@ -414,13 +420,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await sync_to_async(msg.save)()
             
             # Broadcast deletion to all participants
+            deleter_name = await sync_to_async(lambda: self.profile.get_profile_data.name if self.profile else "anonymous")()
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
                     "type": "message_deleted",
                     "message_id": message_id,
                     "deleter_id": self.profile.id,
-                    "deleter_name": self.profile.get_profile_data.name if self.profile else "anonymous"
+                    "deleter_name": deleter_name,
                 }
             )
             
