@@ -39,13 +39,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def _delete_message_sync(self, message_id, profile_id):
         msg = Message.objects.select_related("sender").get(id=message_id)
         if msg.sender_id != profile_id:
-            return False, "You can only delete your own messages"
+            return None, "You can only delete your own messages"
         if msg.is_deleted:
-            return False, "Message is already deleted"
+            return None, "Message is already deleted"
         msg.is_deleted = True
         msg.content = ""
         msg.save()
-        return True, None
+        return msg, None
 
     async def connect(self):
         try:
@@ -356,17 +356,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }))
                 return
             
-            # Broadcast edit to all participants
+            # Broadcast edit to all participants, include full message context for immediate UI updates
             editor_name = await sync_to_async(lambda: self.profile.get_profile_data.name if self.profile else "anonymous")()
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
                     "type": "message_edited",
                     "message_id": message_id,
-                    "content": new_content.strip(),
+                    "content": msg.content,
                     "edited_at": str(msg.edited_at),
                     "editor_id": self.profile.id,
                     "editor_name": editor_name,
+                    "sender_id": msg.sender_id,
+                    "timestamp": str(msg.timestamp),
+                    "is_deleted": msg.is_deleted,
                 }
             )
             
@@ -408,7 +411,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }))
                 return
             
-            success, error = await self._delete_message_sync(message_id, self.profile.id)
+            msg, error = await self._delete_message_sync(message_id, self.profile.id)
             if error:
                 await self.send(json.dumps({
                     "type": "error",
@@ -416,7 +419,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }))
                 return
             
-            # Broadcast deletion to all participants
+            # Broadcast deletion to all participants with message context for UI updates
             deleter_name = await sync_to_async(lambda: self.profile.get_profile_data.name if self.profile else "anonymous")()
             await self.channel_layer.group_send(
                 self.room_group_name,
@@ -425,6 +428,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "message_id": message_id,
                     "deleter_id": self.profile.id,
                     "deleter_name": deleter_name,
+                    "sender_id": msg.sender_id,
+                    "timestamp": str(msg.timestamp),
+                    "is_deleted": msg.is_deleted,
                 }
             )
             
@@ -470,7 +476,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "content": event.get("content"),
             "edited_at": event.get("edited_at"),
             "editor_id": event.get("editor_id"),
-            "editor_name": event.get("editor_name")
+            "editor_name": event.get("editor_name"),
+            "sender_id": event.get("sender_id"),
+            "timestamp": event.get("timestamp"),
+            "is_deleted": event.get("is_deleted", False),
+            "is_owner": event.get("sender_id") == getattr(self.profile, "id", None),
         }))
 
     async def message_deleted(self, event):
@@ -479,5 +489,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "type": "delete",
             "message_id": event.get("message_id"),
             "deleter_id": event.get("deleter_id"),
-            "deleter_name": event.get("deleter_name")
+            "deleter_name": event.get("deleter_name"),
+            "sender_id": event.get("sender_id"),
+            "timestamp": event.get("timestamp"),
+            "is_deleted": event.get("is_deleted", True),
+            "is_owner": event.get("sender_id") == getattr(self.profile, "id", None),
         }))
