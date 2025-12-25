@@ -480,7 +480,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "sender_id": event.get("sender_id"),
             "timestamp": event.get("timestamp"),
             "is_deleted": event.get("is_deleted", False),
-            "is_owner": event.get("sender_id") == getattr(self.profile, "id", None),
         }))
 
     async def message_deleted(self, event):
@@ -493,5 +492,4 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "sender_id": event.get("sender_id"),
             "timestamp": event.get("timestamp"),
             "is_deleted": event.get("is_deleted", True),
-            "is_owner": event.get("sender_id") == getattr(self.profile, "id", None),
         }))
