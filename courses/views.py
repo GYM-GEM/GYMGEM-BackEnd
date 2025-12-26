@@ -3,6 +3,7 @@ from random import sample
 from django.db.models import Q, Prefetch
 from django.db import models
 from rest_framework.viewsets import ViewSet
+from rest_framework.views import APIView
 from profiles.models import Profile
 from utils.views import get_profile_id_from_token
 from .models import Course, CourseLesson, LessonSection , CourseEnrollment, CourseProgress
@@ -1378,7 +1379,7 @@ class CourseProgressView(ViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK if not created else status.HTTP_201_CREATED)
     
     
-class CourseAdminView(ViewSet):
+class CourseAdminView(APIView):
     serializer_class = CourseSerializer
     queryset = Course.objects.all()
 
