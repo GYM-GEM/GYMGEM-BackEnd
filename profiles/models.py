@@ -11,6 +11,11 @@ class Profile(models.Model):
         ("store", "Store"),
         ("trainee", "Trainee"),
     ]
+    STATUS_CHOICES = [
+        ("active", "Active"),
+        ("inactive", "Inactive"),
+        ("suspended", "Suspended"),
+    ]
     account = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -18,6 +23,9 @@ class Profile(models.Model):
         null=True,
     )
     profile_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active",null=True, blank=True)
+    admin_deleted = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         constraints = [

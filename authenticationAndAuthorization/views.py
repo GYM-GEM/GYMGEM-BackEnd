@@ -9,6 +9,7 @@ from rest_framework_simplejwt.token_blacklist.models import (
     BlacklistedToken,
     OutstandingToken,
 )
+from authenticationAndAuthorization.permissions import HasRole
 from utils.views import get_account_from_token
 from .serializers import MyTokenObtainPairSerializer, MyTokenRefreshSerializer
 from accounts.models import Account
@@ -420,6 +421,80 @@ class LogoutAllView(APIView):
             status=status.HTTP_205_RESET_CONTENT
         )
 
+class LogoutDevicesAsAdmin(APIView):
+    """Admin endpoint to blacklist all outstanding refresh tokens for a specified user."""
+
+    permission_classes = [HasRole("admin")]
+
+    @extend_schema(
+        tags=["Authentication"],
+        summary="Admin logout user from all devices",
+        description="Admin endpoint to logout a specified user from all devices by blacklisting all their outstanding refresh tokens. Requires Authentication header with Bearer token and user_id in request body.",
+        parameters=[
+            OpenApiParameter(
+                name="Authorization",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.HEADER,
+                required=True,
+                description='Bearer token for authentication (e.g., "Bearer your_access_token")',
+            ),
+        ],
+        request={
+            "type": "object",
+            "properties": {
+                "user_id": {"type": "integer", "description": "ID of the user to logout"},
+            },
+            "required": ["user_id"],
+        },
+        responses={
+            205: OpenApiResponse(
+                description="Successfully logged out user from all devices"
+            ),
+            400: OpenApiResponse(description="Bad request - missing or invalid user_id"),
+            401: OpenApiResponse(
+                description="Unauthorized - invalid or missing access token"
+            ),
+            403: OpenApiResponse(description="Forbidden - insufficient permissions"),
+        },
+    )
+    def post(self, request):
+        from django.utils import timezone
+        
+        user_id = request.data.get("user_id")
+        if not user_id:
+            return Response(
+                {"detail": "user_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        try:
+            target_user = Account.objects.get(pk=user_id)
+        except Account.DoesNotExist:
+            return Response(
+                {"detail": "User not found"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Get all outstanding tokens for the target user
+        tokens = OutstandingToken.objects.filter(user=target_user)
+        
+        # Blacklist all tokens
+        blacklisted_count = 0
+        for t in tokens:
+            try:
+                _, created = BlacklistedToken.objects.get_or_create(token=t)
+                if created:
+                    blacklisted_count += 1
+            except Exception:
+                continue
+        
+        # Clean up expired tokens for this user
+        now = timezone.now()
+        expired_tokens = OutstandingToken.objects.filter(
+            user=target_user,
+            expires_at__lt=now
+        )
+        
 
 @permission_classes([IsAuthenticated])
 class TokenRenewView(APIView):

@@ -65,7 +65,7 @@ class TrainerView(APIView):
     def get(self, request):
         try:
             profile_id = request.query_params.get("profile_id", None)
-            my_profile = Profile.objects.get(pk=profile_id)
+            my_profile = Profile.objects.get(pk=profile_id, status="active")
             trainer = Trainer.objects.get(profile_id=my_profile)
             serializer = TrainerSerializer(trainer)
             specializations = TrainerSpecialization.objects.filter(trainer=trainer).select_related(
@@ -141,7 +141,7 @@ class TrainerListView(APIView):
         responses=TrainerSerializer(many=True),
     )
     def get(self, request):
-        queryset = Trainer.objects.select_related(
+        queryset = Trainer.objects.filter(profile_id__status="active").select_related(
             "profile_id",
             "profile_id__account",
         ).prefetch_related(
@@ -154,6 +154,7 @@ class TrainerListView(APIView):
                 queryset=TrainerExperience.objects.select_related("trainer"),
             ),
         )
+        
 
         # Filtering
         search_query = request.query_params.get("search")

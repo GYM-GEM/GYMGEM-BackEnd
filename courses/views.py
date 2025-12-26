@@ -259,7 +259,8 @@ class CoursesView(ViewSet):
             )
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
-
+        if course.admin_deleted:
+            return Response({"error": "Course has been deleted by admin and cannot be modified."}, status=status.HTTP_403_FORBIDDEN)
         course.is_deleted = not course.is_deleted
         course.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -1375,3 +1376,34 @@ class CourseProgressView(ViewSet):
         # Serialize the updated/created progress
         serializer = CourseProgressSerializer(progress)
         return Response(serializer.data, status=status.HTTP_200_OK if not created else status.HTTP_201_CREATED)
+    
+    
+class CourseAdminView(ViewSet):
+    serializer_class = CourseSerializer
+    queryset = Course.objects.all()
+
+    @extend_schema(
+        tags=["Admin Courses"],
+        summary="Delete course (admin only)",
+        description="Soft delete a course (admin only)",
+        responses={
+            204: {"description": "Course deleted"},
+            404: {"description": "Course not found"},
+        },
+    )
+    @action(
+        methods=["delete"],
+        detail=True,
+        permission_classes=[HasRole(["admin"])],
+        url_path="admin-delete",
+    )
+    def admin_delete_course(self, request, pk=None):
+        try:
+            course = CourseValidator.validate_course_exists(pk)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        course.is_deleted = not course.is_deleted
+        course.admin_deleted = True
+        course.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)

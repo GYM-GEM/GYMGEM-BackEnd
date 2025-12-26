@@ -7,9 +7,11 @@ from community.models import CommunityPost, CommunityComment, CommunityCommentLi
 from community.serializers import CommunityPostSerializer, CommunityLikeSerializer, CommunityCommentSerializer, CommunityCommentLikeSerializer
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet as viewSet
+from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import IsAuthenticated
 from utils.views import get_profile_id_from_token
+from utils.permissions import HasRole
 # Create your views here.
 class CommunityPostView(viewSet):
     permission_classes = [IsAuthenticated]
@@ -372,3 +374,39 @@ class CommunityCommentLikesListView(viewSet):
         likes = comment.likes.select_related('profile__account').order_by('-created_at')
         serializer = CommunityCommentLikeSerializer(likes, many=True)
         return Response(serializer.data)
+    
+class CommunityAdminView(APIView):
+    permission_classes = [HasRole("admin")]
+    
+    @extend_schema(
+        tags=["Community Admin"],
+        summary="Delete any community post",
+        description="Admin can delete any community post by ID",
+        responses={204: {"description": "Post deleted"}, 404: {"description": "Post not found"}},
+    )
+    def delete(self, request, post_id):
+        try:
+            post = CommunityPost.objects.get(id=post_id)
+        except CommunityPost.DoesNotExist:
+            return Response({"error": "Post not found"}, status=404)
+        
+        post.delete()
+        return Response(status=204)
+    
+class CommunityCommentAdminView(APIView):
+    permission_classes = [HasRole("admin")]
+    
+    @extend_schema(
+        tags=["Community Admin"],
+        summary="Delete any community comment",
+        description="Admin can delete any community comment by ID",
+        responses={204: {"description": "Comment deleted"}, 404: {"description": "Comment not found"}},
+    )
+    def delete(self, request, comment_id):
+        try:
+            comment = CommunityComment.objects.get(id=comment_id)
+        except CommunityComment.DoesNotExist:
+            return Response({"error": "Comment not found"}, status=404)
+        
+        comment.delete()
+        return Response(status=204)

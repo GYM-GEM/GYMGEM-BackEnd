@@ -8,6 +8,7 @@ from .views import (
     LogoutAllView,
     SwitchProfileView,
     TokenRenewView,
+    LogoutDevicesAsAdmin,
 )
 
 urlpatterns = [
@@ -20,5 +21,6 @@ urlpatterns = [
     # Logout endpoints
     path("logout", LogoutView.as_view(), name="logout"),
     path("logout-all", LogoutAllView.as_view(), name="logout_all"),
+    path("logout-devices-admin", LogoutDevicesAsAdmin.as_view(), name="logout_devices_admin"),
     path("renew-refresh", TokenRenewView.as_view(), name="toekn_renew"),
 ]

@@ -1,9 +1,11 @@
 from django.conf import settings
+from django.forms import model_to_dict
 from django.http import JsonResponse
 from rest_framework import status
 import jwt
 from rest_framework.views import APIView
 from accounts.models import Account
+from courses.models import Course, CourseEnrollment
 from django.contrib.auth.hashers import make_password
 from rest_framework.permissions import AllowAny
 from rest_framework.decorators import permission_classes
@@ -456,5 +458,143 @@ class AccountsPasswordChangeView(APIView):
             account.set_password(new_password)
             account.save()
             return JsonResponse({"message": "Password changed successfully"})
+        except Account.DoesNotExist:
+            return JsonResponse({"error": "Account not found"}, status=404)
+
+class AccountsManageStatusView(APIView):
+    """Handles updating the status of an account"""
+
+    permission_classes = [HasRole(["admin"])]
+
+    @extend_schema(
+        tags=["Accounts"],
+        operation_id="accounts_update_status",
+        summary="Update account status",
+        description="Update the status of an existing account",
+        parameters=[
+            OpenApiParameter(
+                name="account_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                required=True,
+                description="Account ID",
+            ),
+        ],
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {
+                    "status": {"type": "string", "enum": ["active", "inactive", "suspended"]},
+                },
+                "required": ["status"],
+            }
+        },
+        responses={
+            200: {"description": "Account status updated"},
+            400: {"description": "Bad request"},
+            404: {"description": "Account not found"},
+        },
+    )
+    def patch(self, request, account_id):
+        """Update account status"""
+        try:
+            account = Account.objects.get(id=account_id)
+            new_status = request.data.get("status")
+            if new_status not in dict(Account.STATUS_CHOICES).keys():
+                return JsonResponse({"error": "Invalid status value"}, status=400)
+            account.status = new_status
+            account.admin_deleted = new_status == "suspended"
+            account.save()
+            return JsonResponse({"message": "Account status updated successfully"})
+        except Account.DoesNotExist:
+            return JsonResponse({"error": "Account not found"}, status=404)
+        
+    @extend_schema(
+        tags=["Accounts"],
+        operation_id="accounts_get_status",
+        summary="get all data related with the account, it's profiles, detailed profiled data and courses and products if any",
+        description="Get all data related with the account, it's profiles, detailed profiled data and courses and products if any",
+        parameters=[
+            OpenApiParameter(
+                name="account_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                required=True,
+                description="Account ID",
+            ),
+        ],
+        responses={
+            200: {"description": "Account data with profiles and detailed data"},
+            404: {"description": "Account not found"},
+        },
+    )
+    def get(self, request, account_id):
+        """Get all data related with the account, it's profiles, detailed profiled data and courses and products if any"""
+        try:
+            account = Account.objects.get(id=account_id)
+            profiles_data = []
+            for profile in account.profiles.all():
+                profile_data = {
+                    "id": profile.id,
+                    "profileType": profile.profile_type,
+                    "status": profile.status,
+                    "createdAt": profile.created_at,
+                }
+                detailed_data = profile.get_profile_data
+                if detailed_data:
+                    profile_data["profileData"] = model_to_dict(detailed_data)
+
+                # Include courses/enrollments without serializers
+                if profile.profile_type == "trainer":
+                    trainer_courses = Course.objects.filter(
+                        trainer_profile=profile, is_deleted=False
+                    )
+                    profile_data["courses"] = [
+                        {
+                            "id": course.id,
+                            "title": course.title,
+                            "status": course.status,
+                            "price": course.price,
+                            "createdAt": course.created_at,
+                            "updatedAt": course.updated_at,
+                        }
+                        for course in trainer_courses
+                    ]
+                elif profile.profile_type == "trainee":
+                    enrollments = CourseEnrollment.objects.filter(
+                        trainee_profile=profile
+                    ).select_related("course")
+                    profile_data["enrollments"] = [
+                        {
+                            "course": {
+                                "id": enrollment.course.id,
+                                "title": enrollment.course.title,
+                                "status": enrollment.course.status,
+                                "price": enrollment.course.price,
+                            },
+                            "enrollmentDate": enrollment.enrollment_date,
+                            "status": enrollment.status,
+                            "rating": enrollment.rating,
+                            "review": enrollment.review,
+                            "reviewDate": enrollment.review_date,
+                            "permanentAccess": enrollment.permanent_access,
+                            "dueDate": enrollment.due_date,
+                        }
+                        for enrollment in enrollments
+                    ]
+                profiles_data.append(profile_data)
+
+            data = {
+                "id": account.id,
+                "username": account.username,
+                "email": account.email,
+                "firstName": account.first_name,
+                "lastName": account.last_name,
+                "status": account.status,
+                "createdAt": account.created_at,
+                "updatedAt": account.updated_at,
+                "profiles": profiles_data,
+            }
+            return JsonResponse(data)
         except Account.DoesNotExist:
             return JsonResponse({"error": "Account not found"}, status=404)

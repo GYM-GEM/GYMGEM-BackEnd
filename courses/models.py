@@ -18,6 +18,7 @@ class Course(models.Model):
     description = models.TextField()
     preview_video = models.URLField(blank=True, null=True)
     is_deleted = models.BooleanField(default=False)
+    admin_deleted = models.BooleanField(default=False)
 
     def __str__(self):
         return self.title

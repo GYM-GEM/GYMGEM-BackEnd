@@ -13,6 +13,8 @@ from .views import (
 	CommunityPostLikesListView,
 	CommunityCommentLikesView,
 	CommunityCommentLikesListView,
+	CommunityAdminView,
+	CommunityCommentAdminView,
 )
 
 urlpatterns = [
@@ -51,5 +53,9 @@ urlpatterns = [
 	# Comment likes: like/unlike and list
 	path("comments/<int:comment_id>/like/", CommunityCommentLikesView.as_view({"post": "post"})),
 	path("comments/<int:comment_id>/likes/", CommunityCommentLikesListView.as_view({"get": "get"})),
+ 
+	# Admin endpoints
+	path("admin/posts/<int:post_id>/", CommunityAdminView.as_view({"delete": "delete"})),
+	path("admin/comments/<int:comment_id>/", CommunityCommentAdminView.as_view({"delete": "delete"})),
 ]
 
