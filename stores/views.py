@@ -6,12 +6,15 @@ from .serializers import (
     StoreSerializer, StoreBranchSerializer, StoreItemSerializer,
     OrderSerializer, OrderItemSerializer, AddOrderItemSerializer
 )
-from .models import Store, StoreBranch, StoreItem, Order, OrderItem
+from .models import Store, StoreBranch, StoreItem, Order, OrderItem, StoreItemSize
 from authenticationAndAuthorization.permissions import HasRole
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from utils.views import get_profile_id_from_token
 from django.shortcuts import get_object_or_404
+from rest_framework_simplejwt.tokens import AccessToken
+from accounts.models import Account
+from rest_framework_simplejwt.tokens import AccessToken
 
 class StoreListView(APIView):
     permission_classes = [HasRole(["store"])]
@@ -342,9 +345,6 @@ class OrderListView(APIView):
     def post(self, request):
         serializer = OrderSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
-            # Set buyer as current user if not provided
-            if 'buyer_id' not in request.data:
-                serializer.validated_data['buyer_id'] = request.user
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -434,12 +434,24 @@ class OrderItemListView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        summary="List order items",
-        description="Retrieve all order items",
+        summary="List order items for a specific order",
+        description="Retrieve all order items for a specific order",
         responses={200: OrderItemSerializer(many=True)}
     )
-    def get(self, request):
-        items = OrderItem.objects.all()
+    def get(self, request, order_id):
+        # Get the specific order
+        order = get_object_or_404(Order, id=order_id)
+        
+        # Check permissions: store owner or buyer
+        profile_id = get_profile_id_from_token(request)
+        is_store_owner = order.store_id.profile_id.id == profile_id
+        is_buyer = order.buyer_id.id == request.user.id
+        
+        if not (is_store_owner or is_buyer):
+            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Get items for this order
+        items = OrderItem.objects.filter(order_id=order)
         serializer = OrderItemSerializer(items, many=True, context={"request": request})
         return Response(serializer.data)
 
@@ -464,11 +476,16 @@ class OrderItemListView(APIView):
             
             item = get_object_or_404(StoreItem, id=store_item_id)
             
+            # Get size instance if provided
+            size_instance = None
+            if size_id is not None:
+                size_instance = get_object_or_404(StoreItemSize, id=size_id)
+            
             # Create order item
             order_item = OrderItem.objects.create(
                 order_id=order,
                 store_item_id=item,
-                size_id=size_id,
+                size_id=size_instance,
                 quantity=quantity,
                 price_at_order=item.price
             )
@@ -520,3 +537,24 @@ class OrderItemDetailView(APIView):
         is_store_owner = order.store_id.profile_id.id == profile_id
         is_buyer = order.buyer_id.id == request.user.id
         return is_store_owner or is_buyer
+    
+    @extend_schema(
+        summary="Update order item",
+        description="Update an order item (store owner or buyer only)",
+        request=OrderItemSerializer,
+        responses={200: OrderItemSerializer}
+    )
+    
+    def patch (self, request, order_item_id):
+        item = get_object_or_404(OrderItem, id=order_item_id)
+        order = item.order_id
+        
+        if not self._can_delete_item(request, order):
+            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = OrderItemSerializer(item, data=request.data, partial=True, context={"request": request})
+        if serializer.is_valid():
+            serializer.save()
+            order.calculate_total()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

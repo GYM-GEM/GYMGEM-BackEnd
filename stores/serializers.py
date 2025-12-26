@@ -243,9 +243,27 @@ class OrderSerializer(serializers.ModelSerializer):
             'buyer_name', 'total_price', 'status', 'notes',
             'order_items', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'total_price', 'order_items', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'buyer_id', 'total_price', 'order_items', 'created_at', 'updated_at']
 
     def create(self, validated_data):
+        # Get buyer_id from context if not provided
+        buyer_id = self.context.get('request').data.get('buyer_id')
+        if not buyer_id:
+            # Get account ID from JWT token
+            auth_header = self.context.get('request').headers.get('Authorization')
+            if auth_header and auth_header.startswith('Bearer '):
+                token_string = auth_header.split(' ')[1]
+                from rest_framework_simplejwt.tokens import AccessToken
+                try:
+                    access_token = AccessToken(token_string)
+                    account_id = access_token['user_id']
+                    buyer = Account.objects.get(pk=account_id)
+                    validated_data['buyer_id'] = buyer
+                except Exception:
+                    raise serializers.ValidationError("Invalid token or account not found.")
+            else:
+                raise serializers.ValidationError("Authorization required.")
+        
         order = Order(**validated_data)
         order.full_clean()
         order.save()
