@@ -1380,9 +1380,7 @@ class CourseProgressView(ViewSet):
     
     
 class CourseAdminView(APIView):
-    serializer_class = CourseSerializer
-    queryset = Course.objects.all()
-
+    permission_classes = [HasRole(["admin"])]
     @extend_schema(
         tags=["Courses"],
         summary="Delete course (admin only)",
@@ -1392,9 +1390,9 @@ class CourseAdminView(APIView):
             404: {"description": "Course not found"},
         },
     )
-    def delete(self, request, pk=None):
+    def delete(self, request,course_id=None):
         try:
-            course = CourseValidator.validate_course_exists(pk)
+            course = CourseValidator.validate_course_exists(course_id)
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
