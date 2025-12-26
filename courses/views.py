@@ -1384,7 +1384,7 @@ class CourseAdminView(APIView):
     queryset = Course.objects.all()
 
     @extend_schema(
-        tags=["Admin Courses"],
+        tags=["Courses"],
         summary="Delete course (admin only)",
         description="Soft delete a course (admin only)",
         responses={
@@ -1392,13 +1392,7 @@ class CourseAdminView(APIView):
             404: {"description": "Course not found"},
         },
     )
-    @action(
-        methods=["delete"],
-        detail=True,
-        permission_classes=[HasRole(["admin"])],
-        url_path="admin-delete",
-    )
-    def admin_delete_course(self, request, pk=None):
+    def delete(self, request, pk=None):
         try:
             course = CourseValidator.validate_course_exists(pk)
         except ValueError as e:

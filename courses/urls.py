@@ -8,8 +8,8 @@ router.register(r'sections', LessonSectionsView, basename='sections')
 router.register(r'enrollments', CourseEnrollmentsView, basename='enrollments')
 router.register(r'progress', CourseProgressView, basename='progress')
 
-urlpatterns = router.urls
-
-urlpatterns += [
+urlpatterns = [
     path('admin/', CourseAdminView.as_view(), name='course-admin'),
 ]
+urlpatterns += router.urls
+    
