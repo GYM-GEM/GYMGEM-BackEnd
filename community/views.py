@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import IsAuthenticated
 from utils.views import get_profile_id_from_token
-from utils.permissions import HasRole
+from authenticationAndAuthorization.permissions import HasRole
 # Create your views here.
 class CommunityPostView(viewSet):
     permission_classes = [IsAuthenticated]

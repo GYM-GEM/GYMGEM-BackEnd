@@ -494,7 +494,11 @@ class LogoutDevicesAsAdmin(APIView):
             user=target_user,
             expires_at__lt=now
         )
-        
+        # Return response
+        return Response(
+        {"detail": f"User {user_id} logged out from all devices. Cleaned up {expired_tokens.count()} expired tokens."},
+        status=205
+    )
 
 @permission_classes([IsAuthenticated])
 class TokenRenewView(APIView):

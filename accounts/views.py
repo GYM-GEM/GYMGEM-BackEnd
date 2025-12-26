@@ -541,7 +541,9 @@ class AccountsManageStatusView(APIView):
                     "createdAt": profile.created_at,
                 }
                 detailed_data = profile.get_profile_data
-                if detailed_data:
+                if detailed_data is None:
+                    profile_data["profileData"] = {}
+                else:
                     profile_data["profileData"] = model_to_dict(detailed_data)
 
                 # Include courses/enrollments without serializers

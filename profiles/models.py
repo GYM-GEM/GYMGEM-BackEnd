@@ -45,14 +45,14 @@ class Profile(models.Model):
     def get_profile_data(self):
         if self.profile_type == "trainer":
             from trainers.models import Trainer
-            return Trainer.objects.get(profile_id=self)
+            return Trainer.objects.filter(profile_id=self).first()
         if self.profile_type == "gym":
             from gyms.models import Gym
-            return Gym.objects.get(profile_id=self)
+            return Gym.objects.filter(profile_id=self).first()
         if self.profile_type == "store":
             from stores.models import Store
-            return Store.objects.get(profile_id=self)
+            return Store.objects.filter(profile_id=self).first()
         if self.profile_type == "trainee":
             from trainees.models import Trainee
-            return Trainee.objects.get(profile_id=self)
+            return Trainee.objects.filter(profile_id=self).first()
         return None
