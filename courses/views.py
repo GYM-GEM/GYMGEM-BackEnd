@@ -1382,11 +1382,11 @@ class CourseProgressView(ViewSet):
 class CourseAdminView(APIView):
     permission_classes = [HasRole(["admin"])]
     @extend_schema(
-        tags=["Courses"],
-        summary="Delete course (admin only)",
-        description="Soft delete a course (admin only)",
+        tags=["Course Admin"],
+        summary="Admin delete/restore course",
+        description="Admin can soft delete or restore a course by toggling its is_deleted status",
         responses={
-            204: {"description": "Course deleted"},
+            204: {"description": "Course deleted/restored"},
             404: {"description": "Course not found"},
         },
     )
