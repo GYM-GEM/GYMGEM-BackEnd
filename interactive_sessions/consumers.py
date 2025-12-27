@@ -24,15 +24,19 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
     # -----------------------------
     async def connect(self):
         self.session_id = self.scope["url_route"]["kwargs"]["session_id"]
+
+        if not await self._ensure_authenticated():
+            return
+
         self.user = self.scope["user"]
 
-        if not self.user.is_authenticated:
+        # Fetch the session and validate membership
+        try:
+            self.session = await self.get_session(self.session_id)
+        except InteractiveSession.DoesNotExist:
             await self.close()
             return
 
-        self.session = await self.get_session(self.session_id)
-
-        # authorization
         if self.user.profile_id not in (self.session.trainer_id, self.session.trainee_id):
             await self.close()
             return
@@ -181,3 +185,10 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
         for k, v in fields.items():
             setattr(self.session, k, v)
         self.session.save(update_fields=list(fields.keys()))
+
+    async def _ensure_authenticated(self):
+        user = self.scope.get("user")
+        if not user or not user.is_authenticated:
+            await self.close()
+            return False
+        return True

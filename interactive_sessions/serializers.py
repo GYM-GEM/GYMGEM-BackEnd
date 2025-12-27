@@ -34,6 +34,7 @@ class InteractiveSessionSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
             'fees',
+            'total_active_minutes',
         ]
         read_only_fields = ['created_at', 'updated_at']
 

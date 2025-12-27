@@ -175,27 +175,38 @@ class SessionStartView(APIView):
             session = InteractiveSession.objects.get(id=session_id)
         except InteractiveSession.DoesNotExist:
             return Response({'error': 'Session not found'}, status=404)
+        if session.trainer_id != get_profile_id_from_token(request):
+            return Response({'error': 'You do not have permission to start this session.'}, status=403)
         if session.status != 'scheduled':
             return Response({'error': 'Only scheduled sessions can be started'}, status=400)
         if timezone.now() < session.scheduled_at.slot_start_time - timedelta(minutes=5):
             return Response({'error': 'Cannot start the session more than 5 minutes before its scheduled time.'}, status=400)
         with transaction.atomic():
             session.status = 'live'  # Update status to in_progress
+            session.started_at = timezone.now()
             session.save()
             serializer = InteractiveSessionSerializer(session, context={'request': request})
             return Response(serializer.data, status=200)
         return Response(serializer.errors, status=400)
 class SessionCompleteView(APIView):
+    permission_classes = [HasRole(['trainer'])]
     def post(self, request, session_id):
         try:
             session = InteractiveSession.objects.get(id=session_id)
         except InteractiveSession.DoesNotExist:
             return Response({'error': 'Session not found'}, status=404)
-        if session.status != 'scheduled':
-            return Response({'error': 'Only scheduled sessions can be completed'}, status=400)
+        if session.trainer_id != get_profile_id_from_token(request):
+            return Response({'error': 'You do not have permission to complete this session.'}, status=403)
+        if session.status not in ['scheduled', 'live']:
+            return Response({'error': 'Only scheduled or live sessions can be completed'}, status=400)
         with transaction.atomic():
             trainer = session.trainer.get_profile_data
             session.status = 'completed'  # Update status to completed
+            session.ended_at = session.ended_at or timezone.now()
+            if session.started_at and session.ended_at:
+                elapsed = session.ended_at - session.started_at
+                session.total_active_minutes = int(elapsed.total_seconds() // 60)
+            session.is_completed = True
             session.save()
             trainer.balance += int(session.fees) * 0.92
             trainer.save()

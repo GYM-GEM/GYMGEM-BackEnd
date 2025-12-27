@@ -14,6 +14,8 @@ class InteractiveSession(models.Model):
     started_at = models.DateTimeField(blank=True, null=True)
     ended_at = models.DateTimeField(blank=True, null=True)
     
+    total_active_minutes = models.IntegerField(default=0)
+    
     status = models.CharField(max_length=20, choices=[
         ('requested', 'Requested'),  #at first when session is requested from the trainee
         ('scheduled', 'Scheduled'), #when the payment is done and session is scheduled
