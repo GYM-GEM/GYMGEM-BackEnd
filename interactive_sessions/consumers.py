@@ -1,8 +1,11 @@
 import time
+import jwt
 import redis
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from asgiref.sync import sync_to_async
 from django.utils import timezone
+from profiles.models import Profile
+from GymGem import settings
 from .models import InteractiveSession
 
 
@@ -25,24 +28,34 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         self.session_id = self.scope["url_route"]["kwargs"]["session_id"]
 
-        if not await self._ensure_authenticated():
+        # Extract token from query string (align with chat app behavior)
+        query_string = self.scope.get("query_string", b"").decode()
+        token = None
+        if "token=" in query_string:
+            token = query_string.split("token=")[1].split("&")[0]
+
+        if not token:
+            await self.close(code=4001)
             return
 
-        self.user = self.scope["user"]
+        self.profile = await self._get_profile_from_token(token)
+        if not self.profile:
+            await self.close(code=4001)
+            return
 
         # Fetch the session and validate membership
         try:
             self.session = await self.get_session(self.session_id)
         except InteractiveSession.DoesNotExist:
-            await self.close()
+            await self.close(code=4004)
             return
 
-        if self.user.profile_id not in (self.session.trainer_id, self.session.trainee_id):
-            await self.close()
+        if self.profile.id not in (self.session.trainer_id, self.session.trainee_id):
+            await self.close(code=4003)
             return
 
         self.role = (
-            "trainer" if self.user.profile_id == self.session.trainer_id else "trainee"
+            "trainer" if self.profile.id == self.session.trainer_id else "trainee"
         )
 
         self.group_name = f"session_{self.session_id}"
@@ -186,9 +199,13 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
             setattr(self.session, k, v)
         self.session.save(update_fields=list(fields.keys()))
 
-    async def _ensure_authenticated(self):
-        user = self.scope.get("user")
-        if not user or not user.is_authenticated:
-            await self.close()
-            return False
-        return True
+    @sync_to_async
+    def _get_profile_from_token(self, token):
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+            profile_id = payload.get("current_profile")
+            if not profile_id:
+                return None
+            return Profile.objects.get(id=profile_id)
+        except (jwt.InvalidTokenError, Profile.DoesNotExist):
+            return None
