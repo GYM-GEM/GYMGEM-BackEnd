@@ -288,14 +288,14 @@ class ConversationViewSet(viewsets.ModelViewSet):
             404: {'description': 'Conversation not found'},
         },
     )
-    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    @action(detail=True, methods=['post'])
     def send_message(self, request, pk=None):
         """
         Send a message to a specific conversation.
         At least one of content or attachment must be provided.
         """
         # Get the conversation
-        conversation = self.get_object()
+        conversation = Conversation.objects.get(pk=pk)
         current_profile = self._get_current_profile()
         
         # Verify user is a participant
