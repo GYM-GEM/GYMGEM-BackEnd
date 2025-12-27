@@ -10,5 +10,6 @@ router.register(r'progress', CourseProgressView, basename='progress')
 
 urlpatterns = [
     path('admin/<int:course_id>/', CourseAdminView.as_view(), name='course-admin'),
+    path('admin/', CourseAdminView.as_view(), name='course-admin-list'),
 ]
 urlpatterns += router.urls
