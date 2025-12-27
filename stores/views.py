@@ -14,7 +14,7 @@ from utils.views import get_profile_id_from_token
 from django.shortcuts import get_object_or_404
 from rest_framework_simplejwt.tokens import AccessToken
 from accounts.models import Account
-from rest_framework_simplejwt.tokens import AccessToken
+from django.db.models import Q
 
 class StoreListView(APIView):
     permission_classes = [HasRole(["store"])]
@@ -202,13 +202,49 @@ class StoreItemListView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        summary="List store items",
-        description="Retrieve all store items",
+        summary="List store items with filters",
+        description="Retrieve all store items with optional filtering and search",
+        parameters=[
+            OpenApiParameter(name="store_id", type=OpenApiTypes.INT, description="Filter by store ID"),
+            OpenApiParameter(name="branch_id", type=OpenApiTypes.INT, description="Filter by branch ID"),
+            OpenApiParameter(name="category", type=OpenApiTypes.STR, description="Filter by category (supplements, clothes, foods)"),
+            OpenApiParameter(name="price_min", type=OpenApiTypes.DECIMAL, description="Minimum price filter"),
+            OpenApiParameter(name="price_max", type=OpenApiTypes.DECIMAL, description="Maximum price filter"),
+            OpenApiParameter(name="search", type=OpenApiTypes.STR, description="Search in name, description, and brand"),
+            OpenApiParameter(name="ordering", type=OpenApiTypes.STR, description="Order by field (name, price, -name, -price)"),
+        ],
         responses={200: StoreItemSerializer(many=True)}
     )
     def get(self, request):
-        items = StoreItem.objects.all()
-        serializer = StoreItemSerializer(items, many=True, context={"request": request})
+        params = request.query_params
+        queryset = StoreItem.objects.select_related('store_id', 'branch_id')
+
+        if params.get("store_id"):
+            queryset = queryset.filter(store_id=params["store_id"])
+
+        if params.get("branch_id"):
+            queryset = queryset.filter(branch_id=params["branch_id"])
+
+        if params.get("category"):
+            queryset = queryset.filter(category=params["category"])
+
+        price_min = params.get("price_min")
+        price_max = params.get("price_max")
+        if price_min:
+            queryset = queryset.filter(price__gte=price_min)
+        if price_max:
+            queryset = queryset.filter(price__lte=price_max)
+
+        if params.get("search"):
+            search_term = params["search"]
+            queryset = queryset.filter(
+                Q(name__icontains=search_term) | Q(description__icontains=search_term) | Q(brand__icontains=search_term)
+            )
+
+        if params.get("ordering"):
+            queryset = queryset.order_by(params["ordering"])
+
+        serializer = StoreItemSerializer(queryset, many=True, context={"request": request})
         return Response(serializer.data)
 
     @extend_schema(
