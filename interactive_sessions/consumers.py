@@ -25,12 +25,11 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
     # -----------------------------
     # Connection lifecycle
     # -----------------------------
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.role = None  # 'trainer' or 'trainee'
+        
     async def connect(self):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.session = None
-            self.profile = None
-            self.role = None  # 'trainer' or 'trainee'
         self.session_id = self.scope["url_route"]["kwargs"]["session_id"]
         # Extract token from query string (align with chat app behavior)
         query_string = self.scope.get("query_string", b"").decode()
