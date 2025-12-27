@@ -50,12 +50,12 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
             await self.close(code=4004)
             return
 
-        if self.profile.id not in (self.session.trainer_id, self.session.trainee_id):
+        if self.profile.id not in (self.session.trainer, self.session.trainee):
             await self.close(code=4003)
             return
 
         self.role = (
-            "trainer" if self.profile.id == self.session.trainer_id else "trainee"
+            "trainer" if self.profile.id == self.session.trainer else "trainee"
         )
 
         self.group_name = f"session_{self.session_id}"
@@ -154,7 +154,7 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
             await self.check_half_completion(total)
 
     async def check_half_completion(self, total_overlap):
-        required = int(self.session.scheduled_at.duration_seconds * 0.5)
+        required = 30
         if total_overlap >= required and not self.half_completed():
             redis_client.set(rkey(self.session_id, "half_triggered"), 1)
             await self.mark_completed()
