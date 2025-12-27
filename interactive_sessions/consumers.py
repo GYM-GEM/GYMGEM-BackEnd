@@ -54,7 +54,10 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
             await self.close(code=4004)
             return
 
-        if self.profile.id not in (self.session.trainer, self.session.trainee):
+        # Fix: compare profile.id to trainer.id and trainee.id
+        trainer_id = self.session.trainer.id if self.session.trainer else None
+        trainee_id = self.session.trainee.id if self.session.trainee else None
+        if self.profile.id not in (trainer_id, trainee_id):
             await self.close(code=4003)
             return
 
