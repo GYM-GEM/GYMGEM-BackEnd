@@ -249,7 +249,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
         # Get messages for this conversation, exclude deleted messages
         messages = Message.objects.filter(
             conversation=conversation
-        ).order_by('timestamp')
+        ).order_by('-timestamp')
         
         # Apply pagination
         paginator = MessagePagination()
