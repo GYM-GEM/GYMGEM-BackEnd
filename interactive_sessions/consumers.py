@@ -129,12 +129,12 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
 
     async def handle_leave(self):
         redis_client.delete(rkey(self.session_id, f"{self.role}_online"))
-        if self.role == "trainer" and self.session.status == "live":
-            await self.stop_overlap()
-        if self.half_completed():
-            await self.mark_completed()         
-        if self.role == "trainer" and self.session.status in ("live", "waiting"):
+        if self.session.status == "live":
+            await self.stop_overlap()      
+        if (self.role == "trainer"and self.session.status == "waiting"
+            and not redis_client.get(rkey(self.session_id, "trainee_online"))):
             await self.noshow_abort()
+
     # -----------------------------
     # Helpers (Presence / Overlap)
     # -----------------------------
@@ -185,7 +185,12 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
             await self.emit({"type": "SESSION_LIVE"})
 
     async def mark_completed(self):
-        await self.update_session(is_completed=True)
+        await self.update_session(
+            is_completed=True,
+            status="completed",
+            ended_at=timezone.now(),
+        )
+
 
     async def abort_session(self, reason):
         await self.update_session(
