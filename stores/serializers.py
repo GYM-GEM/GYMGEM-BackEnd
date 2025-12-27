@@ -235,6 +235,7 @@ class OrderSerializer(serializers.ModelSerializer):
     order_items = OrderItemSerializer(source='orderitem_set', many=True, read_only=True)
     store_name = serializers.CharField(source='store_id.name', read_only=True)
     buyer_name = serializers.CharField(source='buyer_id.username', read_only=True)
+    total_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -244,6 +245,10 @@ class OrderSerializer(serializers.ModelSerializer):
             'order_items', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'buyer_id', 'total_price', 'order_items', 'created_at', 'updated_at']
+
+    def get_total_price(self, obj):
+        """Return total price in gems (1 USD = 10 gems)"""
+        return int(obj.total_price * 10)
 
     def create(self, validated_data):
         # Get buyer_id from context if not provided
