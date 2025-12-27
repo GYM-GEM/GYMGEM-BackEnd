@@ -28,6 +28,7 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.role = None  # 'trainer' or 'trainee'
+        self.group_name = None
         
     async def connect(self):
         self.session_id = self.scope["url_route"]["kwargs"]["session_id"]
