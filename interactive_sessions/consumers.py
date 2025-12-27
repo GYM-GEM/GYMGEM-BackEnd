@@ -61,8 +61,9 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
             await self.close(code=4003)
             return
 
+        # Fix: compare profile.id to trainer.id and trainee.id for role assignment
         self.role = (
-            "trainer" if self.profile.id == self.session.trainer else "trainee"
+            "trainer" if self.profile.id == trainer_id else "trainee"
         )
 
         self.group_name = f"session_{self.session_id}"
