@@ -237,10 +237,16 @@ class ProfileAdminView(APIView):
     def post(self, request, profile_id):
         try:
             profile = Profile.objects.get(id=profile_id)
-            profile.status = "suspended"
-            profile.admin_deleted = True
-            profile.save()
-            return Response({"message": "Profile suspended"})
+            if not profile.admin_deleted:
+                profile.status = "suspended"
+                profile.admin_deleted = True
+                profile.save()
+                return Response({"message": "Profile suspended"})
+            else:
+                profile.admin_deleted = False
+                profile.status = "active"
+                profile.save()
+                return Response({"message": "Profile reactivated"})
         except Profile.DoesNotExist:
             return Response({"error": "Profile not found"}, status=404)
 
