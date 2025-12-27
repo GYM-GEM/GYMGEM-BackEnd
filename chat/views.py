@@ -247,9 +247,10 @@ class ConversationViewSet(viewsets.ModelViewSet):
             )
         
         # Get messages for this conversation, exclude deleted messages
+        # Newest messages first so page 1 is the latest
         messages = Message.objects.filter(
             conversation=conversation
-        ).order_by('-timestamp')
+        ).order_by('-timestamp', '-id')
         
         # Apply pagination
         paginator = MessagePagination()
