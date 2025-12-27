@@ -237,11 +237,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 return
             
             from .models import Message
-            msg = await sync_to_async(Message.objects.get)(id=message_id)
-            msg.is_read = True
-            msg.read_at = now()
-            await sync_to_async(msg.save)()
 
+            # Ensure the message exists and belongs to this conversation
+            target_message = await sync_to_async(
+                lambda: Message.objects.get(id=message_id, conversation_id=self.conversation_id)
+            )()
+
+            # Mark all messages in the conversation (except the reader's own) as read
+            read_at_ts = now()
+            await sync_to_async(
+                lambda: Message.objects.filter(
+                    conversation_id=self.conversation_id
+                ).exclude(
+                    sender_id=self.profile.id
+                ).update(is_read=True, read_at=read_at_ts)
+            )()
 
             reader_name = await sync_to_async(lambda: self.profile.get_profile_data.name if self.profile else "anonymous")()
             await self.channel_layer.group_send(
@@ -251,13 +261,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "message_id": message_id,
                     "reader_id": self.profile.id,
                     "reader_name": reader_name,
-                    "read_at": str(msg.read_at)
+                    "read_at": str(read_at_ts)
                 }
             )
         except Message.DoesNotExist:
             await self.send(json.dumps({
                 "type": "error",
-                "message": f"Message {message_id} not found"
+                "message": f"Message {message_id} not found in this conversation"
             }))
         except Exception as e:
             await self.send(json.dumps({
