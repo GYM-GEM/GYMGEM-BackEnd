@@ -21,7 +21,7 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
     """
     WebSocket Consumer for Live 1-on-1 Interactive Sessions
     """
-
+    
     # -----------------------------
     # Connection lifecycle
     # -----------------------------
@@ -29,6 +29,7 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
         super().__init__(*args, **kwargs)
         self.role = None  # 'trainer' or 'trainee'
         self.group_name = None
+        self.profile = None
         
     async def connect(self):
         self.session_id = self.scope["url_route"]["kwargs"]["session_id"]
@@ -50,7 +51,7 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
         # Fetch the session and validate membership
         try:
             self.session = await self.get_session(self.session_id)
-        except InteractiveSession.DoesNotExist:
+        except Exception as e:
             await self.close(code=4004)
             return
 
@@ -209,7 +210,14 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
     # -----------------------------
     @sync_to_async
     def get_session(self, session_id):
-        return InteractiveSession.objects.select_related("scheduled_at").get(id=session_id)
+        try:
+            print("session_id",session_id)
+            x= InteractiveSession.objects.select_related("scheduled_at", "trainer", "trainee").get(id=session_id)
+            print("////////: ",x)
+            return x
+        except InteractiveSession.DoesNotExist:
+            print("session not found")
+            return None
 
     @sync_to_async
     def update_session(self, **fields):
