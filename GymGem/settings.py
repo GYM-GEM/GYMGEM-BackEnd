@@ -32,7 +32,7 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'your-default-secret-key')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
