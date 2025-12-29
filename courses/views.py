@@ -1419,3 +1419,24 @@ class CourseAdminView(APIView):
         course.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
     
+    @extend_schema(
+        tags=["Course Admin"],
+        summary="Admin View course details",
+        description="Admin can view details of a specific course including deleted ones",
+        responses={
+            200: CourseSerializer,
+            404: {"description": "Course not found"},
+        },
+    )
+    def get(self, request,course_id=None):
+        try:
+            course = Course.objects.select_related(
+                'trainer_profile',
+                'category',
+                'level',
+                'language'
+            ).get(pk=course_id)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        serializer = CourseSerializer(course)
+        return Response(serializer.data, status=status.HTTP_200_OK)
