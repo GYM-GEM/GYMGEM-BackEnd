@@ -1378,7 +1378,25 @@ class CourseProgressView(ViewSet):
         serializer = CourseProgressSerializer(progress)
         return Response(serializer.data, status=status.HTTP_200_OK if not created else status.HTTP_201_CREATED)
     
-    
+class CourseAdminListView(APIView):
+    permission_classes = [HasRole(["admin"])]
+    @extend_schema(
+        tags=["Course Admin"],
+        summary="Admin list all courses including deleted",
+        description="Admin can list all courses including those that are soft deleted",
+        responses={
+            200: CourseSerializer(many=True),
+        },
+    )
+    def get(self, request):
+        courses = Course.objects.all().select_related(
+            'trainer_profile',
+            'category',
+            'level',
+            'language'
+        )
+        serializer = CourseSerializer(courses, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)    
 class CourseAdminView(APIView):
     permission_classes = [HasRole(["admin"])]
     @extend_schema(
@@ -1401,22 +1419,3 @@ class CourseAdminView(APIView):
         course.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
     
-class CourseAdminListView(APIView):
-    permission_classes = [HasRole(["admin"])]
-    @extend_schema(
-        tags=["Course Admin"],
-        summary="Admin list all courses including deleted",
-        description="Admin can list all courses including those that are soft deleted",
-        responses={
-            200: CourseSerializer(many=True),
-        },
-    )
-    def get(self, request):
-        courses = Course.objects.all().select_related(
-            'trainer_profile',
-            'category',
-            'level',
-            'language'
-        )
-        serializer = CourseSerializer(courses, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
