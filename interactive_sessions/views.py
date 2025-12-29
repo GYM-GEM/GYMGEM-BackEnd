@@ -381,3 +381,34 @@ class SessionListView(APIView):
             return Response({"data": data, "role": role}, status=200)
         except Exception as e:
             return Response({'error': str(e)}, status=400)
+        
+class SessionDetailView(APIView):
+    permission_classes = [HasRole(['trainer', 'trainee'])]
+    @extend_schema(
+        tags=["Interactive Sessions"],
+        summary="Retrieve details of a specific interactive session",
+        description="Get detailed information about a specific interactive session by its ID.",
+        parameters=[
+            OpenApiParameter(
+                name="session_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                description="ID of the interactive session"
+            )
+        ],
+        responses={
+            200: InteractiveSessionSerializer,
+            404: {"description": "Session not found"}
+        }
+    )
+    def get(self, request, session_id):
+        profile_id = get_profile_id_from_token(request)
+        try:
+            session = InteractiveSession.objects.select_related('scheduled_at', 'trainer', 'trainee').get(id=session_id)
+            if session.trainer.id != profile_id and session.trainee.id != profile_id:
+                return Response({'error': 'You do not have permission to view this session.'}, status=403)
+            serializer = InteractiveSessionSerializer(session, context={'request': request})
+            data = {k: v for k, v in serializer.data.items() if k not in ['created_at', 'updated_at']}
+            return Response(data, status=200)
+        except InteractiveSession.DoesNotExist:
+            return Response({'error': 'Session not found'}, status=404)

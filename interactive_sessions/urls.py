@@ -7,6 +7,7 @@ from .views import (
     SessionAcceptView,
     SessionStartView,
     SessionCompleteView,
+    SessionDetailView
 )
 
 from django.urls import path
@@ -20,4 +21,5 @@ urlpatterns = [
     path('abort/<int:session_id>/', SessionAbortView.as_view(), name='interactive-session-abort'),
     path('cancel/<int:session_id>/', SessionCancelView.as_view(), name='interactive-session-cancel'),
     path('reject/<int:session_id>/', SessionRejectView.as_view(), name='interactive-session-reject'),
+    path('detail/<int:session_id>/', SessionDetailView.as_view(), name='interactive-session-detail'),
 ]

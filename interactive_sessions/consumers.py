@@ -71,6 +71,33 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
 
+        # --- Disconnect after 40 minutes from slot start ---
+        # Get slot_start_time from scheduled_at (TrainerCalendarSlot)
+        slot_start_time = None
+        try:
+            slot_start_time = self.session.scheduled_at.slot_start_time
+        except Exception:
+            pass
+        if slot_start_time:
+            # Schedule a background task to check and disconnect after 40 minutes
+            self.disconnect_task = self.scope["loop"].create_task(self._disconnect_after_40_minutes(slot_start_time))
+
+    async def _disconnect_after_40_minutes(self, slot_start_time):
+        """
+        Disconnects the websocket if current time >= slot_start_time + 40 minutes
+        """
+        import asyncio
+        now = timezone.now()
+        target_time = slot_start_time + timezone.timedelta(minutes=40)
+        seconds_to_wait = (target_time - now).total_seconds()
+        if seconds_to_wait > 0:
+            try:
+                await asyncio.sleep(seconds_to_wait)
+            except asyncio.CancelledError:
+                return
+        # If still connected, disconnect
+        await self.close(code=4400)
+
     async def disconnect(self, close_code):
         await self.handle_leave()
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
@@ -119,7 +146,7 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
     async def handle_join(self):
         now_ts = int(time.time())
         redis_client.set(rkey(self.session_id, f"{self.role}_online"), 1)
-
+        await self.emit({"type": "USER_JOINED", "role": self.role, "timestamp": now_ts})
         # Trainer enters -> session starts (waiting)
         if self.role == "trainer" and self.session.started_at is None:
             await self.start_session_waiting()
@@ -132,8 +159,8 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
         redis_client.delete(rkey(self.session_id, f"{self.role}_online"))
         if self.session.status == "live":
             await self.stop_overlap()      
-        if (self.role == "trainer"and self.session.status == "waiting"
-            and not redis_client.get(rkey(self.session_id, "trainee_online"))):
+        if (self.role == "trainer" and self.session.status == "waiting"
+            and not redis_client.get(rkey(self.session_id, "trainee_online")) and time.time() - self.session.started_at.timestamp() < 600):
             await self.noshow_abort()
 
     # -----------------------------
