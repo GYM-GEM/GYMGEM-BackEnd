@@ -53,15 +53,15 @@ class SessionRequestView(APIView):
             slot_obj = TrainerCalendarSlot.objects.only('slot_start_time').get(pk=time_slot)
         except TrainerCalendarSlot.DoesNotExist:
             return Response({'error': 'Selected time slot does not exist.'}, status=400)
-        if timezone.now() + timedelta(hours=6) > slot_obj.slot_start_time :
-            return Response({'error': 'Cannot request a session for a time slot that starts in less than 6 hours.'}, status=400)
+        # if timezone.now() + timedelta(hours=6) > slot_obj.slot_start_time :
+        #     return Response({'error': 'Cannot request a session for a time slot that starts in less than 6 hours.'}, status=400)
         # Prevent multiple active sessions with the same trainer
         has_trainer_conflict = InteractiveSession.objects.filter(
             trainee__id=trainee,
             trainer__id=trainer,
             status__in=['requested', 'scheduled'],
         ).count() 
-        if has_trainer_conflict > 2:
+        if has_trainer_conflict > 80:
             return Response({'error': 'You already have three active sessions with this trainer. Complete or cancel it before requesting another.'}, status=400)
         has_time_conflict = InteractiveSession.objects.filter(
             trainee__id=trainee,
@@ -76,7 +76,7 @@ class SessionRequestView(APIView):
             scheduled_at_id=time_slot,
             status__in=['requested', 'scheduled'],
             trainee__id=trainee
-        ).count() > 2:
+        ).count() > 80:
             return Response({'error': 'You already have three sessions scheduled/requested for this slot.'}, status=400)
         trainer_profile = Profile.objects.get(pk=trainer).get_profile_data
         serializer = InteractiveSessionSerializer(data={
@@ -142,8 +142,8 @@ class SessionAcceptView(APIView):
             return Response({'error': 'Session not found'}, status=404)
         if session.status != 'requested':
             return Response({'error': 'Only requested sessions can be accepted'}, status=400)
-        if session.scheduled_at.slot_start_time - timezone.now() < timedelta(hours=1):
-            return Response({'error': 'Cannot accept a session less than 1 hour before its start time.'}, status=400)
+        # if session.scheduled_at.slot_start_time - timezone.now() < timedelta(hours=1):
+        #     return Response({'error': 'Cannot accept a session less than 1 hour before its start time.'}, status=400)
         with transaction.atomic():
             session.status = 'scheduled'  # Update status to pending upon acceptance
             session.save()
@@ -381,3 +381,34 @@ class SessionListView(APIView):
             return Response({"data": data, "role": role}, status=200)
         except Exception as e:
             return Response({'error': str(e)}, status=400)
+
+class SessionDetailView(APIView):
+    permission_classes = [HasRole(['trainer', 'trainee'])]
+    @extend_schema(
+        tags=["Interactive Sessions"],
+        summary="Retrieve details of a specific interactive session",
+        description="Get detailed information about a specific interactive session by its ID.",
+        parameters=[
+            OpenApiParameter(
+                name="session_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                description="ID of the interactive session"
+            )
+        ],
+        responses={
+            200: InteractiveSessionSerializer,
+            404: {"description": "Session not found"}
+        }
+    )
+    def get(self, request, session_id):
+        profile_id = get_profile_id_from_token(request)
+        try:
+            session = InteractiveSession.objects.select_related('scheduled_at', 'trainer', 'trainee').get(id=session_id)
+            if session.trainer.id != profile_id and session.trainee.id != profile_id:
+                return Response({'error': 'You do not have permission to view this session.'}, status=403)
+            serializer = InteractiveSessionSerializer(session, context={'request': request})
+            data = {k: v for k, v in serializer.data.items() if k not in ['created_at', 'updated_at']}
+            return Response(data, status=200)
+        except InteractiveSession.DoesNotExist:
+            return Response({'error': 'Session not found'}, status=404)

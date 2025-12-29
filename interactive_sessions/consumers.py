@@ -70,6 +70,7 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
         self.group_name = f"session_{self.session_id}"
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
+        print(f"[Connection] {self.role} (Profile ID: {self.profile.id}) connected to session {self.session_id} and joined group {self.group_name}")
 
     async def disconnect(self, close_code):
         await self.handle_leave()
@@ -79,13 +80,20 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
         event_type = content.get("type")
 
         if event_type == "JOIN_SESSION":
+            print(f"[JOIN_SESSION] {self.role} (Profile ID: {self.profile.id}) joining session {self.session_id}")
             await self.handle_join()
 
         elif event_type == "LEAVE_SESSION":
+            print(f"[LEAVE_SESSION] {self.role} (Profile ID: {self.profile.id}) leaving session {self.session_id}")
             await self.handle_leave()
 
         # ---------- WebRTC signaling (pass-through) ----------
         elif event_type in ("OFFER", "ANSWER", "ICE_CANDIDATE"):
+            payload_size = len(str(content))
+            print(f"[WebRTC-IN] {self.role} (Profile ID: {self.profile.id}) sent {event_type}, payload size: {payload_size} bytes, session: {self.session_id}")
+            if event_type in ("OFFER", "ANSWER"):
+                sdp_type = content.get("sdp", {}).get("type", "unknown")
+                print(f"[WebRTC-SDP] {event_type} sdp.type={sdp_type}")
             await self.channel_layer.group_send(
                 self.group_name,
                 {
@@ -94,15 +102,23 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
                     "from": self.role,
                 },
             )
+            print(f"[WebRTC-BROADCAST] {event_type} from {self.role} sent to group {self.group_name}")
 
     # -----------------------------
     # Group events
     # -----------------------------
     async def signal_message(self, event):
         # Do not echo back to sender
+        msg_type = event["payload"].get("type", "unknown")
+        from_role = event.get("from", "unknown")
+        
         if event.get("from") == self.role:
+            print(f"[WebRTC-FILTER] Skipping {msg_type} echo to sender {self.role} (Profile ID: {self.profile.id})")
             return
+        
+        print(f"[WebRTC-OUT] Forwarding {msg_type} from {from_role} to {self.role} (Profile ID: {self.profile.id}), session: {self.session_id}")
         await self.send_json(event["payload"])
+        print(f"[WebRTC-SENT] {msg_type} successfully sent to {self.role} (Profile ID: {self.profile.id})")
 
     async def emit(self, payload):
         await self.channel_layer.group_send(
@@ -119,6 +135,15 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
     async def handle_join(self):
         now_ts = int(time.time())
         redis_client.set(rkey(self.session_id, f"{self.role}_online"), 1)
+        print(f"[Presence] {self.role} (Profile ID: {self.profile.id}) marked online in Redis for session {self.session_id}")
+        
+        # Check who else is online
+        trainer_online = redis_client.get(rkey(self.session_id, "trainer_online"))
+        trainee_online = redis_client.get(rkey(self.session_id, "trainee_online"))
+        print(f"[Presence] Session {self.session_id} presence: trainer_online={trainer_online}, trainee_online={trainee_online}")
+        
+        await self.emit({"type": "USER_JOINED", "role": self.role, "timestamp": now_ts})
+        print(f"[Broadcast] USER_JOINED event sent for {self.role} (Profile ID: {self.profile.id})")
 
         # Trainer enters -> session starts (waiting)
         if self.role == "trainer" and self.session.started_at is None:
@@ -133,7 +158,7 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
         if self.session.status == "live":
             await self.stop_overlap()      
         if (self.role == "trainer"and self.session.status == "waiting"
-            and not redis_client.get(rkey(self.session_id, "trainee_online"))):
+            and not redis_client.get(rkey(self.session_id, "trainee_online")) and time.time() - self.session.started_at.timestamp() < 600) :
             await self.noshow_abort()
 
     # -----------------------------
@@ -156,7 +181,7 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
         started_at = redis_client.get(rkey(self.session_id, "overlap_started_at"))
         if started_at:
             started_at = int(started_at)
-            total = int(redis_client.get(rkey(self.session_id, "total_overlap_seconds") or 0))
+            total = int(redis_client.get(rkey(self.session_id, "total_overlap_seconds")) or 0)
             total += int(time.time()) - started_at
             redis_client.set(rkey(self.session_id, "total_overlap_seconds"), total)
             redis_client.delete(rkey(self.session_id, "overlap_started_at"))
