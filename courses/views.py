@@ -1436,7 +1436,11 @@ class CourseAdminView(APIView):
                 'level',
                 'language'
             ).get(pk=course_id)
+            lessons = CourseLesson.objects.filter(course=course).order_by('order')
+            sections = LessonSection.objects.filter(lesson__in=lessons).order_by('order')
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
-        serializer = CourseSerializer(course)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        course_data = CourseSerializer(course).data
+        lessons_data = CourseLessonSerializer(lessons, many=True).data
+        sections_data = LessonSectionSerializer(sections, many=True).data
+        return Response({"course": course_data, "lessons": lessons_data, "sections": sections_data},status=status.HTTP_200_OK)
