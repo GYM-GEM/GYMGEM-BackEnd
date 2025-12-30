@@ -10,9 +10,11 @@ class Store(models.Model):
     name = models.CharField(max_length=100)
     profile_picture = models.URLField(blank=True, null=True)
     description = models.CharField(max_length=255, blank=True, null=True)
-    store_type = models.CharField(max_length=100, choices=[('supplements', 'Supplements'), ('clothes', 'Clothes'), ('both', 'Both')], blank=True, null=True)
+    store_type = models.CharField(max_length=100, choices=[('online', 'Online'), ('offline', 'Offline')], blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
+    
 
     def __str__(self):
         return f"Store<{self.name}> for Profile {self.profile_id_id}"

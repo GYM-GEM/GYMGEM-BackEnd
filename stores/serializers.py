@@ -45,7 +45,7 @@ class StoreSerializer(serializers.ModelSerializer):
     branches = StoreBranchSerializer(source='storebranch_set', many=True, read_only=True)
     class Meta:
         model = Store
-        fields = ['id', 'name', 'profile_picture','description','store_type', 'branches', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'profile_picture','description','store_type', 'branches', 'created_at', 'updated_at', 'phone_number']
         read_only_fields = ['id', 'branches', 'created_at', 'updated_at']
 
     def create(self, validated_data):
