@@ -6,11 +6,11 @@ from utils.views import  get_profile_id_from_token
 from django.db import transaction
 
 class StoreSerializer(serializers.ModelSerializer):
-    profile_id = serializers.PrimaryKeyRelatedField(read_only=True)
+    id = serializers.IntegerField(source='profile_id.id', read_only=True)
     class Meta:
         model = Store
-        fields = ['id', 'profile_id', 'name', 'profile_picture','description','store_type', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'profile_id', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'profile_picture','description','store_type', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
     def create(self, validated_data):
         # Get profile_id from token

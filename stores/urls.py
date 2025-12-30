@@ -8,7 +8,7 @@ from .views import (
 urlpatterns = [
     # Store 
     path('', StoreListView.as_view(), name='store-list'),
-    path('<int:store_id>', StoreDetailView.as_view(), name='store-detail'),
+    path('<int:profile_id>', StoreDetailView.as_view(), name='store-detail'),
     
     # StoreBranch 
     path('branches', StoreBranchView.as_view(), name='store-branches'),

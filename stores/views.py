@@ -20,19 +20,18 @@ class StoreListView(APIView):
     permission_classes = [HasRole(["store"])]
 
     @extend_schema(
-        summary="List stores for the authenticated store owner",
-        description="Retrieve all stores owned by the authenticated user",
+        summary="List stores",
+        description="Retrieve all stores",
         responses={200: StoreSerializer(many=True)}
     )
     def get(self, request):
-        profile_id = get_profile_id_from_token(request)
-        stores = Store.objects.filter(profile_id=profile_id)
+        stores = Store.objects.all()
         serializer = StoreSerializer(stores, many=True, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     @extend_schema(
         summary="Create a new store",
-        description="Create a new store for the authenticated store owner",
+        description="Create a new store",
         request=StoreSerializer,
         responses={201: StoreSerializer}
     )
@@ -52,8 +51,8 @@ class StoreDetailView(APIView):
         description="Retrieve details of a specific store",
         responses={200: StoreSerializer}
     )
-    def get(self, request, store_id):
-        store = get_object_or_404(Store, pk=store_id)
+    def get(self, request, profile_id):
+        store = get_object_or_404(Store, profile_id=profile_id)
         serializer = StoreSerializer(store, context={"request": request})
         return Response(serializer.data)
 
@@ -63,8 +62,8 @@ class StoreDetailView(APIView):
         request=StoreSerializer,
         responses={200: StoreSerializer}
     )
-    def put(self, request, store_id):
-        store = get_object_or_404(Store, pk=store_id)
+    def put(self, request, profile_id):
+        store = get_object_or_404(Store, profile_id=profile_id)
         if not self._is_owner(request, store):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
@@ -80,8 +79,8 @@ class StoreDetailView(APIView):
         request=StoreSerializer,
         responses={200: StoreSerializer}
     )
-    def patch(self, request, store_id):
-        store = get_object_or_404(Store, pk=store_id)
+    def patch(self, request, profile_id):
+        store = get_object_or_404(Store, profile_id=profile_id)
         if not self._is_owner(request, store):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
@@ -96,8 +95,8 @@ class StoreDetailView(APIView):
         description="Delete a store (only by owner)",
         responses={204: None}
     )
-    def delete(self, request, store_id):
-        store = get_object_or_404(Store, pk=store_id)
+    def delete(self, request, profile_id):
+        store = get_object_or_404(Store, profile_id=profile_id)
         if not self._is_owner(request, store):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         
