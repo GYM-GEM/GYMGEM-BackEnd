@@ -5,12 +5,48 @@ from profiles.models import Profile
 from utils.views import  get_profile_id_from_token
 from django.db import transaction
 
+class StoreBranchSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = StoreBranch
+        fields = ['id', 'store_id', 'opening_time', 'closing_time', 'country', 'state', 'street', 'zip_code', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'store_id', 'created_at', 'updated_at']
+
+    def create(self, validated_data):
+        # Get profile_id from token
+        profile_id = get_profile_id_from_token(self.context.get("request"))
+        
+        if not profile_id:
+            raise serializers.ValidationError("Profile ID not found in token.")
+        
+        # Get the store for this profile
+        try:
+            store = Store.objects.get(profile_id=profile_id)
+        except Store.DoesNotExist:
+            raise serializers.ValidationError("Store does not exist for this profile.")
+        
+        # Set store_id
+        validated_data['store_id'] = store
+        
+        store_branch = StoreBranch(**validated_data)
+        store_branch.full_clean()
+        store_branch.save()
+        return store_branch
+
+    def update(self, instance, validated_data):
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.full_clean()
+        instance.save()
+        return instance
+
 class StoreSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='profile_id.id', read_only=True)
+    branches = StoreBranchSerializer(source='storebranch_set', many=True, read_only=True)
     class Meta:
         model = Store
-        fields = ['id', 'name', 'profile_picture','description','store_type', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'profile_picture','description','store_type', 'branches', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'branches', 'created_at', 'updated_at']
 
     def create(self, validated_data):
         # Get profile_id from token
@@ -50,40 +86,7 @@ class StoreSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
-class StoreBranchSerializer(serializers.ModelSerializer):
-    
-    class Meta:
-        model = StoreBranch
-        fields = ['id', 'store_id', 'opening_time', 'closing_time', 'country', 'state', 'street', 'zip_code', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'store_id', 'created_at', 'updated_at']
 
-    def create(self, validated_data):
-        # Get profile_id from token
-        profile_id = get_profile_id_from_token(self.context.get("request"))
-        
-        if not profile_id:
-            raise serializers.ValidationError("Profile ID not found in token.")
-        
-        # Get the store for this profile
-        try:
-            store = Store.objects.get(profile_id=profile_id)
-        except Store.DoesNotExist:
-            raise serializers.ValidationError("Store does not exist for this profile.")
-        
-        # Set store_id
-        validated_data['store_id'] = store
-        
-        store_branch = StoreBranch(**validated_data)
-        store_branch.full_clean()
-        store_branch.save()
-        return store_branch
-
-    def update(self, instance, validated_data):
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.full_clean()
-        instance.save()
-        return instance
     
 class StoreItemSizeSerializer(serializers.ModelSerializer):
     class Meta:
