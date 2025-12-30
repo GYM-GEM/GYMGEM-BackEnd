@@ -12,4 +12,5 @@ urlpatterns = [
     path("utils/", include("utils.urls")),
     path("community/", include("community.urls")),
     path("payment/", include("payment.urls")),
+    path("stores/", include("stores.urls")),
 ]

@@ -205,3 +205,7 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+ORDERS_API_TESTING_GUIDE.md
+COMPLETE_STORE_API_TESTING_GUIDE.md
+STORE_ITEMS_API_TESTING_GUIDE.md
