@@ -9,7 +9,7 @@ class StoreBranchSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = StoreBranch
-        fields = ['id', 'store_id', 'opening_time', 'closing_time', 'country', 'state', 'street', 'zip_code', 'created_at', 'updated_at']
+        fields = ['id', 'store_id', 'opening_time', 'closing_time', 'country', 'state', 'street', 'zip_code', 'created_at', 'updated_at', 'phone_number']
         read_only_fields = ['id', 'store_id', 'created_at', 'updated_at']
 
     def create(self, validated_data):
