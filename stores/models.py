@@ -8,7 +8,7 @@ from accounts.models import Account
 class Store(models.Model):
     profile_id = models.OneToOneField(Profile, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
-    profile_picture = models.ImageField(upload_to='store_profiles/', blank=True, null=True)
+    profile_picture = models.URLField(blank=True, null=True)
     description = models.CharField(max_length=255, blank=True, null=True)
     store_type = models.CharField(max_length=100, choices=[('supplements', 'Supplements'), ('clothes', 'Clothes'), ('both', 'Both')], blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
