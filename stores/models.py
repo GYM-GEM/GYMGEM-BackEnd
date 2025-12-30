@@ -40,6 +40,7 @@ class StoreBranch(models.Model):
     store_id = models.ForeignKey(Store, on_delete=models.CASCADE)
     opening_time = models.TimeField()
     closing_time = models.TimeField()
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
     country = models.CharField(max_length=100, blank=True, null=True)
     state = models.CharField(max_length=100, blank=True, null=True)
     street = models.CharField(max_length=100, blank=True, null=True)
