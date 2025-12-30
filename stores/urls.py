@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     StoreListView, StoreDetailView, StoreItemListView, StoreItemDetailView,
     OrderListView, OrderDetailView, OrderItemListView, OrderItemDetailView,
-    StoreBranchView, StoreBranchUpdateView
+    StoreBranchView, StoreBranchUpdateView, MyStoreItemListView
 )
 
 urlpatterns = [
@@ -16,6 +16,7 @@ urlpatterns = [
     
     # Store Item 
     path('items', StoreItemListView.as_view(), name='store-item-list'),
+    path('my-items', MyStoreItemListView.as_view(), name='my-store-item-list'),
     path('items/<int:item_id>', StoreItemDetailView.as_view(), name='store-item-detail'),
     
     # Order 

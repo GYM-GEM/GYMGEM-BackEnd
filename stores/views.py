@@ -214,6 +214,7 @@ class StoreItemListView(APIView):
         ],
         responses={200: StoreItemSerializer(many=True)}
     )
+    
     def get(self, request):
         params = request.query_params
         queryset = StoreItem.objects.select_related('store_id', 'branch_id')
@@ -258,6 +259,30 @@ class StoreItemListView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class MyStoreItemListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="List my store items",
+        description="Retrieve all items belonging to the authenticated store owner",
+        responses={200: StoreItemSerializer(many=True)}
+    )
+    def get(self, request):
+        profile_id = get_profile_id_from_token(request)
+        if not profile_id:
+             return Response({"detail": "Profile not found."}, status=status.HTTP_400_BAD_REQUEST)
+             
+        try:
+            store = Store.objects.get(profile_id=profile_id)
+        except Store.DoesNotExist:
+             return Response({"detail": "Store not found for this user."}, status=status.HTTP_404_NOT_FOUND)
+             
+        items = StoreItem.objects.filter(store_id=store)
+        serializer = StoreItemSerializer(items, many=True, context={"request": request})
+        return Response(serializer.data)
 
 
 class StoreItemDetailView(APIView):
