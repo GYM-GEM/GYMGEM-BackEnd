@@ -18,6 +18,7 @@ class Profile(models.Model):
         null=True,
     )
     profile_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    admin_deleted = models.BooleanField(default=False)
 
     class Meta:
         constraints = [
