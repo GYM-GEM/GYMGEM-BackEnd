@@ -247,8 +247,7 @@ class OrderSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'buyer_id', 'total_price', 'order_items', 'created_at', 'updated_at']
 
     def get_total_price(self, obj):
-        """Return total price in gems (1 USD = 10 gems)"""
-        return int(obj.total_price * 10)
+        return int(obj.total_price)
 
     def create(self, validated_data):
         # Get buyer_id from context if not provided
