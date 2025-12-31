@@ -228,7 +228,22 @@ class ComplaintUpdateView(APIView):
             return Response({"message": "Complaint updated successfully."})
         except Complaints.DoesNotExist:
             return Response({"error": "Complaint not found."}, status=404)
-
+class CompaintAdminListView(APIView):
+    permission_classes = [HasRole(["admin"])]
+    def get(self, request, *args, **kwargs):
+        complaints = Complaints.objects.all()
+        data = [
+            {
+                "id": c.id,
+                "profile": c.profile.id if c.profile else None,
+                "target_complaint": c.target_complaint.id if c.target_complaint else None,
+                "details": c.details,
+                "created_at": c.created_at,
+                "status": c.status
+            }
+            for c in complaints
+        ]
+        return Response({"complaints": data})
 BASE_URL = "https://accept.paymob.com/api"
 
 
