@@ -32,7 +32,7 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'your-default-secret-key')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1','192.168.1.5']
+ALLOWED_HOSTS = ['*']
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -106,7 +106,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:4040",
     "http://127.0.0.1:4040",
     "https://gymgem-theta.vercel.app",
-    "http://192.168.1.5:4040",
+    "http://192.168.1.7:4040",
+    "http://192.168.1.2:4040",
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = list(default_headers) + [
