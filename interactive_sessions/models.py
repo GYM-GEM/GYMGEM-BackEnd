@@ -30,6 +30,8 @@ class InteractiveSession(models.Model):
     ], default='requested')
     
     is_completed = models.BooleanField(default=False)
+    # Marker to ensure financials (trainer payouts / refunds) are applied once
+    financials_applied = models.BooleanField(default=False)
     
     def __str__(self):
         return f"InteractiveSession<{self.session_title}> scheduled at {self.scheduled_at}"
