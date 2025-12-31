@@ -1,3 +1,4 @@
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -10,10 +11,11 @@ class Store(models.Model):
     name = models.CharField(max_length=100)
     profile_picture = models.URLField(blank=True, null=True)
     description = models.CharField(max_length=255, blank=True, null=True)
+    balance = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     store_type = models.CharField(max_length=100, choices=[('online', 'Online'), ('offline', 'Offline')], blank=True, null=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    phone_number = models.CharField(max_length=20, blank=True, null=True)
     
 
     def __str__(self):
