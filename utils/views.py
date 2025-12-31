@@ -1,15 +1,18 @@
+from authenticationAndAuthorization.permissions import HasRole
 from utils.serializers import SpecializationSerializer
 from utils.models import Specialization
 import jwt
 from rest_framework import serializers, generics
 from GymGem import settings
 from accounts.models import Account
-from .models import Category
+from .models import Category, Complaints
 from .serializers import CategorySerializer
 from drf_spectacular.utils import extend_schema
+from rest_framework.permissions import IsAuthenticated
 import requests
 import time
-
+from rest_framework.views import APIView
+from rest_framework.response import Response
 
 def get_account_from_token(request):
     auth_header = request.headers.get("Authorization")
@@ -115,9 +118,119 @@ class SpecializationListView(generics.ListAPIView):
     serializer_class = SpecializationSerializer
     permission_classes = []
 
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
 
+@extend_schema(
+    tags=["Complaints"],
+    summary="Send a complaint",
+    description="Send a complaint about a target entity.",
+    request={
+        "application/json": {
+            "target_complaint": 1,
+            "details": "Details about the complaint."
+        }
+    },
+    responses={201: OpenApiResponse(description="Complaint sent successfully.", examples=[{"message": "Complaint sent successfully."}])}
+)
+class SendComplaint(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request, *args, **kwargs):
+        target = request.data.get("target_complaint", None)
+        details = request.data.get("details", "")
+        profile = get_profile_id_from_token(request)
+        complaint = Complaints.objects.create(
+            profile_id=profile,
+            target_complaint_id=target,
+            details=details
+        )
+        return Response({"message": "Complaint sent successfully."}, status=201)
+    
+@extend_schema(
+    tags=["Complaints"],
+    summary="List complaints for current profile",
+    description="Return a list of all complaints submitted by the current profile.",
+    responses={200: OpenApiResponse(description="List of complaints.", examples=[{"complaints": [{"id": 1, "target_complaint": 2, "details": "...", "created_at": "2025-12-31T12:00:00Z", "status": "pending"}]}])}
+)
+class ComplaintStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request, *args, **kwargs):
+        profile = get_profile_id_from_token(request)
+        complaints = Complaints.objects.filter(profile_id=profile)
+        data = [
+            {
+                "id": c.id,
+                "target_complaint": c.target_complaint.id if c.target_complaint else None,
+                "details": c.details,
+                "created_at": c.created_at,
+                "status": c.status
+            }
+            for c in complaints
+        ]
+        return Response({"complaints": data})
+    
+@extend_schema(
+    tags=["Complaints"],
+    summary="Retrieve complaint details",
+    description="Get details of a specific complaint by ID for the current profile.",
+    parameters=[
+        OpenApiParameter("complaint_id", int, OpenApiParameter.PATH, description="ID of the complaint")
+    ],
+    responses={
+        200: OpenApiResponse(description="Complaint details.", examples=[{"complaint": {"id": 1, "target_complaint": 2, "details": "...", "created_at": "2025-12-31T12:00:00Z", "status": "pending"}}]),
+        404: OpenApiResponse(description="Complaint not found.", examples=[{"error": "Complaint not found."}])
+    }
+)
+class ComplaintDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request, complaint_id, *args, **kwargs):
+        profile = get_profile_id_from_token(request)
+        try:
+            complaint = Complaints.objects.get(id=complaint_id, profile_id=profile)
+            data = {
+                "id": complaint.id,
+                "target_complaint": complaint.target_complaint.id if complaint.target_complaint else None,
+                "details": complaint.details,
+                "created_at": complaint.created_at,
+                "status": complaint.status
+            }
+            return Response({"complaint": data})
+        except Complaints.DoesNotExist:
+            return Response({"error": "Complaint not found."}, status=404)
+
+@extend_schema(
+    tags=["Complaints"],
+    summary="Update complaint status (admin only)",
+    description="Update the status of a complaint. Only accessible by admin.",
+    parameters=[
+        OpenApiParameter("complaint_id", int, OpenApiParameter.PATH, description="ID of the complaint")
+    ],
+    request={
+        "application/json": {
+            "status": "resolved"
+        }
+    },
+    responses={
+        200: OpenApiResponse(description="Complaint updated successfully.", examples=[{"message": "Complaint updated successfully."}]),
+        404: OpenApiResponse(description="Complaint not found.", examples=[{"error": "Complaint not found."}])
+    }
+)
+class ComplaintUpdateView(APIView):
+    permission_classes = [HasRole(["admin"])]
+    def put(self, request, complaint_id, *args, **kwargs):
+        profile = get_profile_id_from_token(request)
+        status = request.data.get("status", "")
+        try:
+            complaint = Complaints.objects.get(id=complaint_id, profile_id=profile)
+
+            if status:
+                complaint.status = status
+            complaint.save()
+            return Response({"message": "Complaint updated successfully."})
+        except Complaints.DoesNotExist:
+            return Response({"error": "Complaint not found."}, status=404)
 
 BASE_URL = "https://accept.paymob.com/api"
+
 
 
 class PaymobService:
@@ -211,3 +324,4 @@ class PaymobService:
             return response.json()
         except requests.RequestException as e:
             raise RuntimeError(f"Paymob refund failed: {e}")
+

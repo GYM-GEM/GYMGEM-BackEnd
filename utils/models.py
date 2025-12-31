@@ -41,3 +41,18 @@ class Level(models.Model):
 
     def __str__(self):
         return self.name
+    
+class Complaints(models.Model):
+    profile = models.ForeignKey('profiles.Profile', on_delete=models.CASCADE)
+    target_complaint = models.ForeignKey('profiles.Profile', related_name='target_complaint', on_delete=models.CASCADE,null=True,blank=True)
+    details = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=[
+        ('open', 'Open'),
+        ('in_review', 'In Review'),
+        ('resolved', 'Resolved'),
+        ('closed', 'Closed')
+    ], default='open')
+
+    def __str__(self):
+        return f"Complaint<{self.id}> against Profile {self.profile.id}"

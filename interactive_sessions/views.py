@@ -53,15 +53,15 @@ class SessionRequestView(APIView):
             slot_obj = TrainerCalendarSlot.objects.only('slot_start_time').get(pk=time_slot)
         except TrainerCalendarSlot.DoesNotExist:
             return Response({'error': 'Selected time slot does not exist.'}, status=400)
-        # if timezone.now() + timedelta(hours=6) > slot_obj.slot_start_time :
-        #     return Response({'error': 'Cannot request a session for a time slot that starts in less than 6 hours.'}, status=400)
+        if timezone.now() + timedelta(hours=6) > slot_obj.slot_start_time :
+            return Response({'error': 'Cannot request a session for a time slot that starts in less than 6 hours.'}, status=400)
         # Prevent multiple active sessions with the same trainer
         has_trainer_conflict = InteractiveSession.objects.filter(
             trainee__id=trainee,
             trainer__id=trainer,
             status__in=['requested', 'scheduled'],
         ).count() 
-        if has_trainer_conflict > 80:
+        if has_trainer_conflict > 2:
             return Response({'error': 'You already have three active sessions with this trainer. Complete or cancel it before requesting another.'}, status=400)
         has_time_conflict = InteractiveSession.objects.filter(
             trainee__id=trainee,
@@ -76,7 +76,7 @@ class SessionRequestView(APIView):
             scheduled_at_id=time_slot,
             status__in=['requested', 'scheduled'],
             trainee__id=trainee
-        ).count() > 80:
+        ).count() > 2:
             return Response({'error': 'You already have three sessions scheduled/requested for this slot.'}, status=400)
         trainer_profile = Profile.objects.get(pk=trainer).get_profile_data
         serializer = InteractiveSessionSerializer(data={
@@ -142,8 +142,8 @@ class SessionAcceptView(APIView):
             return Response({'error': 'Session not found'}, status=404)
         if session.status != 'requested':
             return Response({'error': 'Only requested sessions can be accepted'}, status=400)
-        # if session.scheduled_at.slot_start_time - timezone.now() < timedelta(hours=1):
-        #     return Response({'error': 'Cannot accept a session less than 1 hour before its start time.'}, status=400)
+        if session.scheduled_at.slot_start_time - timezone.now() < timedelta(hours=1):
+            return Response({'error': 'Cannot accept a session less than 1 hour before its start time.'}, status=400)
         with transaction.atomic():
             session.status = 'scheduled'  # Update status to pending upon acceptance
             session.save()
@@ -188,30 +188,6 @@ class SessionStartView(APIView):
             serializer = InteractiveSessionSerializer(session, context={'request': request})
             return Response(serializer.data, status=200)
         return Response(serializer.errors, status=400)
-class SessionCompleteView(APIView):
-    permission_classes = [HasRole(['trainer'])]
-    def post(self, request, session_id):
-        try:
-            session = InteractiveSession.objects.get(id=session_id)
-        except InteractiveSession.DoesNotExist:
-            return Response({'error': 'Session not found'}, status=404)
-        if session.trainer_id != get_profile_id_from_token(request):
-            return Response({'error': 'You do not have permission to complete this session.'}, status=403)
-        if session.status not in ['scheduled', 'live']:
-            return Response({'error': 'Only scheduled or live sessions can be completed'}, status=400)
-        with transaction.atomic():
-            trainer = session.trainer.get_profile_data
-            session.status = 'completed'  # Update status to completed
-            session.ended_at = session.ended_at or timezone.now()
-            if session.started_at and session.ended_at:
-                elapsed = session.ended_at - session.started_at
-                session.total_active_minutes = int(elapsed.total_seconds() // 60)
-            session.is_completed = True
-            session.save()
-            trainer.balance += int(session.fees) * 0.92
-            trainer.save()
-        serializer = InteractiveSessionSerializer(session, context={'request': request})
-        return Response(serializer.data, status=200)
 
 class SessionCancelView(APIView):
     permission_classes = [HasRole(['trainee'])]

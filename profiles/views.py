@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from authenticationAndAuthorization.permissions import HasRole
 from utils.views import get_account_from_token, get_profile_id_from_token
-from .models import Profile 
+from .models import CashoutReport, Profile 
 from accounts.models import Account
 from .serializers import ProfileSerializer
 from rest_framework.response import Response
@@ -295,8 +295,8 @@ class ProfileBalanceView(APIView):
             return Response({"balance": balance})
         except Profile.DoesNotExist:
             return Response({"error": "Profile not found"}, status=404)
-        except Exception:
-            return Response({"error": "Profile data is incomplete or corrupted"}, status=400)
+        except Exception as e:
+            return Response({"error": "Profile data is incomplete or corrupted", "details": str(e)}, status=400)
             
 class ProfileHideToggleView(APIView):
     permission_classes = [IsAuthenticated]
@@ -319,3 +319,146 @@ class ProfileHideToggleView(APIView):
             return Response({"error": "Profile not found"}, status=404)
         except Exception as e:
             return Response({"error": str(e)}, status=400)
+        
+
+class ProfileBalanceAdminView(APIView):
+    permission_classes = [HasRole('admin')]
+    @extend_schema(
+        tags=['Profiles'],
+        summary='Get profile balance by ID (Admin)',
+        description='Retrieve the balance of a profile by its ID (Admin only)',
+        parameters=[
+            OpenApiParameter(
+                name='profile_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                required=True,
+                description='Profile ID'
+            ),
+        ],
+        responses={200: {'type': 'object', 'properties': {'balance': {'type': 'number'}}}, 404: {'description': 'Profile not found'}}
+    )
+    def get(self, request, profile_id):
+        try:
+            profile = Profile.objects.get(id=profile_id).get_profile_data
+            balance = profile.balance
+            return Response({"balance": balance})
+        except Profile.DoesNotExist:
+            return Response({"error": "Profile not found"}, status=404)
+        except Exception:
+            return Response({"error": "Profile data is incomplete or corrupted"}, status=400)
+        
+    @extend_schema(
+        tags=['Profiles'],
+        summary='Update profile balance by ID (Admin)',
+        description='Update the balance of a profile by its ID (Admin only)',
+        parameters=[
+            OpenApiParameter(
+                name='profile_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                required=True,
+                description='Profile ID'
+            ),
+        ],
+        request={'type': 'object', 'properties': {'balance': {'type': 'number'}}},
+        responses={200: {'description': 'Balance updated'}, 404: {'description': 'Profile not found'}, 400: {'description': 'Validation error'}}
+    )
+    def post(self, request, profile_id):
+        try:
+            profile = Profile.objects.get(id=profile_id).get_profile_data
+            new_balance = request.data.get("balance", None)
+            operation = request.data.get("operation")  # 'set' or 'add'
+            if new_balance is None:
+                return Response({"error": "Balance value is required"}, status=400)
+            try:
+                new_balance = int(new_balance)
+            except ValueError:
+                return Response({"error": "Invalid balance value"}, status=400)
+            if operation == 'set':
+                profile.balance = new_balance
+            elif operation == 'add':
+                profile.balance += new_balance
+            elif operation == 'subtract':
+                profile.balance -= new_balance
+            else:
+                return Response({"error": "Invalid operation"}, status=400)
+            profile.save()
+            return Response({"message": "Balance updated"})
+        except Profile.DoesNotExist:
+            return Response({"error": "Profile not found"}, status=404)
+        except Exception:
+            return Response({"error": "Profile data is incomplete or corrupted"}, status=400)
+        
+class CashoutReportAdminView(APIView):
+    permission_classes = [HasRole('admin')]
+    @extend_schema(
+        tags=['Profiles'],
+        summary='List cashout reports (Admin)',
+        description='Get all cashout reports (Admin only)',
+        responses={200: {'type': 'array', 'items': {'type': 'object'}}}
+    )
+    def get(self, request):
+        reports = CashoutReport.objects.all().select_related('profile', 'profile__account')
+        report_list = []
+        for report in reports:
+            report_data = model_to_dict(report)
+            report_data['profile'] = model_to_dict(report.profile, fields=["id", "profile_type", "status", "account", "created_at"])
+            report_data['account'] = model_to_dict(report.profile.account, fields=["id", "username", "email"])
+            report_list.append(report_data)
+        return Response(report_list)
+    
+class CashoutReportAdminDetailView(APIView):
+    permission_classes = [HasRole('admin')]
+    @extend_schema(
+        tags=['Profiles'],
+        summary='Get cashout report by ID (Admin)',
+        description='Retrieve a cashout report by its ID (Admin only)',
+        parameters=[
+            OpenApiParameter(
+                name='report_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                required=True,
+                description='Cashout Report ID'
+            ),
+        ],
+        responses={200: {'type': 'object'}, 404: {'description': 'Cashout report not found'}}
+    )
+    def get(self, request, report_id):
+        try:
+            report = CashoutReport.objects.select_related('profile', 'profile__account').get(id=report_id)
+            report_data = model_to_dict(report)
+            report_data['profile'] = model_to_dict(report.profile, fields=["id", "profile_type", "status", "account", "created_at"])
+            report_data['account'] = model_to_dict(report.profile.account, fields=["id", "username", "email"])
+            return Response(report_data)
+        except CashoutReport.DoesNotExist:
+            return Response({"error": "Cashout report not found"}, status=404)
+    
+    @extend_schema(
+        tags=['Profiles'],
+        summary='Update cashout report status by ID (Admin)',
+        description='Update the status of a cashout report by its ID (Admin only)',
+        parameters=[
+            OpenApiParameter(
+                name='report_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                required=True,
+                description='Cashout Report ID'
+            ),
+        ],
+        request={'type': 'object', 'properties': {'status': {'type': 'string'}}},
+        responses={200: {'description': 'Cashout report status updated'}, 404: {'description': 'Cashout report not found'}, 400: {'description': 'Validation error'}}
+    )
+    def put(self, request, report_id):
+        try:
+            report = CashoutReport.objects.get(id=report_id)
+            new_status = request.data.get("status", None)
+            if new_status not in ["pending", "completed", "failed"]:
+                return Response({"error": "Invalid status value"}, status=400)
+            report.status = new_status
+            report.save()
+            return Response({"message": "Cashout report status updated"})
+        except CashoutReport.DoesNotExist:
+            return Response({"error": "Cashout report not found"}, status=404)
