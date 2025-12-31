@@ -15,10 +15,10 @@ from .models import InteractiveSession
 # ================= Redis =================
 redis_client = redis.Redis(host="127.0.0.1", port=6379, decode_responses=True)
 
-SESSION_TTL = 60 * 4
+SESSION_TTL = 60 * 40
 PRESENCE_TTL = SESSION_TTL + 60
 
-MIN_PRESENCE_SECONDS = 1 * 60  # 5 minutes
+MIN_PRESENCE_SECONDS = 10 * 60  # 10 minutes
 
 
 def rkey(session_id, key):
@@ -77,7 +77,7 @@ class InteractiveSessionConsumer(AsyncJsonWebsocketConsumer):
         if timezone.is_naive(started_at):
             started_at = timezone.make_aware(started_at)
 
-        disconnect_time = started_at + timezone.timedelta(minutes=4)
+        disconnect_time = started_at + timezone.timedelta(minutes=40)
         delay = (disconnect_time - timezone.now()).total_seconds()
 
         loop = asyncio.get_event_loop()

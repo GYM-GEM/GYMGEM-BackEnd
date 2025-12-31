@@ -325,12 +325,12 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(day_of_week=0, hour=3),  # Every Sunday at 3 AM
     },
     'expire-unaccepted-sessions': {
-        'task': 'sessions.tasks.handle_unaccepted_sessions',
-        'schedule': crontab(minute='*/1'),
+        'task': 'interactive_sessions.cron.handle_unaccepted_sessions',
+        'schedule': crontab(minute='*/10'),
     },
     'expire-requested-sessions': {
-        'task': 'sessions.tasks.expire_requested_sessions',
-        'schedule': crontab(minute='*/1'),
+        'task': 'interactive_sessions.cron.expire_requested_sessions',
+        'schedule': crontab(minute='*/15'),
     },
 }
 
