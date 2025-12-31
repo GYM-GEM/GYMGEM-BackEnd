@@ -322,13 +322,18 @@ from celery.schedules import crontab
 CELERY_BEAT_SCHEDULE = {
     'delete-old-messages-daily': {
         'task': 'chat.cron.delete_old_messages',
-        # 'schedule': crontab(hour=2, minute=0),  # Run daily at 2:00 AM UTC
-        # Alternative schedules:
-        # 'schedule': crontab(minute='*/30'),  # Every 30 minutes
-        # 'schedule': crontab(hour='*/6'),     # Every 6 hours
         'schedule': crontab(day_of_week=0, hour=3),  # Every Sunday at 3 AM
     },
+    'expire-unaccepted-sessions': {
+        'task': 'sessions.tasks.handle_unaccepted_sessions',
+        'schedule': crontab(minute='*/1'),
+    },
+    'expire-requested-sessions': {
+        'task': 'sessions.tasks.expire_requested_sessions',
+        'schedule': crontab(minute='*/1'),
+    },
 }
+
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

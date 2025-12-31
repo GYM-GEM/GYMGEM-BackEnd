@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.validators import MinValueValidator
+from django.db import transaction
 # Create your models here.
 class InteractiveSession(models.Model):
     session_title = models.CharField(max_length=100)
@@ -35,3 +36,22 @@ class InteractiveSession(models.Model):
     
     def __str__(self):
         return f"InteractiveSession<{self.session_title}> scheduled at {self.scheduled_at}"
+    
+    # InteractiveSession model
+
+
+    def refund_trainee(self):
+        if self.financials_applied:
+            return
+
+        trainee_data = self.trainee.get_profile_data
+        if not trainee_data:
+            return
+
+        with transaction.atomic():
+            trainee_data.balance += self.fees
+            trainee_data.save(update_fields=["balance"])
+
+            self.financials_applied = True
+            self.status = "refunded"
+            self.save(update_fields=["financials_applied", "status"])
