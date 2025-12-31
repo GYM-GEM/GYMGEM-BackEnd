@@ -116,6 +116,11 @@ class Profile(models.Model):
 
 
 class CashoutReport(models.Model):
+    choices = [
+        ("pending", "Pending"),
+        ("completed", "Completed"),
+        ("failed", "Failed"),
+    ]
     profile = models.ForeignKey(
         "Profile",
         on_delete=models.CASCADE,
@@ -128,6 +133,7 @@ class CashoutReport(models.Model):
     balance_before = models.DecimalField(max_digits=10, decimal_places=2)
     cashed_out_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=choices, default="pending")
 
     class Meta:
         verbose_name = "Cashout Report"
