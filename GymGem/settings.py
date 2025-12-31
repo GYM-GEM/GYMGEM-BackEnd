@@ -332,6 +332,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'interactive_sessions.cron.expire_requested_sessions',
         'schedule': crontab(minute='*/15'),
     },
+        "weekly-safe-cashout": {
+        "task": "profiles.tasks.run_safe_cashout_task",
+        "schedule": crontab(day_of_week=0, hour=4, minute=0),
+    },
 }
 
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
