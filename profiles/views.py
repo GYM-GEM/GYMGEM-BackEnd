@@ -434,3 +434,31 @@ class CashoutReportAdminDetailView(APIView):
             return Response(report_data)
         except CashoutReport.DoesNotExist:
             return Response({"error": "Cashout report not found"}, status=404)
+    
+    @extend_schema(
+        tags=['Profiles'],
+        summary='Update cashout report status by ID (Admin)',
+        description='Update the status of a cashout report by its ID (Admin only)',
+        parameters=[
+            OpenApiParameter(
+                name='report_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                required=True,
+                description='Cashout Report ID'
+            ),
+        ],
+        request={'type': 'object', 'properties': {'status': {'type': 'string'}}},
+        responses={200: {'description': 'Cashout report status updated'}, 404: {'description': 'Cashout report not found'}, 400: {'description': 'Validation error'}}
+    )
+    def put(self, request, report_id):
+        try:
+            report = CashoutReport.objects.get(id=report_id)
+            new_status = request.data.get("status", None)
+            if new_status not in ["pending", "completed", "failed"]:
+                return Response({"error": "Invalid status value"}, status=400)
+            report.status = new_status
+            report.save()
+            return Response({"message": "Cashout report status updated"})
+        except CashoutReport.DoesNotExist:
+            return Response({"error": "Cashout report not found"}, status=404)
