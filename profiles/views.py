@@ -295,8 +295,8 @@ class ProfileBalanceView(APIView):
             return Response({"balance": balance})
         except Profile.DoesNotExist:
             return Response({"error": "Profile not found"}, status=404)
-        except Exception:
-            return Response({"error": "Profile data is incomplete or corrupted"}, status=400)
+        except Exception as e:
+            return Response({"error": "Profile data is incomplete or corrupted", "details": str(e)}, status=400)
             
 class ProfileHideToggleView(APIView):
     permission_classes = [IsAuthenticated]
