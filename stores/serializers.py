@@ -16,12 +16,14 @@ from django.db import transaction
 
 
 class StoreBranchSerializer(serializers.ModelSerializer):
+    profile_id = serializers.SerializerMethodField()
 
     class Meta:
         model = StoreBranch
         fields = [
             "id",
             "store_id",
+            "profile_id",
             "opening_time",
             "closing_time",
             "country",
@@ -32,7 +34,10 @@ class StoreBranchSerializer(serializers.ModelSerializer):
             "updated_at",
             "phone_number",
         ]
-        read_only_fields = ["id", "store_id", "created_at", "updated_at"]
+        read_only_fields = ["id", "store_id", "profile_id", "created_at", "updated_at"]
+
+    def get_profile_id(self, obj):
+        return obj.store_id.profile_id.id
 
     def create(self, validated_data):
         # Get profile_id from token

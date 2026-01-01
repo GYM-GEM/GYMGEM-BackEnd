@@ -21,9 +21,9 @@ urlpatterns = [
     # StoreBranch
     path("branches/", StoreBranchView.as_view(), name="store-branches"),
     path(
-        "<int:store_id>/branches/",
+        "branches/public/",
         PublicStoreBranchView.as_view(),
-        name="store-branches-by-store",
+        name="public-store-branches",
     ),
     path(
         "branches/<int:branch_id>/",
