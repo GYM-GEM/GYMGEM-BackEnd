@@ -55,7 +55,7 @@ class Profile(models.Model):
             return Store.objects.filter(profile_id=self).first()
         if self.profile_type == "trainee":
             from trainees.models import Trainee
-            return Trainee.objects.filter(profile=self).first()
+            return Trainee.objects.filter(profile_id=self).first()
 
 
 

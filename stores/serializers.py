@@ -134,7 +134,7 @@ class StoreItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = StoreItem
         fields = [
-            'id', 'store_id', 'branch_id', 'name', 'description',
+            'id', 'store_id', 'branch_id', 'name', 'description', 'item_image',
             'price', 'category', 'brand', 'expiration_date',
             'inventory', 'total_quantity', 'created_at', 'updated_at'
         ]
@@ -144,8 +144,8 @@ class StoreItemSerializer(serializers.ModelSerializer):
         return obj.get_total_quantity()
 
     def validate_price(self, value):
-        if value <= 0:
-            raise serializers.ValidationError("Price must be greater than zero.")
+        if value < 0:
+            raise serializers.ValidationError("Price cannot be negative.")
         return value
 
     def create(self, validated_data):
