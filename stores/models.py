@@ -88,8 +88,11 @@ class StoreItem(models.Model):
     name = models.CharField(max_length=100)
     description = models.CharField(max_length=255, blank=True, null=True)
     item_image = models.URLField(blank=True, null=True)
+    
     price = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     category = models.CharField(max_length=100, choices=[('supplements', 'Supplements'), ('clothes', 'Clothes'),('foods', 'Foods')], blank=True, null=True)
+    status = models.CharField(max_length=20, choices=[('draft', 'Draft'), ('published', 'Published'),('pending', 'Pending')], default='draft')
+
     brand = models.CharField(max_length=100, blank=True, null=True)
     expiration_date = models.DateField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
