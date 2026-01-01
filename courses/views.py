@@ -1,12 +1,29 @@
+"""
+Course management views.
+"""
+import logging
 import math
 from random import sample
-from django.db.models import Q, Prefetch
-from django.db import models
-from rest_framework.viewsets import ViewSet
+from typing import Dict, Any, Set
+
+from django.conf import settings
+from django.core.cache import cache
+from django.db import models, transaction
+from django.db.models import Q, Prefetch, Sum, Count, Avg, F
+from django.db.models.functions import Coalesce
+
+from rest_framework import status
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.viewsets import ViewSet
+from drf_spectacular.utils import extend_schema
+
+from authenticationAndAuthorization.permissions import HasRole
 from profiles.models import Profile
+from trainers.models import Trainer
 from utils.views import get_profile_id_from_token
-from .models import Course, CourseLesson, LessonSection , CourseEnrollment, CourseProgress
+from .models import Course, CourseLesson, LessonSection, CourseEnrollment, CourseProgress
 from .serializers import (
     CourseLessonSerializer,
     CourseSerializer,
@@ -14,16 +31,10 @@ from .serializers import (
     LessonSectionSerializer,
     CourseProgressSerializer,
 )
-from rest_framework.response import Response
-from rest_framework.decorators import action
-from rest_framework import status
-from authenticationAndAuthorization.permissions import HasRole
 from .validators import CourseValidator
-from drf_spectacular.utils import extend_schema
-from trainers.models import Trainer
-from django.db.models import Sum, Count, Avg, F
-from django.db.models.functions import Coalesce
-from django.db import transaction
+
+
+logger = logging.getLogger('gymgem')
 
 # Create your views here.
 class CoursesView(ViewSet):
@@ -109,6 +120,16 @@ class CoursesView(ViewSet):
         )
         duration_map = {d['course_id']: d['total'] for d in duration_data}
 
+        # Batch fetch enrollment status to avoid N+1 queries
+        current_profile_id = get_profile_id_from_token(request)
+        enrolled_course_ids: Set[int] = set()
+        if current_profile_id:
+            enrolled_course_ids = set(
+                CourseEnrollment.objects
+                .filter(course_id__in=course_ids, trainee_profile_id=current_profile_id)
+                .values_list('course_id', flat=True)
+            )
+
         # Create a mapping of annotated data to each course ID
         annotated_data = {
             course.id: {
@@ -120,10 +141,7 @@ class CoursesView(ViewSet):
                 'average_rating': course.average_rating,
                 'total_ratings': course.total_ratings or 0,
                 'students_enrolled': course.students_enrolled or 0,
-                'enrolled': CourseEnrollment.objects.filter(
-                    course=course,
-                    trainee_profile=get_profile_id_from_token(request)
-                ).exists(),
+                'enrolled': course.id in enrolled_course_ids,
             }
             for course in queryset
         }

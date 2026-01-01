@@ -12,12 +12,107 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from datetime import timedelta
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 from corsheaders.defaults import default_headers
 
 
 load_dotenv()
+
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'json': {
+            'format': '{"level": "%(levelname)s", "time": "%(asctime)s", "module": "%(module)s", "message": "%(message)s"}',
+        },
+    },
+    'filters': {
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
+        },
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+            'stream': sys.stdout,
+        },
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(os.environ.get('LOG_DIR', '.'), 'gymgem.log'),
+            'maxBytes': 10 * 1024 * 1024,  # 10 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+        'error_file': {
+            'level': 'ERROR',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(os.environ.get('LOG_DIR', '.'), 'gymgem_errors.log'),
+            'maxBytes': 10 * 1024 * 1024,  # 10 MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console', 'file'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': os.environ.get('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console', 'file', 'error_file'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'gymgem': {
+            'handlers': ['console', 'file', 'error_file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'gymgem.auth': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'gymgem.payment': {
+            'handlers': ['console', 'file', 'error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'gymgem.websocket': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'gymgem.celery': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -352,6 +447,66 @@ EMAIL_TIMEOUT = 30
 
 # Paymob Configuration
 PAYMOB_API_KEY = os.getenv("PAYMOB_API_KEY")
-PAYMOB_CARD_INTEGRATION_ID = int(os.getenv("PAYMOB_CARD_INTEGRATION_ID"))
+PAYMOB_CARD_INTEGRATION_ID = int(os.getenv("PAYMOB_CARD_INTEGRATION_ID", 0))
 PAYMOB_IFRAME_ID = os.getenv("PAYMOB_IFRAME_ID")
 PAYMOB_HMAC_SECRET = os.getenv("PAYMOB_HMAC_SECRET")
+
+# =============================================================================
+# REDIS CONFIGURATION (Centralized)
+# =============================================================================
+REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
+REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
+REDIS_DB = int(os.environ.get("REDIS_DB", 0))
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD", None)
+
+# =============================================================================
+# CACHING CONFIGURATION
+# =============================================================================
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "PARSER_CLASS": "redis.connection.HiredisParser",
+            "CONNECTION_POOL_KWARGS": {"max_connections": 50},
+            "SOCKET_CONNECT_TIMEOUT": 5,
+            "SOCKET_TIMEOUT": 5,
+        },
+        "KEY_PREFIX": "gymgem",
+        "TIMEOUT": 300,  # 5 minutes default
+    }
+}
+
+# Cache time-to-live settings (in seconds)
+CACHE_TTL = {
+    'categories': 3600,       # 1 hour - rarely change
+    'specializations': 3600,  # 1 hour - rarely change
+    'levels': 3600,           # 1 hour - rarely change
+    'languages': 3600,        # 1 hour - rarely change
+    'trainer_profile': 300,   # 5 minutes
+    'course_list': 120,       # 2 minutes
+    'course_detail': 180,     # 3 minutes
+}
+
+# Use Redis for session storage as well
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
+
+# =============================================================================
+# RATE LIMITING CONFIGURATION (django-ratelimit)
+# =============================================================================
+RATELIMIT_USE_CACHE = 'default'
+RATELIMIT_ENABLE = True
+RATELIMIT_VIEW_HANDLER = 'GymGem.ratelimit_handlers.ratelimit_handler'
+
+# Rate limit settings
+RATELIMIT_SETTINGS = {
+    'login': '5/m',           # 5 login attempts per minute
+    'register': '3/m',        # 3 registration attempts per minute
+    'password_reset': '3/h',  # 3 password reset attempts per hour
+    'payment': '10/m',        # 10 payment attempts per minute
+    'api_default': '100/m',   # 100 API calls per minute (general)
+    'websocket': '60/m',      # 60 WebSocket connections per minute
+}

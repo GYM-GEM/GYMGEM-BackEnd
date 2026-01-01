@@ -1,20 +1,29 @@
+"""
+Authentication and Authorization views.
+
+Handles login, logout, token refresh, and profile switching.
+"""
+import logging
+from typing import Any, Dict, Optional
+
 import jwt
-from rest_framework.response import Response
+from django.conf import settings
+from django.http import HttpRequest
+from django.utils import timezone
+from django_ratelimit.decorators import ratelimit
+from django.utils.decorators import method_decorator
+
 from rest_framework import status
+from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.decorators import permission_classes
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from rest_framework_simplejwt.token_blacklist.models import (
     BlacklistedToken,
     OutstandingToken,
 )
-from authenticationAndAuthorization.permissions import HasRole
-from utils.views import get_account_from_token
-from .serializers import MyTokenObtainPairSerializer, MyTokenRefreshSerializer
-from accounts.models import Account
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework.decorators import permission_classes
 from drf_spectacular.utils import (
     extend_schema,
     OpenApiParameter,
@@ -22,8 +31,15 @@ from drf_spectacular.utils import (
     OpenApiExample,
     OpenApiTypes,
 )
+
+from authenticationAndAuthorization.permissions import HasRole
+from utils.views import get_account_from_token
+from .serializers import MyTokenObtainPairSerializer, MyTokenRefreshSerializer
+from accounts.models import Account
 from profiles.models import Profile
-from django.conf import settings
+
+
+logger = logging.getLogger('gymgem.auth')
 
 
 class MyTokenRefreshView(TokenRefreshView):
@@ -38,11 +54,13 @@ class MyTokenRefreshView(TokenRefreshView):
         request=MyTokenRefreshSerializer,
         responses={200: MyTokenRefreshSerializer},
     )
-    def post(self, request, *args, **kwargs):
+    @method_decorator(ratelimit(key='ip', rate='30/m', method='POST', block=True))
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> Response:
         serializer = self.get_serializer(data=request.headers)
         serializer.is_valid(raise_exception=True)
         multiple_logins = False
         account = get_account_from_token(request)
+        
         # Get all outstanding tokens (not blacklisted)
         outstanding_tokens = OutstandingToken.objects.filter(user=account)
         
@@ -54,11 +72,20 @@ class MyTokenRefreshView(TokenRefreshView):
         active_tokens = outstanding_tokens.exclude(id__in=blacklisted_token_ids)
         login_count = active_tokens.count()
         
-        # Check for multiple active logins (more than 1 means already logged in elsewhere)
+        # Check for multiple active logins
         if login_count > 1:
             multiple_logins = True
 
-        return Response({**serializer.validated_data, "multiple_logins": multiple_logins}, status=status.HTTP_200_OK)
+        logger.info(
+            "Token refreshed for account %s, active_sessions=%d",
+            account.pk,
+            login_count
+        )
+
+        return Response(
+            {**serializer.validated_data, "multiple_logins": multiple_logins},
+            status=status.HTTP_200_OK
+        )
 
 
 @permission_classes([AllowAny])
@@ -94,27 +121,26 @@ class AccountLoginView(TokenObtainPairView):
             },
             400: {"description": "Bad request"},
             401: {"description": "Invalid credentials"},
+            429: {"description": "Too many login attempts"},
         },
     )
-    def post(self, request, *args, **kwargs):
-        from django.utils import timezone
-        
-        # Support login via email or username: if email is provided and username is not,
-        # resolve the username from the Account with that email.
+    @method_decorator(ratelimit(key='ip', rate='5/m', method='POST', block=True))
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> Response:
+        # Support login via email or username
         data = request.data.copy()
         if not data.get("username") and data.get("email"):
             email = data.get("email")
             qs = Account.objects.filter(email__iexact=email)
             if not qs.exists():
+                logger.warning("Login attempt with non-existent email: %s", email)
                 return Response(
                     {"detail": "Invalid credentials."},
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
             if qs.count() > 1:
+                logger.warning("Multiple accounts with email: %s", email)
                 return Response(
-                    {
-                        "detail": "Multiple accounts use this email. Please login with username."
-                    },
+                    {"detail": "Multiple accounts use this email. Please login with username."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             data["username"] = qs.first().username
@@ -138,7 +164,7 @@ class AccountLoginView(TokenObtainPairView):
         
         # Delete blacklisted expired tokens first
         BlacklistedToken.objects.filter(token__in=expired_tokens).delete()
-        # Delete expired outstanding tokens
+        expired_count = expired_tokens.count()
         expired_tokens.delete()
         
         account_payload = {
@@ -168,8 +194,6 @@ class AccountLoginView(TokenObtainPairView):
         
         # Get all outstanding tokens (not blacklisted)
         outstanding_tokens = OutstandingToken.objects.filter(user=account)
-        
-        # Exclude blacklisted tokens
         blacklisted_token_ids = BlacklistedToken.objects.filter(
             token__in=outstanding_tokens
         ).values_list('token_id', flat=True)
@@ -177,7 +201,6 @@ class AccountLoginView(TokenObtainPairView):
         active_tokens = outstanding_tokens.exclude(id__in=blacklisted_token_ids)
         login_count = active_tokens.count()
         
-        # Check for multiple active logins (more than 1 means already logged in elsewhere)
         if login_count > 1:
             multiple_logins = True
         
@@ -188,9 +211,16 @@ class AccountLoginView(TokenObtainPairView):
                 try:
                     BlacklistedToken.objects.get_or_create(token=token)
                 except Exception:
-                    pass  # Continue even if one fails
+                    pass
     
-        print("Active login count for user:", active_tokens.count())
+        logger.info(
+            "Login successful for account %s (username=%s), active_sessions=%d, expired_cleaned=%d",
+            account.pk,
+            user.username,
+            login_count,
+            expired_count
+        )
+        
         return Response(
             {
                 "access": tokens.get("access"),
@@ -210,14 +240,14 @@ class SwitchProfileView(APIView):
     @extend_schema(
         tags=["Authentication"],
         summary="Switch current profile",
-        description="Switch the current profile in the JWT token. Requires Authentication header with Bearer token and profile_id in headers.",
+        description="Switch the current profile in the JWT token.",
         parameters=[
             OpenApiParameter(
                 name="Authorization",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.HEADER,
                 required=True,
-                description='Bearer token for authentication (e.g., "Bearer your_access_token")',
+                description='Bearer token for authentication',
             ),
             OpenApiParameter(
                 name="profile_id",
@@ -232,18 +262,16 @@ class SwitchProfileView(APIView):
             200: {
                 "type": "object",
                 "properties": {
-                    "access": {
-                        "type": "string",
-                        "description": "New access token with switched profile",
-                    },
-                    "refresh": {"type": "string", "description": "Refresh token"},
+                    "access": {"type": "string"},
+                    "refresh": {"type": "string"},
                 },
             },
-            400: {"description": "Bad request - missing or invalid profile_id"},
-            401: {"description": "Unauthorized - invalid or missing access token"},
+            400: {"description": "Bad request"},
+            401: {"description": "Unauthorized"},
         },
     )
-    def post(self, request):
+    @method_decorator(ratelimit(key='user', rate='20/m', method='POST', block=True))
+    def post(self, request: HttpRequest) -> Response:
         profile_id = request.data.get("profile_id")
         if not profile_id:
             return Response(
@@ -254,7 +282,12 @@ class SwitchProfileView(APIView):
         user = get_account_from_token(request)
         try:
             profile = Profile.objects.get(pk=profile_id, account=user)
-        except Exception:
+        except Profile.DoesNotExist:
+            logger.warning(
+                "Profile switch failed: profile %s not found for account %s",
+                profile_id,
+                user.pk
+            )
             return Response(
                 {"detail": "Profile not found or does not belong to user"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -268,58 +301,51 @@ class SwitchProfileView(APIView):
         access["account_id"] = user.pk
         access["current_profile"] = profile.pk
 
+        logger.info(
+            "Profile switched for account %s to profile %s",
+            user.pk,
+            profile.pk
+        )
+
         return Response(
-            {"access": str(access), "refresh": str(refresh)}, status=status.HTTP_200_OK
+            {"access": str(access), "refresh": str(refresh)},
+            status=status.HTTP_200_OK
         )
 
 
 class LogoutView(APIView):
+    """Logout user by blacklisting their refresh token."""
+    
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
         tags=["Authentication"],
         summary="Logout user",
-        description="Logout the current user by blacklisting their refresh token. Requires Authentication header with Bearer token and refresh token in custom header.",
+        description="Logout by blacklisting refresh token.",
         parameters=[
             OpenApiParameter(
                 name="Authorization",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.HEADER,
                 required=True,
-                description='Bearer token for authentication (e.g., "Bearer your_access_token")',
+                description='Bearer token',
             ),
             OpenApiParameter(
                 name="refresh",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.HEADER,
                 required=True,
-                description="Refresh token to be blacklisted",
+                description="Refresh token to blacklist",
             ),
         ],
         request=None,
         responses={
             205: OpenApiResponse(description="Successfully logged out"),
-            400: OpenApiResponse(description="Bad request - missing refresh token"),
-            401: OpenApiResponse(
-                description="Unauthorized - invalid or missing access token"
-            ),
+            400: OpenApiResponse(description="Bad request"),
+            401: OpenApiResponse(description="Unauthorized"),
         },
-        examples=[
-            OpenApiExample(
-                "Logout Request",
-                summary="Example logout request",
-                description="Headers required for logout",
-                value={
-                    "headers": {
-                        "Authorization": "Bearer your_access_token_here",
-                        "refresh": "your_refresh_token_here",
-                    }
-                },
-                request_only=True,
-            ),
-        ],
     )
-    def post(self, request):
+    def post(self, request: HttpRequest) -> Response:
         refresh_token = request.headers.get("refresh")
         if not refresh_token:
             return Response(
@@ -328,9 +354,10 @@ class LogoutView(APIView):
             )
         try:
             token = RefreshToken(refresh_token)
-            # Blacklist this refresh token
             token.blacklist()
-        except Exception:
+            logger.info("User logged out successfully")
+        except Exception as e:
+            logger.warning("Logout failed: %s", str(e))
             return Response(
                 {"detail": "Invalid or already blacklisted token"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -339,45 +366,30 @@ class LogoutView(APIView):
 
 
 class LogoutAllView(APIView):
-    """Blacklist all outstanding refresh tokens for the authenticated user (logout all devices)."""
+    """Blacklist all outstanding refresh tokens for the authenticated user."""
 
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
         tags=["Authentication"],
         summary="Logout from all devices",
-        description="Logout the current user from all devices by blacklisting all their outstanding refresh tokens. Requires Authentication header with Bearer token.",
+        description="Logout from all devices by blacklisting all refresh tokens.",
         parameters=[
             OpenApiParameter(
                 name="Authorization",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.HEADER,
                 required=True,
-                description='Bearer token for authentication (e.g., "Bearer your_access_token")',
+                description='Bearer token',
             ),
         ],
         request=None,
         responses={
-            205: OpenApiResponse(
-                description="Successfully logged out from all devices"
-            ),
-            401: OpenApiResponse(
-                description="Unauthorized - invalid or missing access token"
-            ),
+            205: OpenApiResponse(description="Successfully logged out from all devices"),
+            401: OpenApiResponse(description="Unauthorized"),
         },
-        examples=[
-            OpenApiExample(
-                "Logout All Request",
-                summary="Example logout all devices request",
-                description="Header required for logout from all devices",
-                value={"headers": {"Authorization": "Bearer your_access_token_here"}},
-                request_only=True,
-            ),
-        ],
     )
-    def post(self, request):
-        from django.utils import timezone
-        
+    def post(self, request: HttpRequest) -> Response:
         user = get_account_from_token(request)
         
         # Get all outstanding tokens for this user
@@ -393,50 +405,47 @@ class LogoutAllView(APIView):
             except Exception:
                 continue
         
-        # Clean up expired tokens for this user
+        # Clean up expired tokens
         now = timezone.now()
         expired_tokens = OutstandingToken.objects.filter(
             user=user,
             expires_at__lt=now
         )
         
-        # Delete blacklisted expired tokens
-        expired_blacklisted = BlacklistedToken.objects.filter(
-            token__in=expired_tokens
-        )
-        expired_blacklisted_count = expired_blacklisted.count()
+        expired_blacklisted = BlacklistedToken.objects.filter(token__in=expired_tokens)
         expired_blacklisted.delete()
-        
-        # Delete expired outstanding tokens
         expired_count = expired_tokens.count()
         expired_tokens.delete()
         
-        print(f"Blacklisted {blacklisted_count} active tokens")
-        print(f"Cleaned up {expired_count} expired tokens")
+        logger.info(
+            "Account %s logged out from all devices: blacklisted=%d, expired_cleaned=%d",
+            user.pk,
+            blacklisted_count,
+            expired_count
+        )
         
         return Response(
-            {
-                "detail": f"Logged out from all devices. Cleaned up {expired_count} expired tokens."
-            },
+            {"detail": f"Logged out from all devices. Cleaned up {expired_count} expired tokens."},
             status=status.HTTP_205_RESET_CONTENT
         )
 
+
 class LogoutDevicesAsAdmin(APIView):
-    """Admin endpoint to blacklist all outstanding refresh tokens for a specified user."""
+    """Admin endpoint to logout a user from all devices."""
 
     permission_classes = [HasRole("admin")]
 
     @extend_schema(
         tags=["Authentication"],
         summary="Admin logout user from all devices",
-        description="Admin endpoint to logout a specified user from all devices by blacklisting all their outstanding refresh tokens. Requires Authentication header with Bearer token and user_id in request body.",
+        description="Admin endpoint to logout a user from all devices.",
         parameters=[
             OpenApiParameter(
                 name="Authorization",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.HEADER,
                 required=True,
-                description='Bearer token for authentication (e.g., "Bearer your_access_token")',
+                description='Bearer token',
             ),
         ],
         request={
@@ -447,19 +456,13 @@ class LogoutDevicesAsAdmin(APIView):
             "required": ["user_id"],
         },
         responses={
-            205: OpenApiResponse(
-                description="Successfully logged out user from all devices"
-            ),
-            400: OpenApiResponse(description="Bad request - missing or invalid user_id"),
-            401: OpenApiResponse(
-                description="Unauthorized - invalid or missing access token"
-            ),
-            403: OpenApiResponse(description="Forbidden - insufficient permissions"),
+            205: OpenApiResponse(description="Successfully logged out user"),
+            400: OpenApiResponse(description="Bad request"),
+            401: OpenApiResponse(description="Unauthorized"),
+            403: OpenApiResponse(description="Forbidden"),
         },
     )
-    def post(self, request):
-        from django.utils import timezone
-        
+    def post(self, request: HttpRequest) -> Response:
         user_id = request.data.get("user_id")
         if not user_id:
             return Response(
@@ -475,10 +478,8 @@ class LogoutDevicesAsAdmin(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         
-        # Get all outstanding tokens for the target user
+        # Get and blacklist all tokens
         tokens = OutstandingToken.objects.filter(user=target_user)
-        
-        # Blacklist all tokens
         blacklisted_count = 0
         for t in tokens:
             try:
@@ -488,36 +489,42 @@ class LogoutDevicesAsAdmin(APIView):
             except Exception:
                 continue
         
-        # Clean up expired tokens for this user
+        # Clean up expired tokens
         now = timezone.now()
         expired_tokens = OutstandingToken.objects.filter(
             user=target_user,
             expires_at__lt=now
         )
-        # Return response
+        expired_count = expired_tokens.count()
+        
+        logger.info(
+            "Admin forced logout for user %s: blacklisted=%d, expired=%d",
+            user_id,
+            blacklisted_count,
+            expired_count
+        )
+        
         return Response(
-        {"detail": f"User {user_id} logged out from all devices. Cleaned up {expired_tokens.count()} expired tokens."},
-        status=205
-    )
+            {"detail": f"User {user_id} logged out from all devices. Cleaned up {expired_count} expired tokens."},
+            status=205
+        )
+
 
 @permission_classes([IsAuthenticated])
 class TokenRenewView(APIView):
-    """
-    Create new JWT tokens without login credentials.
-    Requires ONLY a valid refresh token.
-    """
+    """Create new JWT tokens without login credentials."""
     
     @extend_schema(
         tags=["Authentication"],
         summary="Renew tokens using only refresh token",
-        description="Provide a refresh token in the request headers to get new access/refresh tokens plus account info.",
+        description="Exchange refresh token for new tokens.",
         parameters=[
             OpenApiParameter(
                 name="refresh",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.HEADER,
                 required=True,
-                description="Refresh token to exchange for new tokens",
+                description="Refresh token",
             ),
             OpenApiParameter(
                 name="profile_id",
@@ -540,44 +547,68 @@ class TokenRenewView(APIView):
             401: {"description": "Invalid or expired refresh token"},
         },
     )
-    def post(self, request, *args, **kwargs):
+    @method_decorator(ratelimit(key='ip', rate='30/m', method='POST', block=True))
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> Response:
         refresh_token_str = request.headers.get("refresh")
         new_profile_id = request.data.get("profile_id")
+        
         if not refresh_token_str:
             return Response(
                 {"detail": "Refresh token is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Validate the provided raw JWT refresh token by decoding it (do not
-        # instantiate a RefreshToken object from it — we want to avoid using the
-        # old refresh to construct the new tokens).
         try:
-            payload = jwt.decode(refresh_token_str, settings.SECRET_KEY, algorithms=["HS256"])
-        except Exception as e:
-            return Response({"detail": "Invalid or expired refresh token."}, status=status.HTTP_401_UNAUTHORIZED)
+            payload = jwt.decode(
+                refresh_token_str,
+                settings.SECRET_KEY,
+                algorithms=["HS256"]
+            )
+        except jwt.ExpiredSignatureError:
+            logger.warning("Token renewal failed: expired token")
+            return Response(
+                {"detail": "Invalid or expired refresh token."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        except jwt.InvalidTokenError as e:
+            logger.warning("Token renewal failed: %s", str(e))
+            return Response(
+                {"detail": "Invalid or expired refresh token."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
 
-        # Determine user id from claims (support account_id or standard user_id/sub)
-        user_id = payload.get("account_id") or payload.get("user_id") or payload.get("sub")
+        # Determine user id from claims
+        user_id = (
+            payload.get("account_id") or
+            payload.get("user_id") or
+            payload.get("sub")
+        )
         if not user_id:
-            return Response({"detail": "Refresh token missing user information."}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response(
+                {"detail": "Refresh token missing user information."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
 
         try:
             user = Account.objects.get(pk=user_id)
         except Account.DoesNotExist:
-            return Response({"detail": "User not found for provided refresh token."}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response(
+                {"detail": "User not found for provided refresh token."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
 
-        # Create new tokens (independent of the old refresh)
+        # Create new tokens
         new_refresh = RefreshToken.for_user(user)
         new_access = new_refresh.access_token
 
-        # Optional: blacklist old refresh token if it exists in OutstandingToken
+        # Optional: blacklist old refresh token
         try:
-            old_outstanding = OutstandingToken.objects.filter(token=refresh_token_str).first()
+            old_outstanding = OutstandingToken.objects.filter(
+                token=refresh_token_str
+            ).first()
             if old_outstanding:
                 BlacklistedToken.objects.get_or_create(token=old_outstanding)
         except Exception:
-            # Not critical; continue even if blacklisting fails
             pass
 
         # Limit outstanding tokens to 5 per user
@@ -589,17 +620,19 @@ class TokenRenewView(APIView):
             except Exception:
                 pass
 
-        # Build account payload (same format as login)
+        # Build account payload
         account = Account.objects.filter(pk=user.pk).first()
+        current_profile = (
+            new_profile_id
+            if new_profile_id
+            else (account.default_profile.id if account and account.default_profile else None)
+        )
+        
         account_payload = {
             "id": account.pk,
             "username": user.username,
             "email": user.email,
-            "current_profile": (
-                new_profile_id
-                if new_profile_id
-                else (account.default_profile.id if account and account.default_profile else None)
-            ),
+            "current_profile": current_profile,
             "profiles": (
                 list(
                     zip(
@@ -611,19 +644,15 @@ class TokenRenewView(APIView):
                 else []
             ),
         }
+        
         new_refresh["account_id"] = user.pk
-        new_refresh["current_profile"] = (
-            new_profile_id
-            if new_profile_id
-            else (account.default_profile.id if account and account.default_profile else None)
-        )
-        new_access["current_profile"] = (
-            new_profile_id
-            if new_profile_id
-            else (account.default_profile.id if account and account.default_profile else None)
-        )
+        new_refresh["current_profile"] = current_profile
+        new_access["current_profile"] = current_profile
         new_access["account_id"] = user.pk
         new_access["profiles"] = account_payload["profiles"]
+        
+        logger.info("Token renewed for account %s", user.pk)
+        
         return Response(
             {
                 "access": str(new_access),

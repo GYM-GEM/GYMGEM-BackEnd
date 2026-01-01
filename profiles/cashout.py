@@ -1,51 +1,55 @@
+"""
+Safe cashout service for trainers and stores.
+
+Uses Redis locking to prevent concurrent execution and
+database transactions to ensure atomic operations.
+"""
 import logging
+from typing import List
+
 from django.db import transaction
 from django.utils import timezone
 
 from profiles.models import Profile, CashoutReport
 from profiles.lock import RedisLock
 
-logger = logging.getLogger(__name__)
 
-MIN_BALANCE = 100
-LOCK_KEY = "cashout:global:lock"
-LOCK_TTL = 300  # 5 minutes
+logger = logging.getLogger('gymgem.celery')
+
+MIN_BALANCE: int = 100
+LOCK_KEY: str = "cashout:global:lock"
+LOCK_TTL: int = 300  # 5 minutes
 
 
-def run_safe_cashout():
+def run_safe_cashout() -> None:
     """
     Safe cashout service using Redis lock.
-    No model changes required.
+    
     Prevents:
-      - parallel execution
-      - double cashout
-      - partial updates
+      - Parallel execution
+      - Double cashout
+      - Partial updates
     """
-
     now = timezone.now()
     today = now.date()
 
-    # 🔒 GLOBAL LOCK (prevents multiple workers running cashout together)
     try:
         with RedisLock(LOCK_KEY, ttl=LOCK_TTL):
-
-            logger.info("Cashout lock acquired")
+            logger.info("Cashout lock acquired, starting processing")
 
             with transaction.atomic():
-
-                # Don't use `select_related` with `select_for_update` when the
-                # FK is nullable (creates an outer join). Use `prefetch_related`
-                # to fetch `account` in a separate query and avoid FOR UPDATE
-                # on an outer join (causes NotSupportedError on some DBs).
+                # Fetch profiles with optimized query
                 profiles = (
                     Profile.objects
                     .filter(profile_type__in=("trainer", "store"), status="active")
-                    .select_for_update(skip_locked=True)  # DB-level lock
+                    .select_for_update(skip_locked=True)
                     .prefetch_related("account")
                 )
 
-                for profile in profiles:
+                processed_count = 0
+                skipped_count = 0
 
+                for profile in profiles:
                     pdata = getattr(profile, "get_profile_data", None)
                     if not pdata:
                         logger.warning("Profile %s has no profile_data", profile.id)
@@ -63,18 +67,21 @@ def run_safe_cashout():
                     if balance_value < MIN_BALANCE:
                         continue
 
-                    # 🛑 Prevent double cashout (using existing reports)
+                    # Prevent double cashout
                     already_cashed = CashoutReport.objects.filter(
                         profile=profile,
                         cashed_out_at__date=today,
                     ).exists()
 
                     if already_cashed:
-                        logger.info(
-                            "Profile %s already cashed out today", profile.id
+                        logger.debug(
+                            "Profile %s already cashed out today, skipping",
+                            profile.id
                         )
+                        skipped_count += 1
                         continue
 
+                    # Create cashout report
                     CashoutReport.objects.create(
                         profile=profile,
                         name=getattr(pdata, "name", "") or profile.account.get_username(),
@@ -94,13 +101,19 @@ def run_safe_cashout():
                         pdata.save(update_fields=["balance"])
 
                     logger.info(
-                        "Cashout successful for profile %s (amount=%s)",
+                        "Cashout successful: profile=%s, type=%s, amount=%.2f",
                         profile.id,
+                        profile.profile_type,
                         balance_value,
                     )
+                    processed_count += 1
 
-            logger.info("Cashout job finished successfully")
+            logger.info(
+                "Cashout job finished: processed=%d, skipped=%d",
+                processed_count,
+                skipped_count
+            )
 
     except RuntimeError:
-        # Lock not acquired → another worker already running it
+        # Lock not acquired - another worker already running
         logger.warning("Cashout already running, skipping this execution")

@@ -1,6 +1,20 @@
 from django.urls import include, path
 
+from .health import (
+    health_check,
+    readiness_check,
+    liveness_check,
+    health_detailed,
+)
+
 urlpatterns = [
+    # Health check endpoints
+    path("health/", health_check, name="health-check"),
+    path("health/ready/", readiness_check, name="readiness-check"),
+    path("health/live/", liveness_check, name="liveness-check"),
+    path("health/detailed/", health_detailed, name="health-detailed"),
+    
+    # API routes
     path("accounts/", include("accounts.urls")),
     path("auth/", include("authenticationAndAuthorization.urls")),
     path("profiles/", include("profiles.urls")),
