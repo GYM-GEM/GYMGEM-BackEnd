@@ -14,21 +14,26 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.contrib import admin
 from django.urls import include, path
-from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
+)
 from django.conf import settings
 from django.conf.urls.static import static
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/', include('api.urls')),
-   path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-   path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(), name='swagger-ui'),
-   path('api/schema/redoc/', SpectacularRedocView.as_view(), name='redoc'),
+    path("admin/", admin.site.urls),
+    path("api/", include("api.urls")),
+    path("api/stores/", include("stores.urls")),
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(), name="swagger-ui"),
+    path("api/schema/redoc/", SpectacularRedocView.as_view(), name="redoc"),
     # allauth URLs for Google OAuth
-    path('social/', include('allauth.urls')),
-  
+    path("social/", include("allauth.urls")),
 ]
 
 

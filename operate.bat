@@ -13,7 +13,7 @@ cd /d "%~dp0"
 
 REM Activate virtualenv
 echo [1/5] Activating virtual environment...
-if exist "venv\Scripts\activate.bat" (
+if exist ".venv\Scripts\activate.bat" (
     call venv\Scripts\activate.bat
 ) else (
     echo ERROR: Virtual environment not found!
