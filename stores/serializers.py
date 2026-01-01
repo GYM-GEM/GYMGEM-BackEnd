@@ -189,12 +189,14 @@ class StoreItemSerializer(serializers.ModelSerializer):
         source="storeiteminventory_set", many=True, required=False, allow_null=True
     )
     total_quantity = serializers.SerializerMethodField()
+    profile_id = serializers.SerializerMethodField()
 
     class Meta:
         model = StoreItem
         fields = [
             "id",
             "store_id",
+            "profile_id",
             "branch_id",
             "name",
             "description",
@@ -212,6 +214,7 @@ class StoreItemSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id",
             "store_id",
+            "profile_id",
             "created_at",
             "updated_at",
             "total_quantity",
@@ -219,6 +222,9 @@ class StoreItemSerializer(serializers.ModelSerializer):
 
     def get_total_quantity(self, obj):
         return obj.get_total_quantity()
+
+    def get_profile_id(self, obj):
+        return obj.store_id.profile_id.id
 
     def validate_price(self, value):
         if value < 0:
