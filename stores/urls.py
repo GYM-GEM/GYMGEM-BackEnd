@@ -9,6 +9,7 @@ from .views import (
     OrderItemListView,
     OrderItemDetailView,
     StoreBranchView,
+    PublicStoreBranchView,
     StoreBranchUpdateView,
     MyStoreItemListView,
 )
@@ -21,7 +22,7 @@ urlpatterns = [
     path("branches/", StoreBranchView.as_view(), name="store-branches"),
     path(
         "<int:store_id>/branches/",
-        StoreBranchView.as_view(),
+        PublicStoreBranchView.as_view(),
         name="store-branches-by-store",
     ),
     path(

@@ -1,3 +1,4 @@
+from urllib import request
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -127,23 +128,26 @@ class StoreBranchView(APIView):
     permission_classes = [HasRole(["store"])]
 
     @extend_schema(
-        summary="List store branches",
-        description="Retrieve all store branches with optional filtering by store ID",
-        parameters=[
-            OpenApiParameter(
-                name="store_id", type=OpenApiTypes.INT, description="Filter by store ID"
-            ),
-        ],
+        summary="List my store branches",
+        description="Retrieve branches for the authenticated store owner",
         responses={200: StoreBranchSerializer(many=True)},
     )
     def get(self, request):
-        params = request.query_params
-        queryset = StoreBranch.objects.all()
+        profile_id = get_profile_id_from_token(request)
+        if not profile_id:
+            return Response(
+                {"detail": "Profile not found."}, status=status.HTTP_400_BAD_REQUEST
+            )
 
-        store_id = self.kwargs.get("store_id") or params.get("store_id")
-        if store_id:
-            queryset = queryset.filter(store_id=store_id)
+        try:
+            store = Store.objects.get(profile_id=profile_id)
+        except Store.DoesNotExist:
+            return Response(
+                {"detail": "Store not found for this user."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
+        queryset = StoreBranch.objects.filter(store_id=store)
         serializer = StoreBranchSerializer(
             queryset, many=True, context={"request": request}
         )
@@ -163,6 +167,35 @@ class StoreBranchView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PublicStoreBranchView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="List store branches by store ID",
+        description="Retrieve branches for a specific store (accessible by regular users)",
+        parameters=[
+            OpenApiParameter(
+                name="store_id", type=OpenApiTypes.INT, description="Filter by store ID"
+            ),
+        ],
+        responses={200: StoreBranchSerializer(many=True)},
+    )
+    def get(self, request):
+        params = request.query_params
+        store_id = self.kwargs.get("store_id") or params.get("store_id")
+
+        if not store_id:
+            return Response(
+                {"detail": "store_id is required."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        queryset = StoreBranch.objects.filter(store_id=store_id)
+        serializer = StoreBranchSerializer(
+            queryset, many=True, context={"request": request}
+        )
+        return Response(serializer.data)
 
 
 class StoreBranchUpdateView(APIView):
