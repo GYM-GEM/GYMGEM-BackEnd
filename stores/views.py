@@ -489,10 +489,12 @@ class OrderListView(APIView):
 
     @extend_schema(
         summary="List orders",
-        description="Retrieve orders filtered by store or buyer",
+        description="Retrieve orders filtered by profile_id or buyer",
         parameters=[
             OpenApiParameter(
-                name="store_id", type=OpenApiTypes.INT, description="Filter by store ID"
+                name="profile_id",
+                type=OpenApiTypes.INT,
+                description="Filter by store profile ID",
             ),
             OpenApiParameter(
                 name="buyer_id", type=OpenApiTypes.INT, description="Filter by buyer ID"
@@ -503,7 +505,7 @@ class OrderListView(APIView):
     def get(self, request):
         """
         Query parameters:
-        - store_id: Filter orders for a specific store
+        - profile_id: Filter orders for a specific store by profile_id
         - buyer_id: Filter orders by buyer account
         If authenticated user is store owner, show only their store's orders
         If authenticated user is buyer, show only their orders
@@ -517,10 +519,12 @@ class OrderListView(APIView):
             if user_stores.exists():
                 orders = orders.filter(store_id__in=user_stores)
 
-        # Filter by store_id if provided
-        store_id = request.query_params.get("store_id")
-        if store_id:
-            orders = orders.filter(store_id=store_id)
+        # Filter by profile_id if provided (for admin or specific queries)
+        query_profile_id = request.query_params.get("profile_id")
+        if query_profile_id:
+            stores = Store.objects.filter(profile_id=query_profile_id)
+            if stores.exists():
+                orders = orders.filter(store_id__in=stores)
 
         # Filter by buyer_id if provided
         buyer_id = request.query_params.get("buyer_id")

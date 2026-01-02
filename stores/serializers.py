@@ -332,12 +332,13 @@ class OrderSerializer(serializers.ModelSerializer):
     store_name = serializers.CharField(source="store_id.name", read_only=True)
     buyer_name = serializers.CharField(source="buyer_id.username", read_only=True)
     total_price = serializers.SerializerMethodField()
+    profile_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = [
             "id",
-            "store_id",
+            "profile_id",
             "store_name",
             "buyer_id",
             "buyer_name",
@@ -350,6 +351,7 @@ class OrderSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
+            "profile_id",
             "buyer_id",
             "total_price",
             "order_items",
@@ -361,7 +363,23 @@ class OrderSerializer(serializers.ModelSerializer):
         """Return total price in gems (1 USD = 10 gems)"""
         return int(obj.total_price * 10)
 
+    def get_profile_id(self, obj):
+        return obj.store_id.profile_id.id
+
     def create(self, validated_data):
+        # Get profile_id from request data
+        profile_id = self.context.get("request").data.get("profile_id")
+        if not profile_id:
+            raise serializers.ValidationError("profile_id is required.")
+
+        # Find the store
+        try:
+            store = Store.objects.get(profile_id=profile_id)
+        except Store.DoesNotExist:
+            raise serializers.ValidationError("Store not found for this profile_id.")
+
+        validated_data["store_id"] = store
+
         # Get buyer_id from context if not provided
         buyer_id = self.context.get("request").data.get("buyer_id")
         if not buyer_id:
