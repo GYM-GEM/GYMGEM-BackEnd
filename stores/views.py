@@ -26,9 +26,13 @@ class StoreListView(APIView):
     permission_classes = [HasRole(["store"])]
 
     @extend_schema(
-        summary="List stores",
-        description="Retrieve all stores",
-        responses={200: StoreSerializer(many=True)},
+        summary="List all stores",
+        description="Retrieve a list of all stores. Only accessible by users with 'store' role.",
+        responses={
+            200: StoreSerializer(many=True),
+            403: "Forbidden - User does not have 'store' role",
+        },
+        tags=["Stores"],
     )
     def get(self, request):
         stores = Store.objects.all()
@@ -37,9 +41,14 @@ class StoreListView(APIView):
 
     @extend_schema(
         summary="Create a new store",
-        description="Create a new store",
+        description="Create a new store for the authenticated user. The user must have a profile with type 'store'.",
         request=StoreSerializer,
-        responses={201: StoreSerializer},
+        responses={
+            201: StoreSerializer,
+            400: "Bad Request - Invalid data or store already exists",
+            403: "Forbidden - User does not have 'store' role",
+        },
+        tags=["Stores"],
     )
     def post(self, request):
         serializer = StoreSerializer(data=request.data, context={"request": request})
@@ -54,8 +63,9 @@ class StoreDetailView(APIView):
 
     @extend_schema(
         summary="Get store details",
-        description="Retrieve details of a specific store",
-        responses={200: StoreSerializer},
+        description="Retrieve details of a specific store by profile ID.",
+        responses={200: StoreSerializer, 404: "Not Found - Store does not exist"},
+        tags=["Stores"],
     )
     def get(self, request, profile_id):
         store = get_object_or_404(Store, profile_id=profile_id)
@@ -64,9 +74,14 @@ class StoreDetailView(APIView):
 
     @extend_schema(
         summary="Update store",
-        description="Update a store (only by owner)",
+        description="Fully update a store. Only the store owner can perform this action.",
         request=StoreSerializer,
-        responses={200: StoreSerializer},
+        responses={
+            200: StoreSerializer,
+            403: "Forbidden - User is not the store owner",
+            404: "Not Found - Store does not exist",
+        },
+        tags=["Stores"],
     )
     def put(self, request, profile_id):
         store = get_object_or_404(Store, profile_id=profile_id)
@@ -85,9 +100,14 @@ class StoreDetailView(APIView):
 
     @extend_schema(
         summary="Partially update store",
-        description="Partially update a store (only by owner)",
+        description="Partially update a store. Only the store owner can perform this action.",
         request=StoreSerializer,
-        responses={200: StoreSerializer},
+        responses={
+            200: StoreSerializer,
+            403: "Forbidden - User is not the store owner",
+            404: "Not Found - Store does not exist",
+        },
+        tags=["Stores"],
     )
     def patch(self, request, profile_id):
         store = get_object_or_404(Store, profile_id=profile_id)
@@ -106,8 +126,13 @@ class StoreDetailView(APIView):
 
     @extend_schema(
         summary="Delete store",
-        description="Delete a store (only by owner)",
-        responses={204: None},
+        description="Delete a store. Only the store owner can perform this action.",
+        responses={
+            204: "No Content - Store deleted successfully",
+            403: "Forbidden - User is not the store owner",
+            404: "Not Found - Store does not exist",
+        },
+        tags=["Stores"],
     )
     def delete(self, request, profile_id):
         store = get_object_or_404(Store, profile_id=profile_id)
@@ -129,8 +154,14 @@ class StoreBranchView(APIView):
 
     @extend_schema(
         summary="List my store branches",
-        description="Retrieve branches for the authenticated store owner",
-        responses={200: StoreBranchSerializer(many=True)},
+        description="Retrieve branches for the authenticated store owner.",
+        responses={
+            200: StoreBranchSerializer(many=True),
+            400: "Bad Request - Profile not found",
+            403: "Forbidden - User does not have 'store' role",
+            404: "Not Found - Store not found",
+        },
+        tags=["Store Branches"],
     )
     def get(self, request):
         profile_id = get_profile_id_from_token(request)
@@ -155,9 +186,14 @@ class StoreBranchView(APIView):
 
     @extend_schema(
         summary="Create store branch",
-        description="Create a new store branch (only by store owner)",
+        description="Create a new branch for the authenticated store owner's store.",
         request=StoreBranchSerializer,
-        responses={201: StoreBranchSerializer},
+        responses={
+            201: StoreBranchSerializer,
+            400: "Bad Request - Invalid data",
+            403: "Forbidden - User does not have 'store' role",
+        },
+        tags=["Store Branches"],
     )
     def post(self, request):
         serializer = StoreBranchSerializer(
@@ -174,15 +210,21 @@ class PublicStoreBranchView(APIView):
 
     @extend_schema(
         summary="List store branches by profile ID",
-        description="Retrieve branches for a store by profile ID (accessible by regular users)",
+        description="Retrieve branches for a store by profile ID. Accessible by authenticated users.",
         parameters=[
             OpenApiParameter(
                 name="profile_id",
                 type=OpenApiTypes.INT,
                 description="Profile ID of the store owner",
+                required=True,
             ),
         ],
-        responses={200: StoreBranchSerializer(many=True)},
+        responses={
+            200: StoreBranchSerializer(many=True),
+            400: "Bad Request - profile_id required or invalid",
+            404: "Not Found - Store not found",
+        },
+        tags=["Store Branches"],
     )
     def get(self, request):
         params = request.query_params
@@ -214,8 +256,13 @@ class StoreBranchUpdateView(APIView):
 
     @extend_schema(
         summary="Get store branch details",
-        description="Retrieve details of a specific store branch",
-        responses={200: StoreBranchSerializer},
+        description="Retrieve details of a specific store branch including location and operating hours.",
+        responses={
+            200: StoreBranchSerializer,
+            401: "Unauthorized - Authentication required",
+            404: "Not Found - Branch not found",
+        },
+        tags=["Store Branches"],
     )
     def get(self, request, branch_id):
         storebranch = get_object_or_404(StoreBranch, id=branch_id)
@@ -224,9 +271,15 @@ class StoreBranchUpdateView(APIView):
 
     @extend_schema(
         summary="Update store branch",
-        description="Update a store branch (only by store owner)",
+        description="Fully update a store branch. Only the store owner can perform this action.",
         request=StoreBranchSerializer,
-        responses={200: StoreBranchSerializer},
+        responses={
+            200: StoreBranchSerializer,
+            400: "Bad Request - Invalid data",
+            403: "Forbidden - Only store owner can update",
+            404: "Not Found - Branch not found",
+        },
+        tags=["Store Branches"],
     )
     def put(self, request, branch_id):
         storebranch = get_object_or_404(StoreBranch, id=branch_id)
@@ -245,8 +298,13 @@ class StoreBranchUpdateView(APIView):
 
     @extend_schema(
         summary="Delete store branch",
-        description="Delete a store branch (only by store owner)",
-        responses={204: None},
+        description="Delete a store branch. Only the store owner can perform this action.",
+        responses={
+            204: "No Content - Branch deleted successfully",
+            403: "Forbidden - Only store owner can delete",
+            404: "Not Found - Branch not found",
+        },
+        tags=["Store Branches"],
     )
     def delete(self, request, branch_id):
         storebranch = get_object_or_404(StoreBranch, id=branch_id)
@@ -289,7 +347,7 @@ class StoreItemListView(APIView):
 
     @extend_schema(
         summary="List store items with filters",
-        description="Retrieve all store items with optional filtering and search",
+        description="Retrieve all store items with optional filtering and search capabilities. Supports filtering by store, branch, category, price range, and text search.",
         parameters=[
             OpenApiParameter(
                 name="store_id", type=OpenApiTypes.INT, description="Filter by store ID"
@@ -307,12 +365,12 @@ class StoreItemListView(APIView):
             OpenApiParameter(
                 name="price_min",
                 type=OpenApiTypes.INT,
-                description="Minimum price filter",
+                description="Minimum price filter (in cents)",
             ),
             OpenApiParameter(
                 name="price_max",
                 type=OpenApiTypes.INT,
-                description="Maximum price filter",
+                description="Maximum price filter (in cents)",
             ),
             OpenApiParameter(
                 name="search",
@@ -325,7 +383,11 @@ class StoreItemListView(APIView):
                 description="Order by field (name, price, -name, -price)",
             ),
         ],
-        responses={200: StoreItemSerializer(many=True)},
+        responses={
+            200: StoreItemSerializer(many=True),
+            401: "Unauthorized - Authentication required",
+        },
+        tags=["Store Items"],
     )
     def get(self, request):
         params = request.query_params
@@ -384,8 +446,13 @@ class MyStoreItemListView(APIView):
 
     @extend_schema(
         summary="List my store items",
-        description="Retrieve all items belonging to the authenticated store owner",
-        responses={200: StoreItemSerializer(many=True)},
+        description="Retrieve all items belonging to the authenticated store owner. Only shows items from stores owned by the user.",
+        responses={
+            200: StoreItemSerializer(many=True),
+            400: "Bad Request - Profile not found",
+            404: "Not Found - Store not found for this user",
+        },
+        tags=["Store Items"],
     )
     def get(self, request):
         profile_id = get_profile_id_from_token(request)
@@ -412,8 +479,13 @@ class StoreItemDetailView(APIView):
 
     @extend_schema(
         summary="Get store item details",
-        description="Retrieve details of a specific store item",
-        responses={200: StoreItemSerializer},
+        description="Retrieve detailed information about a specific store item including inventory and pricing.",
+        responses={
+            200: StoreItemSerializer,
+            401: "Unauthorized - Authentication required",
+            404: "Not Found - Item not found",
+        },
+        tags=["Store Items"],
     )
     def get(self, request, item_id):
         item = get_object_or_404(StoreItem, id=item_id)
@@ -422,9 +494,15 @@ class StoreItemDetailView(APIView):
 
     @extend_schema(
         summary="Update store item",
-        description="Update a store item (only by store owner)",
+        description="Fully update a store item. Only the store owner can perform this action.",
         request=StoreItemSerializer,
-        responses={200: StoreItemSerializer},
+        responses={
+            200: StoreItemSerializer,
+            400: "Bad Request - Invalid data",
+            403: "Forbidden - Only store owner can update",
+            404: "Not Found - Item not found",
+        },
+        tags=["Store Items"],
     )
     def put(self, request, item_id):
         item = get_object_or_404(StoreItem, id=item_id)
@@ -443,9 +521,15 @@ class StoreItemDetailView(APIView):
 
     @extend_schema(
         summary="Partially update store item",
-        description="Partially update a store item (only by store owner)",
+        description="Partially update a store item. Only the store owner can perform this action.",
         request=StoreItemSerializer,
-        responses={200: StoreItemSerializer},
+        responses={
+            200: StoreItemSerializer,
+            400: "Bad Request - Invalid data",
+            403: "Forbidden - Only store owner can update",
+            404: "Not Found - Item not found",
+        },
+        tags=["Store Items"],
     )
     def patch(self, request, item_id):
         item = get_object_or_404(StoreItem, id=item_id)
@@ -489,18 +573,26 @@ class OrderListView(APIView):
 
     @extend_schema(
         summary="List orders",
-        description="Retrieve orders filtered by profile_id or buyer",
+        description="Retrieve orders based on user role and optional filters. Store owners see their orders, buyers see their purchases, admins can filter by profile_id.",
         parameters=[
             OpenApiParameter(
                 name="profile_id",
                 type=OpenApiTypes.INT,
-                description="Filter by store profile ID",
+                description="Filter orders for a specific store by profile ID (admin use)",
+                required=False,
             ),
             OpenApiParameter(
-                name="buyer_id", type=OpenApiTypes.INT, description="Filter by buyer ID"
+                name="buyer_id",
+                type=OpenApiTypes.INT,
+                description="Filter orders by buyer ID",
+                required=False,
             ),
         ],
-        responses={200: OrderSerializer(many=True)},
+        responses={
+            200: OrderSerializer(many=True),
+            401: "Unauthorized - Authentication required",
+        },
+        tags=["Orders"],
     )
     def get(self, request):
         """
@@ -540,9 +632,14 @@ class OrderListView(APIView):
 
     @extend_schema(
         summary="Create order",
-        description="Create a new order",
+        description="Create a new order. The buyer is set from the authenticated user, and profile_id specifies the store.",
         request=OrderSerializer,
-        responses={201: OrderSerializer},
+        responses={
+            201: OrderSerializer,
+            400: "Bad Request - Invalid data or missing profile_id",
+            401: "Unauthorized - Authentication required",
+        },
+        tags=["Orders"],
     )
     def post(self, request):
         serializer = OrderSerializer(data=request.data, context={"request": request})
@@ -557,8 +654,14 @@ class OrderDetailView(APIView):
 
     @extend_schema(
         summary="Get order details",
-        description="Retrieve details of a specific order",
-        responses={200: OrderSerializer},
+        description="Retrieve detailed information about a specific order including all order items. Only accessible by store owner or buyer.",
+        responses={
+            200: OrderSerializer,
+            401: "Unauthorized - Authentication required",
+            403: "Forbidden - Only store owner or buyer can view",
+            404: "Not Found - Order not found",
+        },
+        tags=["Orders"],
     )
     def get(self, request, order_id):
         order = get_object_or_404(Order, id=order_id)
@@ -567,9 +670,15 @@ class OrderDetailView(APIView):
 
     @extend_schema(
         summary="Update order",
-        description="Update an order (store owner or buyer only)",
+        description="Fully update an order. Only store owner or buyer can perform this action.",
         request=OrderSerializer,
-        responses={200: OrderSerializer},
+        responses={
+            200: OrderSerializer,
+            400: "Bad Request - Invalid data",
+            403: "Forbidden - Only store owner or buyer can update",
+            404: "Not Found - Order not found",
+        },
+        tags=["Orders"],
     )
     def put(self, request, order_id):
         order = get_object_or_404(Order, id=order_id)
@@ -589,7 +698,7 @@ class OrderDetailView(APIView):
 
     @extend_schema(
         summary="Partially update order",
-        description="Partially update an order (store owner or buyer only)",
+        description="Partially update an order. Only store owner or buyer can perform this action.",
         request=OrderSerializer,
         responses={200: OrderSerializer},
     )
@@ -648,8 +757,14 @@ class OrderItemListView(APIView):
 
     @extend_schema(
         summary="List order items for a specific order",
-        description="Retrieve all order items for a specific order",
-        responses={200: OrderItemSerializer(many=True)},
+        description="Retrieve all order items for a specific order. Only accessible by store owner or buyer of the order.",
+        responses={
+            200: OrderItemSerializer(many=True),
+            401: "Unauthorized - Authentication required",
+            403: "Forbidden - Only store owner or buyer can view",
+            404: "Not Found - Order not found",
+        },
+        tags=["Order Items"],
     )
     def get(self, request, order_id):
         # Get the specific order
@@ -672,9 +787,15 @@ class OrderItemListView(APIView):
 
     @extend_schema(
         summary="Add item to order",
-        description="Add an item to an order (store owner or buyer only)",
+        description="Add an item to an existing order. Only store owner or buyer can perform this action.",
         request=AddOrderItemSerializer,
-        responses={201: OrderItemSerializer},
+        responses={
+            201: OrderItemSerializer,
+            400: "Bad Request - Invalid data or insufficient inventory",
+            403: "Forbidden - Only store owner or buyer can add items",
+            404: "Not Found - Order or item not found",
+        },
+        tags=["Order Items"],
     )
     def post(self, request, order_id):
         order = get_object_or_404(Order, id=order_id)
@@ -728,8 +849,14 @@ class OrderItemDetailView(APIView):
 
     @extend_schema(
         summary="Get order item details",
-        description="Retrieve details of a specific order item",
-        responses={200: OrderItemSerializer},
+        description="Retrieve details of a specific order item. Only accessible by store owner or buyer of the order.",
+        responses={
+            200: OrderItemSerializer,
+            401: "Unauthorized - Authentication required",
+            403: "Forbidden - Only store owner or buyer can view",
+            404: "Not Found - Order item not found",
+        },
+        tags=["Order Items"],
     )
     def get(self, request, order_item_id):
         item = get_object_or_404(OrderItem, id=order_item_id)
@@ -738,8 +865,13 @@ class OrderItemDetailView(APIView):
 
     @extend_schema(
         summary="Delete order item",
-        description="Delete an order item (store owner or buyer only)",
-        responses={204: None},
+        description="Remove an item from an order. Only store owner or buyer can perform this action.",
+        responses={
+            204: "No Content - Item deleted successfully",
+            403: "Forbidden - Only store owner or buyer can delete",
+            404: "Not Found - Order item not found",
+        },
+        tags=["Order Items"],
     )
     def delete(self, request, order_item_id):
         item = get_object_or_404(OrderItem, id=order_item_id)
@@ -763,9 +895,15 @@ class OrderItemDetailView(APIView):
 
     @extend_schema(
         summary="Update order item",
-        description="Update an order item (store owner or buyer only)",
+        description="Update an order item (quantity, etc.). Only store owner or buyer can perform this action.",
         request=OrderItemSerializer,
-        responses={200: OrderItemSerializer},
+        responses={
+            200: OrderItemSerializer,
+            400: "Bad Request - Invalid data",
+            403: "Forbidden - Only store owner or buyer can update",
+            404: "Not Found - Order item not found",
+        },
+        tags=["Order Items"],
     )
     def patch(self, request, order_item_id):
         item = get_object_or_404(OrderItem, id=order_item_id)
