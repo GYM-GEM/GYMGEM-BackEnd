@@ -632,11 +632,44 @@ class OrderListView(APIView):
 
     @extend_schema(
         summary="Create order",
-        description="Create a new order. The buyer is set from the authenticated user, and profile_id specifies the store.",
-        request=OrderSerializer,
+        description="Create a new order. The buyer is set from the authenticated user, and profile_id specifies the store. Can optionally include order items in the same request.",
+        request={
+            "type": "object",
+            "properties": {
+                "profile_id": {
+                    "type": "integer",
+                    "description": "Profile ID of the store",
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "confirmed",
+                        "shipped",
+                        "delivered",
+                        "cancelled",
+                    ],
+                },
+                "notes": {"type": "string"},
+                "order_items_data": {
+                    "type": "array",
+                    "description": "Optional array of order items to create with the order",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "store_item_id": {"type": "integer"},
+                            "size_id": {"type": "integer", "nullable": True},
+                            "quantity": {"type": "integer", "minimum": 1},
+                        },
+                        "required": ["store_item_id", "quantity"],
+                    },
+                },
+            },
+            "required": ["profile_id"],
+        },
         responses={
             201: OrderSerializer,
-            400: "Bad Request - Invalid data or missing profile_id",
+            400: "Bad Request - Invalid data, insufficient inventory, or missing profile_id",
             401: "Unauthorized - Authentication required",
         },
         tags=["Orders"],

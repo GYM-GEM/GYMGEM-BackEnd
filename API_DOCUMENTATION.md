@@ -286,16 +286,32 @@ http://localhost:8000/api/stores/
 #### 22. Create Order
 - **Endpoint:** `POST /api/stores/orders/`
 - **Permissions:** Authenticated users
-- **Description:** Create a new order
+- **Description:** Create a new order. Can optionally include order items in the same request.
 - **Request Body:**
   ```json
   {
     "profile_id": 123,
     "status": "pending",
-    "notes": "Order notes"
+    "notes": "Order notes",
+    "order_items_data": [
+      {
+        "store_item_id": 1,
+        "size_id": 2,
+        "quantity": 2
+      },
+      {
+        "store_item_id": 3,
+        "quantity": 1
+      }
+    ]
   }
   ```
-- **Response:** Created order object
+- **Notes:** 
+  - `order_items_data` is optional - you can create an empty order and add items later
+  - `size_id` is optional if the item doesn't have size variants
+  - Inventory is automatically reduced when order is created
+  - Price is taken from the current item price at time of order
+- **Response:** Created order object with order items
 - **Status Codes:**
   - 201: Created
   - 400: Bad Request

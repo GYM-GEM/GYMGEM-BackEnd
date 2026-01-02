@@ -296,6 +296,63 @@ class StoreItemSerializer(serializers.ModelSerializer):
         return instance
 
 
+class OrderItemCreateSerializer(serializers.Serializer):
+    """Serializer for creating order items within an order."""
+
+    store_item_id = serializers.IntegerField()
+    size_id = serializers.IntegerField(required=False, allow_null=True)
+    quantity = serializers.IntegerField(min_value=1)
+
+    def validate_store_item_id(self, value):
+        try:
+            item = StoreItem.objects.get(pk=value)
+            # Check if item has sufficient inventory
+            if item.get_total_quantity() <= 0:
+                raise serializers.ValidationError("Item is out of stock.")
+            return value
+        except StoreItem.DoesNotExist:
+            raise serializers.ValidationError("Store item does not exist.")
+        return value
+
+    def validate_size_id(self, value):
+        if value is not None:
+            try:
+                StoreItemSize.objects.get(pk=value)
+            except StoreItemSize.DoesNotExist:
+                raise serializers.ValidationError("Size does not exist.")
+        return value
+
+    def validate(self, data):
+        store_item_id = data.get("store_item_id")
+        size_id = data.get("size_id")
+        quantity = data.get("quantity")
+
+        # Check inventory for specific size if size is specified
+        if size_id:
+            try:
+                inventory = StoreItemInventory.objects.get(
+                    store_item_id=store_item_id, size_id=size_id
+                )
+                if inventory.quantity < quantity:
+                    raise serializers.ValidationError(
+                        f"Insufficient inventory for size. Available: {inventory.quantity}"
+                    )
+            except StoreItemInventory.DoesNotExist:
+                raise serializers.ValidationError("Size not available for this item.")
+        else:
+            # Check total inventory across all sizes
+            try:
+                item = StoreItem.objects.get(pk=store_item_id)
+                if item.get_total_quantity() < quantity:
+                    raise serializers.ValidationError(
+                        f"Insufficient inventory. Available: {item.get_total_quantity()}"
+                    )
+            except StoreItem.DoesNotExist:
+                pass  # Already validated above
+
+        return data
+
+
 class OrderItemSerializer(serializers.ModelSerializer):
     store_item_name = serializers.CharField(source="store_item_id.name", read_only=True)
     size_name = serializers.CharField(
@@ -367,8 +424,16 @@ class OrderSerializer(serializers.ModelSerializer):
         return obj.store_id.profile_id.id
 
     def create(self, validated_data):
+        # Extract order items data from raw request data
+        request = self.context.get("request")
+        order_items_data = request.data.get("order_items_data", [])
+        
+        # Fallback to 'order_items' if 'order_items_data' is not provided
+        if not order_items_data:
+            order_items_data = request.data.get("order_items", [])
+
         # Get profile_id from request data
-        profile_id = self.context.get("request").data.get("profile_id")
+        profile_id = request.data.get("profile_id")
         if not profile_id:
             raise serializers.ValidationError("profile_id is required.")
 
@@ -381,10 +446,10 @@ class OrderSerializer(serializers.ModelSerializer):
         validated_data["store_id"] = store
 
         # Get buyer_id from context if not provided
-        buyer_id = self.context.get("request").data.get("buyer_id")
+        buyer_id = request.data.get("buyer_id")
         if not buyer_id:
             # Get account ID from JWT token
-            auth_header = self.context.get("request").headers.get("Authorization")
+            auth_header = request.headers.get("Authorization")
             if auth_header and auth_header.startswith("Bearer "):
                 token_string = auth_header.split(" ")[1]
                 from rest_framework_simplejwt.tokens import AccessToken
@@ -401,9 +466,83 @@ class OrderSerializer(serializers.ModelSerializer):
             else:
                 raise serializers.ValidationError("Authorization required.")
 
-        order = Order(**validated_data)
-        order.full_clean()
-        order.save()
+        # Create order with transaction to ensure data consistency
+        with transaction.atomic():
+            order = Order(**validated_data)
+            order.full_clean()
+            order.save()
+
+            # Create order items if provided
+            for item_data in order_items_data:
+                # Basic validation
+                if not isinstance(item_data, dict):
+                    raise serializers.ValidationError("Invalid order item data format.")
+                
+                try:
+                    store_item_id = item_data.get("store_item_id")
+                    quantity = item_data.get("quantity")
+                    size_id = item_data.get("size_id")
+                except Exception:
+                    raise serializers.ValidationError("Invalid order item data format.")
+                
+                if not store_item_id or not quantity:
+                    raise serializers.ValidationError("store_item_id and quantity are required for each order item.")
+                
+                if quantity <= 0:
+                    raise serializers.ValidationError("Quantity must be greater than zero.")
+                
+                store_item = StoreItem.objects.get(pk=store_item_id)
+
+                # Get current price
+                price_at_order = (
+                    store_item.price / 100.0
+                )  # Convert from cents to dollars
+
+                # Create order item
+                OrderItem.objects.create(
+                    order_id=order,
+                    store_item_id=store_item,
+                    size_id=size_id,
+                    quantity=quantity,
+                    price_at_order=price_at_order,
+                )
+
+                # Update inventory
+                if size_id:
+                    # Specific size inventory
+                    inventory = StoreItemInventory.objects.get(
+                        store_item_id=store_item, size_id=size_id
+                    )
+                    if inventory.quantity < quantity:
+                        raise serializers.ValidationError(
+                            f"Insufficient inventory for item {store_item.name}, size {size_id}. Available: {inventory.quantity}"
+                        )
+                    inventory.quantity -= quantity
+                    inventory.save()
+                else:
+                    # Reduce from available inventory
+                    inventories = StoreItemInventory.objects.filter(
+                        store_item_id=store_item
+                    ).order_by("quantity")
+
+                    remaining_quantity = quantity
+                    for inventory in inventories:
+                        if remaining_quantity <= 0:
+                            break
+                        if inventory.quantity > 0:
+                            deduct = min(inventory.quantity, remaining_quantity)
+                            inventory.quantity -= deduct
+                            inventory.save()
+                            remaining_quantity -= deduct
+                    
+                    if remaining_quantity > 0:
+                        raise serializers.ValidationError(
+                            f"Insufficient inventory for item {store_item.name}. Available: {store_item.get_total_quantity()}"
+                        )
+
+            # Calculate total price
+            order.calculate_total()
+
         return order
 
     def update(self, instance, validated_data):
