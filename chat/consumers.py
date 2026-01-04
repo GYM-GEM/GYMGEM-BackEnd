@@ -379,6 +379,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }))
             return
         
+        # Reject obviously invalid message IDs (e.g., timestamp-based frontend IDs)
+        # These are typically much larger than database IDs and would cause lookup failures
+        # Max reasonable ID: 1 billion (adjust based on your database scale)
+        MAX_VALID_MESSAGE_ID = 1_000_000_000
+        if message_id > MAX_VALID_MESSAGE_ID:
+            logger.debug(
+                "Ignoring invalid message_id %s (likely a frontend timestamp) in conversation %s",
+                message_id,
+                self.conversation_id
+            )
+            # Silently ignore to prevent error message loops
+            return
+        
         try:
             # Ensure the message exists and belongs to this conversation
             await sync_to_async(
@@ -420,10 +433,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
             
         except Message.DoesNotExist:
-            await self.send(json.dumps({
-                "type": "error",
-                "message": f"Message {message_id} not found in this conversation"
-            }))
+            # Silently log instead of sending error to prevent potential loops
+            # where error messages get interpreted as new messages by frontend
+            logger.debug(
+                "Message %s not found in conversation %s for read receipt",
+                message_id,
+                self.conversation_id
+            )
 
     async def handle_typing_indicator(self, data: Dict[str, Any]) -> None:
         """Handle typing indicator events."""
@@ -588,7 +604,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def read_receipt(self, event: Dict[str, Any]) -> None:
         """Send read receipt to WebSocket clients."""
-        await self.send(json.dumps(event))
+        await self.send(json.dumps({
+            "type": "read",
+            "message_id": event.get("message_id"),
+            "reader_id": event.get("reader_id"),
+            "reader_name": event.get("reader_name"),
+            "read_at": event.get("read_at")
+        }))
 
     async def typing_indicator(self, event: Dict[str, Any]) -> None:
         """Send typing indicator to WebSocket clients."""
@@ -603,7 +625,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_message(self, event: Dict[str, Any]) -> None:
         """Send chat message to WebSocket clients."""
-        await self.send(json.dumps(event))
+        # Send with explicit 'message' type for frontend to distinguish from other events
+        await self.send(json.dumps({
+            "type": "message",
+            "message_id": event.get("message_id"),
+            "sender_id": event.get("sender_id"),
+            "sender_name": event.get("sender_name"),
+            "content": event.get("content"),
+            "timestamp": event.get("timestamp"),
+            "is_owner": event.get("is_owner", False)
+        }))
 
     async def message_edited(self, event: Dict[str, Any]) -> None:
         """Send message edit notification to WebSocket clients."""

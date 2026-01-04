@@ -53,16 +53,16 @@ class SessionRequestView(APIView):
             slot_obj = TrainerCalendarSlot.objects.only('slot_start_time').get(pk=time_slot)
         except TrainerCalendarSlot.DoesNotExist:
             return Response({'error': 'Selected time slot does not exist.'}, status=400)
-        if timezone.now() + timedelta(hours=6) > slot_obj.slot_start_time :
-            return Response({'error': 'Cannot request a session for a time slot that starts in less than 6 hours.'}, status=400)
+        # if timezone.now() + timedelta(hours=6) > slot_obj.slot_start_time :
+        #     return Response({'error': 'Cannot request a session for a time slot that starts in less than 6 hours.'}, status=400)
         # Prevent multiple active sessions with the same trainer
         has_trainer_conflict = InteractiveSession.objects.filter(
             trainee__id=trainee,
             trainer__id=trainer,
             status__in=['requested', 'scheduled'],
         ).count() 
-        if has_trainer_conflict > 2:
-            return Response({'error': 'You already have three active sessions with this trainer. Complete or cancel it before requesting another.'}, status=400)
+        # if has_trainer_conflict > 2:
+        #     return Response({'error': 'You already have three active sessions with this trainer. Complete or cancel it before requesting another.'}, status=400)
         has_time_conflict = InteractiveSession.objects.filter(
             trainee__id=trainee,
             status__in=['requested', 'scheduled'],
@@ -76,7 +76,7 @@ class SessionRequestView(APIView):
             scheduled_at_id=time_slot,
             status__in=['requested', 'scheduled'],
             trainee__id=trainee
-        ).count() > 2:
+        ).count() > 1:
             return Response({'error': 'You already have three sessions scheduled/requested for this slot.'}, status=400)
         trainer_profile = Profile.objects.get(pk=trainer).get_profile_data
         serializer = InteractiveSessionSerializer(data={
@@ -142,8 +142,8 @@ class SessionAcceptView(APIView):
             return Response({'error': 'Session not found'}, status=404)
         if session.status != 'requested':
             return Response({'error': 'Only requested sessions can be accepted'}, status=400)
-        if session.scheduled_at.slot_start_time - timezone.now() < timedelta(hours=1):
-            return Response({'error': 'Cannot accept a session less than 1 hour before its start time.'}, status=400)
+        # if session.scheduled_at.slot_start_time - timezone.now() < timedelta(hours=1):
+        #     return Response({'error': 'Cannot accept a session less than 1 hour before its start time.'}, status=400)
         with transaction.atomic():
             session.status = 'scheduled'  # Update status to pending upon acceptance
             session.save()

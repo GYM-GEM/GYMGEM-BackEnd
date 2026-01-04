@@ -203,6 +203,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://gymgem-theta.vercel.app",
     "http://192.168.1.7:4040",
     "http://192.168.1.2:4040",
+    "http://192.168.1.5:4040",
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = list(default_headers) + [
@@ -469,7 +470,6 @@ CACHES = {
         "LOCATION": REDIS_URL,
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "PARSER_CLASS": "redis.connection.HiredisParser",
             "CONNECTION_POOL_KWARGS": {"max_connections": 50},
             "SOCKET_CONNECT_TIMEOUT": 5,
             "SOCKET_TIMEOUT": 5,
