@@ -47,6 +47,10 @@ class Complaints(models.Model):
     target_complaint = models.ForeignKey('profiles.Profile', related_name='target_complaint', on_delete=models.CASCADE,null=True,blank=True)
     details = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True,null=True)
+    
+    admin_response = models.TextField(blank=True, null=True)
+    response_at = models.DateTimeField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=[
         ('open', 'Open'),
         ('in_review', 'In Review'),

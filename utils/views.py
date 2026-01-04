@@ -236,57 +236,13 @@ class ComplaintStatusView(APIView):
                 "target_complaint": c.target_complaint.id if c.target_complaint else None,
                 "details": c.details,
                 "created_at": c.created_at,
-                "status": c.status
+                "status": c.status,
+                "admin_response": c.admin_response,
+                "response_at": c.response_at
             }
             for c in complaints
         ]
         return Response({"complaints": data})
-
-
-@extend_schema(
-    tags=["Complaints"],
-    summary="Retrieve complaint details",
-    description="Get details of a specific complaint by ID.",
-    parameters=[
-        OpenApiParameter(
-            "complaint_id",
-            int,
-            OpenApiParameter.PATH,
-            description="ID of the complaint"
-        )
-    ],
-    responses={
-        200: OpenApiResponse(description="Complaint details."),
-        404: OpenApiResponse(description="Complaint not found.")
-    }
-)
-class ComplaintDetailView(APIView):
-    """Get details of a specific complaint."""
-    
-    permission_classes = [IsAuthenticated]
-    
-    def get(
-        self,
-        request: HttpRequest,
-        complaint_id: int,
-        *args: Any,
-        **kwargs: Any
-    ) -> Response:
-        profile_id = get_profile_id_from_token(request)
-        try:
-            complaint = Complaints.objects.get(id=complaint_id, profile_id=profile_id)
-            data = {
-                "id": complaint.id,
-                "target_complaint": (
-                    complaint.target_complaint.id if complaint.target_complaint else None
-                ),
-                "details": complaint.details,
-                "created_at": complaint.created_at,
-                "status": complaint.status
-            }
-            return Response({"complaint": data})
-        except Complaints.DoesNotExist:
-            return Response({"error": "Complaint not found."}, status=404)
 
 
 @extend_schema(
@@ -322,12 +278,16 @@ class ComplaintUpdateView(APIView):
         **kwargs: Any
     ) -> Response:
         new_status = request.data.get("status", "")
+        response = request.data.get("admin_response", "")
         try:
             complaint = Complaints.objects.get(id=complaint_id)
             if new_status:
                 complaint.status = new_status
             complaint.save()
-            
+            if response:
+                complaint.admin_response = response
+                complaint.response_at = datetime.now(timezone.utc)
+                complaint.save()
             logger.info(
                 "Complaint %s status updated to '%s'",
                 complaint_id,
@@ -353,7 +313,9 @@ class CompaintAdminListView(APIView):
                 "target_complaint": c.target_complaint.id if c.target_complaint else None,
                 "details": c.details,
                 "created_at": c.created_at,
-                "status": c.status
+                "status": c.status,
+                "admin_response": c.admin_response,
+                "response_at": c.response_at
             }
             for c in complaints
         ]
@@ -497,3 +459,4 @@ class PaymobService:
         except requests.RequestException as e:
             logger.error("Paymob refund failed: %s", str(e))
             raise RuntimeError(f"Paymob refund failed: {e}")
+
