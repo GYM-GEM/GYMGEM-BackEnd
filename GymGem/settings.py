@@ -199,11 +199,7 @@ MIDDLEWARE = [
 ROOT_URLCONF = "GymGem.urls"
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:4040",
-    "http://127.0.0.1:4040",
-    "https://gymgem-theta.vercel.app",
-    "http://192.168.1.7:4040",
-    "http://192.168.1.2:4040",
-    "http://192.168.1.5:4040",
+    "http://192.168.1.20:4040",
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = list(default_headers) + [
