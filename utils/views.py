@@ -40,7 +40,7 @@ from rest_framework import generics, serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, OpenApiExample
 
 from accounts.models import Account
 from authenticationAndAuthorization.permissions import HasRole
@@ -221,13 +221,15 @@ def send_verification_email(account: Account, request: HttpRequest) -> None:
             response=CategorySerializer(many=True),
             description="Successfully retrieved list of categories",
             examples=[
-                {
-                    "application/json": [
+                OpenApiExample(
+                    "Categories List",
+                    value=[
                         {"id": 1, "name": "Fitness"},
                         {"id": 2, "name": "Yoga"},
                         {"id": 3, "name": "Nutrition"}
-                    ]
-                }
+                    ],
+                    response_only=True
+                )
             ]
         ),
         500: OpenApiResponse(description="Internal server error")
@@ -288,13 +290,15 @@ class CategoryListView(generics.ListAPIView):
             response=SpecializationSerializer(many=True),
             description="Successfully retrieved list of specializations",
             examples=[
-                {
-                    "application/json": [
+                OpenApiExample(
+                    "Specializations List",
+                    value=[
                         {"id": 1, "name": "Weight Training"},
                         {"id": 2, "name": "Cardio"},
                         {"id": 3, "name": "CrossFit"}
-                    ]
-                }
+                    ],
+                    response_only=True
+                )
             ]
         ),
         500: OpenApiResponse(description="Internal server error")
@@ -372,11 +376,11 @@ class SpecializationListView(generics.ListAPIView):
         201: OpenApiResponse(
             description="Complaint submitted successfully",
             examples=[
-                {
-                    "application/json": {
-                        "message": "Complaint sent successfully."
-                    }
-                }
+                OpenApiExample(
+                    "Success Response",
+                    value={"message": "Complaint sent successfully."},
+                    response_only=True
+                )
             ]
         ),
         400: OpenApiResponse(description="Invalid request data"),
@@ -457,8 +461,9 @@ class SendComplaint(APIView):
         200: OpenApiResponse(
             description="Successfully retrieved user's complaints",
             examples=[
-                {
-                    "application/json": {
+                OpenApiExample(
+                    "User Complaints List",
+                    value={
                         "complaints": [
                             {
                                 "id": 1,
@@ -479,8 +484,9 @@ class SendComplaint(APIView):
                                 "response_at": "2026-01-03T11:00:00Z"
                             }
                         ]
-                    }
-                }
+                    },
+                    response_only=True
+                )
             ]
         ),
         401: OpenApiResponse(description="Authentication credentials were not provided or invalid"),
@@ -597,11 +603,11 @@ class ComplaintStatusView(APIView):
         200: OpenApiResponse(
             description="Complaint updated successfully",
             examples=[
-                {
-                    "application/json": {
-                        "message": "Complaint updated successfully."
-                    }
-                }
+                OpenApiExample(
+                    "Success Response",
+                    value={"message": "Complaint updated successfully."},
+                    response_only=True
+                )
             ]
         ),
         400: OpenApiResponse(description="Invalid request data"),
@@ -610,11 +616,11 @@ class ComplaintStatusView(APIView):
         404: OpenApiResponse(
             description="Complaint not found",
             examples=[
-                {
-                    "application/json": {
-                        "error": "Complaint not found."
-                    }
-                }
+                OpenApiExample(
+                    "Not Found Error",
+                    value={"error": "Complaint not found."},
+                    response_only=True
+                )
             ]
         ),
         500: OpenApiResponse(description="Internal server error")
@@ -710,8 +716,9 @@ class ComplaintUpdateView(APIView):
         200: OpenApiResponse(
             description="Successfully retrieved all complaints",
             examples=[
-                {
-                    "application/json": {
+                OpenApiExample(
+                    "All Complaints List",
+                    value={
                         "complaints": [
                             {
                                 "id": 1,
@@ -734,8 +741,9 @@ class ComplaintUpdateView(APIView):
                                 "response_at": "2026-01-03T11:00:00Z"
                             }
                         ]
-                    }
-                }
+                    },
+                    response_only=True
+                )
             ]
         ),
         401: OpenApiResponse(description="Authentication credentials were not provided"),
