@@ -149,7 +149,7 @@ class Order(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Order<{self.id}> from {self.store_id.name} by {self.buyer_id.username}"
+        return f"Order<{self.id}> from {self.store_id.name} by {self.buyer_id.user}"
 
     def calculate_total(self):
         """Recalculate total from order items."""
