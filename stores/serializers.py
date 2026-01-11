@@ -488,15 +488,14 @@ class OrderSerializer(serializers.ModelSerializer):
         # Check if buyer has sufficient balance
         buyer = validated_data.get("buyer_id")
         if buyer:
-            from trainees.models import Trainee
             try:
-                trainee = Trainee.objects.get(profile_id=buyer)
-                if trainee.balance < total_order_price:
+                buyer_balance = buyer.get_profile_data
+                if buyer_balance.balance < total_order_price:
                     raise serializers.ValidationError(
-                        f"Insufficient balance. Required: {total_order_price} gems, Available: {trainee.balance} gems."
+                        f"Insufficient balance. Required: {total_order_price} gems, Available: {buyer_balance.balance} gems."
                     )
-            except Trainee.DoesNotExist:
-                raise serializers.ValidationError("Buyer profile not found or is not a trainee.")
+            except Exception:
+                raise serializers.ValidationError("Unable to retrieve buyer balance.")
 
         # Create order with transaction to ensure data consistency
         try:
