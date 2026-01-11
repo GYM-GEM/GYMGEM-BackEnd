@@ -498,6 +498,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
         # Check if buyer has sufficient balance
         buyer = validated_data.get("buyer_id")
+        buyer = Profile.objects.filter(pk=buyer_id).first()  # Ensure buyer is a Profile instance
         if buyer:
             try:
                 buyer_balance = buyer.get_profile_data
