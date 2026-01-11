@@ -575,12 +575,9 @@ class OrderSerializer(serializers.ModelSerializer):
                 # Calculate total price
                 order.calculate_total()
                 
-                # Deduct balance from buyer
-                if buyer:
-                    from trainees.models import Trainee
-                    trainee = Trainee.objects.get(profile_id=buyer)
-                    trainee.balance -= total_order_price
-                    trainee.save()
+                buyer_balance = buyer.get_profile_data
+                buyer_balance.balance -= total_order_price
+                buyer_balance.save()
                     
         except Exception as e:
             raise serializers.ValidationError(str(e))
