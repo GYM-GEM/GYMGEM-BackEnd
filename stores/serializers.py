@@ -587,10 +587,6 @@ class OrderSerializer(serializers.ModelSerializer):
                     f"Insufficient inventory for item {store_item.name}. Available: {store_item.get_total_quantity()}"
                 )
 
-            
-
-        return order
-
     def update(self, instance, validated_data):
         for attr, value in validated_data.items():
             if attr != "store_id":  # prevent store change
