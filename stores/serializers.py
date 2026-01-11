@@ -470,6 +470,34 @@ class OrderSerializer(serializers.ModelSerializer):
             else:
                 validated_data["buyer_id"] = None
 
+        # Calculate total order price before creating the order
+        total_order_price = 0
+        for item_data in order_items_data:
+            if isinstance(item_data, dict):
+                store_item_id = item_data.get("store_item_id")
+                quantity = item_data.get("quantity", 0)
+                if store_item_id and quantity:
+                    try:
+                        store_item = StoreItem.objects.get(pk=store_item_id)
+                        # Price is in cents, convert to gems (1 USD = 10 gems, so cents / 10)
+                        item_price_gems = store_item.price // 10
+                        total_order_price += item_price_gems * quantity
+                    except StoreItem.DoesNotExist:
+                        pass  # Will be caught during order item creation
+
+        # Check if buyer has sufficient balance
+        buyer = validated_data.get("buyer_id")
+        if buyer:
+            from trainees.models import Trainee
+            try:
+                trainee = Trainee.objects.get(profile_id=buyer)
+                if trainee.balance < total_order_price:
+                    raise serializers.ValidationError(
+                        f"Insufficient balance. Required: {total_order_price} gems, Available: {trainee.balance} gems."
+                    )
+            except Trainee.DoesNotExist:
+                raise serializers.ValidationError("Buyer profile not found or is not a trainee.")
+
         # Create order with transaction to ensure data consistency
         try:
             with transaction.atomic():
@@ -543,8 +571,17 @@ class OrderSerializer(serializers.ModelSerializer):
                             raise serializers.ValidationError(
                                 f"Insufficient inventory for item {store_item.name}. Available: {store_item.get_total_quantity()}"
                             )
-                            # Calculate total price
-                        order.calculate_total()
+                
+                # Calculate total price
+                order.calculate_total()
+                
+                # Deduct balance from buyer
+                if buyer:
+                    from trainees.models import Trainee
+                    trainee = Trainee.objects.get(profile_id=buyer)
+                    trainee.balance -= total_order_price
+                    trainee.save()
+                    
         except Exception as e:
             raise serializers.ValidationError(str(e))
 
