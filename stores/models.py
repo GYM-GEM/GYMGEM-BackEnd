@@ -141,7 +141,7 @@ class StoreItemInventory(models.Model):
       
 class Order(models.Model):    
     store_id = models.ForeignKey(Store, on_delete=models.CASCADE)
-    buyer_id = models.ForeignKey("profiles.Profile", on_delete=models.CASCADE)  # who ordered
+    buyer_id = models.ForeignKey(Profile, on_delete=models.CASCADE)  # who ordered
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     status = models.CharField(max_length=20, choices= [('pending', 'Pending'), ('confirmed', 'Confirmed'), ('shipped', 'Shipped'), ('delivered', 'Delivered'), ('cancelled', 'Cancelled')], default='pending')
     notes = models.CharField(max_length=255, blank=True, null=True)
