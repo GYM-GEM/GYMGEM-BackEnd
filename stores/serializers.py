@@ -501,7 +501,7 @@ class OrderSerializer(serializers.ModelSerializer):
             if store_item_id and quantity:
                 try:
                     store_item = StoreItem.objects.get(pk=store_item_id)
-                    total += (store_item.price // 10) * quantity
+                    total += (store_item.price) * quantity
                 except StoreItem.DoesNotExist:
                     pass
         return total
@@ -549,7 +549,7 @@ class OrderSerializer(serializers.ModelSerializer):
                 store_item_id=store_item,
                 size_id=size_id,
                 quantity=quantity,
-                price_at_order=store_item.price / 10 ,
+                price_at_order=store_item.price,
             )
 
             # Update inventory
