@@ -135,9 +135,7 @@ class AccountsVerifyView(APIView):
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
             account_id = payload.get("user_id")
             account = Account.objects.get(id=account_id)
-            print("Verifying account:", account.is_verified)
             account.is_verified = True
-            print("Verifying account:", account.is_verified)
             account.save()
             return JsonResponse({"message": "Account verified successfully"})
         except jwt.ExpiredSignatureError:
