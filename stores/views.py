@@ -625,7 +625,7 @@ class OrderListView(APIView):
 
         # If user is authenticated but not a store owner, show their own orders
         if request.user and request.user.is_authenticated and not profile_id:
-            orders = orders.filter(buyer_id=request.user.id)
+            orders = orders.filter(buyer_id=profile_id)
 
         serializer = OrderSerializer(orders, many=True, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
