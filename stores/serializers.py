@@ -445,10 +445,16 @@ class OrderSerializer(serializers.ModelSerializer):
 
         validated_data["store_id"] = store
 
-        # Get buyer_id from context if not provided
+        # Get buyer_id from context if not provided (buyer_id is optional)
         buyer_id = get_profile_id_from_token(request)
-        if not buyer_id:
-            # Get account ID from JWT token
+        if buyer_id:
+            try:
+                buyer = Profile.objects.get(pk=buyer_id)
+                validated_data["buyer_id"] = buyer
+            except Profile.DoesNotExist:
+                validated_data["buyer_id"] = None
+        else:
+            # Try to get account ID from JWT token
             auth_header = request.headers.get("Authorization")
             if auth_header and auth_header.startswith("Bearer "):
                 token_string = auth_header.split(" ")[1]
@@ -457,14 +463,12 @@ class OrderSerializer(serializers.ModelSerializer):
                 try:
                     access_token = AccessToken(token_string)
                     account_id = access_token["user_id"]
-                    buyer = Account.objects.get(pk=account_id)
+                    buyer = Profile.objects.get(pk=account_id)
                     validated_data["buyer_id"] = buyer
                 except Exception:
-                    raise serializers.ValidationError(
-                        "Invalid token or account not found."
-                    )
+                    validated_data["buyer_id"] = None
             else:
-                raise serializers.ValidationError("Authorization required.")
+                validated_data["buyer_id"] = None
 
         # Create order with transaction to ensure data consistency
         try:
