@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from accounts.models import Account
 from .models import (
     Store,
     StoreBranch,
@@ -387,7 +386,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     order_items = OrderItemSerializer(source="orderitem_set", many=True, read_only=True)
     store_name = serializers.CharField(source="store_id.name", read_only=True)
-    buyer_name = serializers.CharField(source="buyer_id.username", read_only=True)
+    buyer_name = serializers.SerializerMethodField()
     total_price = serializers.SerializerMethodField()
     profile_id = serializers.SerializerMethodField()
 
@@ -422,6 +421,18 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def get_profile_id(self, obj):
         return obj.store_id.profile_id.id
+
+    def get_buyer_name(self, obj):
+        """Get buyer name from profile's account or trainee name"""
+        if obj.buyer_id:
+            # Try to get name from trainee profile data
+            profile_data = obj.buyer_id.get_profile_data
+            if profile_data and hasattr(profile_data, 'name'):
+                return profile_data.name
+            # Fallback to account username
+            if obj.buyer_id.account:
+                return obj.buyer_id.account.username
+        return None
 
     def create(self, validated_data):
         # Extract order items data from raw request data
