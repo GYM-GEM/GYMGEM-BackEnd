@@ -175,9 +175,9 @@ def send_verification_email(account: Account, request: HttpRequest) -> None:
     }
     token = jwt.encode(token_payload, settings.SECRET_KEY, algorithm="HS256")
 
-    verification_link = request.build_absolute_uri(
-        reverse("accounts-verify") + f"?token={token}"
-    )
+    # Use frontend URL for verification link
+    frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+    verification_link = f"{frontend_url}/verify?token={token}"
     
     logger.info(
         "Sending verification email to %s for account %s",
