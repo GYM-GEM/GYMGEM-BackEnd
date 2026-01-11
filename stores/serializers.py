@@ -446,7 +446,7 @@ class OrderSerializer(serializers.ModelSerializer):
         validated_data["store_id"] = store
 
         # Get buyer_id from context if not provided
-        buyer_id = request.data.get("buyer_id")
+        buyer_id = get_profile_id_from_token(request)
         if not buyer_id:
             # Get account ID from JWT token
             auth_header = request.headers.get("Authorization")
