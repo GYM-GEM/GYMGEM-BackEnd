@@ -549,7 +549,7 @@ class OrderSerializer(serializers.ModelSerializer):
                 store_item_id=store_item,
                 size_id=size_id,
                 quantity=quantity,
-                price_at_order=store_item.price,
+                price_at_order=store_item.price/10,
             )
 
             # Update inventory
