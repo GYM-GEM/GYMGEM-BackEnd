@@ -56,8 +56,9 @@ class AccountsListView(APIView):
         return JsonResponse(data, safe=False)
 
 
-@permission_classes([AllowAny])
+
 class AccountsCreateView(APIView):
+    permission_classes = [AllowAny]
     @extend_schema(
         tags=["Accounts"],
         operation_id="accounts_create",
@@ -147,8 +148,9 @@ class AccountsVerifyView(APIView):
             return JsonResponse({"error": "Account not found"}, status=400)
 
 
-@permission_classes([IsAuthenticated])
+
 class AccountsDetailView(APIView):
+    permission_classes = [IsAuthenticated]
     """Handles operations on individual accounts"""
 
     @extend_schema(
