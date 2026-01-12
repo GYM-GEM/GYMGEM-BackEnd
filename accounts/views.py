@@ -675,7 +675,8 @@ class PasswordResetConfirmView(APIView):
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
             account_id = payload.get("user_id")
             account = Account.objects.get(id=account_id)
-            account.set_password(new_password)
+            pw = make_password(new_password)
+            account.password = pw
             account.save()
             return JsonResponse({"message": "Password reset successful"})
         except jwt.ExpiredSignatureError:
