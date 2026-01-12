@@ -53,9 +53,9 @@ def redis_client() -> redis.Redis:
     return _redis_client
 
 
-SESSION_TTL: int = 60 * 40  # 40 minutes
+SESSION_TTL: int = 60 * 4  # 40 minutes
 PRESENCE_TTL: int = SESSION_TTL + 60
-MIN_PRESENCE_SECONDS: int = 10 * 60  # 10 minutes
+MIN_PRESENCE_SECONDS: int = 1 * 60  # 10 minutes
 HEARTBEAT_INTERVAL: int = 30  # seconds
 
 
