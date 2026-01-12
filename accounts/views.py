@@ -56,8 +56,9 @@ class AccountsListView(APIView):
         return JsonResponse(data, safe=False)
 
 
-@permission_classes([AllowAny])
+
 class AccountsCreateView(APIView):
+    permission_classes = [AllowAny]
     @extend_schema(
         tags=["Accounts"],
         operation_id="accounts_create",
@@ -107,6 +108,7 @@ class AccountsCreateView(APIView):
 
 
 class AccountsVerifyView(APIView):
+    permission_classes = [AllowAny]
     @extend_schema(
         tags=["Accounts"],
         operation_id="accounts_verify",
@@ -135,9 +137,7 @@ class AccountsVerifyView(APIView):
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
             account_id = payload.get("user_id")
             account = Account.objects.get(id=account_id)
-            print("Verifying account:", account.is_verified)
             account.is_verified = True
-            print("Verifying account:", account.is_verified)
             account.save()
             return JsonResponse({"message": "Account verified successfully"})
         except jwt.ExpiredSignatureError:
@@ -148,8 +148,9 @@ class AccountsVerifyView(APIView):
             return JsonResponse({"error": "Account not found"}, status=400)
 
 
-@permission_classes([IsAuthenticated])
+
 class AccountsDetailView(APIView):
+    permission_classes = [IsAuthenticated]
     """Handles operations on individual accounts"""
 
     @extend_schema(
@@ -600,3 +601,87 @@ class AccountsManageStatusView(APIView):
             return JsonResponse(data)
         except Account.DoesNotExist:
             return JsonResponse({"error": "Account not found"}, status=404)
+        
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        tags=["Accounts"],
+        operation_id="accounts_request_password_reset",
+        summary="Request password reset",
+        description="Request a password reset email",
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {
+                    "email": {"type": "string", "format": "email"},
+                },
+                "required": ["email"],
+            }
+        },
+        responses={
+            200: {"description": "Password reset email sent"},
+            400: {"description": "Bad request"},
+        },
+    )
+    def post(self, request):
+        """Request password reset"""
+        from utils.views import send_password_reset_email
+
+        email = request.data.get("email")
+        if not email:
+            return JsonResponse({"error": "Email is required"}, status=400)
+        try:
+            account = Account.objects.get(email=email)
+            send_password_reset_email(account, request)
+            return JsonResponse({"message": "Password reset email sent"})
+        except Account.DoesNotExist:
+            return JsonResponse({"error": "Account not found"}, status=400)
+        
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        tags=["Accounts"],
+        operation_id="accounts_confirm_password_reset",
+        summary="Confirm password reset",
+        description="Reset password using a valid token",
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {
+                    "token": {"type": "string"},
+                    "newPassword": {"type": "string"},
+                    "confirmPassword": {"type": "string"},
+                },
+                "required": ["token", "newPassword", "confirmPassword"],
+            }
+        },
+        responses={
+            200: {"description": "Password reset successful"},
+            400: {"description": "Bad request"},
+        },
+    )
+    def post(self, request):
+        """Confirm password reset"""
+        token = request.data.get("token")
+        new_password = request.data.get("newPassword")
+        confirm_password = request.data.get("confirmPassword")
+        if not token:
+            return JsonResponse({"error": "Token is required"}, status=400)
+        if new_password != confirm_password:
+            return JsonResponse({"error": "Passwords do not match"}, status=400)
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+            account_id = payload.get("user_id")
+            account = Account.objects.get(id=account_id)
+            pw = make_password(new_password)
+            account.password = pw
+            account.save()
+            return JsonResponse({"message": "Password reset successful"})
+        except jwt.ExpiredSignatureError:
+            return JsonResponse({"error": "Token has expired"}, status=400)
+        except jwt.InvalidTokenError:
+            return JsonResponse({"error": "Invalid token"}, status=400)
+        except Account.DoesNotExist:
+            return JsonResponse({"error": "Account not found"}, status=400)

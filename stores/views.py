@@ -602,30 +602,25 @@ class OrderListView(APIView):
         If authenticated user is store owner, show only their store's orders
         If authenticated user is buyer, show only their orders
         """
-        orders = Order.objects.all()
-
         # If user is a store owner, filter to their store's orders
         profile_id = get_profile_id_from_token(request)
         if profile_id:
             user_stores = Store.objects.filter(profile_id=profile_id)
             if user_stores.exists():
-                orders = orders.filter(store_id__in=user_stores)
+                orders = Order.objects.filter(store_id__in=user_stores)
 
         # Filter by profile_id if provided (for admin or specific queries)
-        query_profile_id = request.query_params.get("profile_id")
-        if query_profile_id:
-            stores = Store.objects.filter(profile_id=query_profile_id)
-            if stores.exists():
-                orders = orders.filter(store_id__in=stores)
-
-        # Filter by buyer_id if provided
-        buyer_id = request.query_params.get("buyer_id")
-        if buyer_id:
-            orders = orders.filter(buyer_id=buyer_id)
+        if request.user.is_superuser:
+            orders = Order.objects.all()
+            query_profile_id = request.query_params.get("profile_id")
+            if query_profile_id:
+                stores = Store.objects.filter(profile_id=query_profile_id)
+                if stores.exists():
+                    orders = orders.filter(store_id__in=stores)
 
         # If user is authenticated but not a store owner, show their own orders
-        if request.user and request.user.is_authenticated and not profile_id:
-            orders = orders.filter(buyer_id=request.user.id)
+        if not user_stores.exists():
+            orders = Order.objects.filter(buyer_id=profile_id)
 
         serializer = OrderSerializer(orders, many=True, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)

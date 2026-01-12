@@ -175,9 +175,9 @@ def send_verification_email(account: Account, request: HttpRequest) -> None:
     }
     token = jwt.encode(token_payload, settings.SECRET_KEY, algorithm="HS256")
 
-    verification_link = request.build_absolute_uri(
-        reverse("accounts-verify") + f"?token={token}"
-    )
+    # Use frontend URL for verification link
+    frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+    verification_link = f"{frontend_url}/verify?token={token}"
     
     logger.info(
         "Sending verification email to %s for account %s",
@@ -202,6 +202,64 @@ def send_verification_email(account: Account, request: HttpRequest) -> None:
         logger.error("Failed to send verification email: %s", str(e))
         raise
 
+def send_password_reset_email(account: Account, request: HttpRequest) -> None:
+    """
+    Generate and send password reset link to the account's email address.
+    
+    Creates a JWT token valid for 15 minutes containing the account ID, builds
+    an absolute password reset URL, and sends it via email to the user.
+    
+    Args:
+        account (Account): The Account instance to send password reset email to.
+        request (HttpRequest): The HTTP request object used to build absolute URI.
+    
+    Returns:
+        None
+    
+    Raises:
+        Exception: If email sending fails (logged and re-raised).
+    
+    Note:
+        - Password reset token expires after 15 minutes
+        - Uses DEFAULT_FROM_EMAIL from settings
+        - Logs both successful sends and failures
+    
+    Example:
+        >>> send_password_reset_email(user_account, request)
+    """
+    token_payload = {
+        "user_id": account.id,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+        "iat": datetime.now(timezone.utc),
+    }
+    token = jwt.encode(token_payload, settings.SECRET_KEY, algorithm="HS256")
+
+    # Use frontend URL for password reset link
+    frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:4040')
+    reset_link = f"{frontend_url}/reset-password?token={token}"
+    
+    logger.info(
+        "Sending password reset email to %s for account %s",
+        account.email,
+        account.id
+    )
+    
+    subject = "Reset your password"
+    message = (
+        f"Hi {account.first_name},\n\n"
+        f"You can reset your password by clicking the link below:\n"
+        f"{reset_link}\n\n"
+        f"If you did not request a password reset, please ignore this email."
+    )
+    from_email = settings.DEFAULT_FROM_EMAIL
+    recipient_list = [account.email]
+    
+    try:
+        send_mail(subject, message, from_email, recipient_list)
+        logger.info("Password reset email sent successfully to %s", account.email)
+    except Exception as e:
+        logger.error("Failed to send password reset email: %s", str(e))
+        raise
 
 @extend_schema(
     tags=["Utils"],

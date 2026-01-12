@@ -197,6 +197,10 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "GymGem.urls"
+
+# Frontend URL for email verification links
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:4040")
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:4040",
     "http://192.168.1.20:4040",

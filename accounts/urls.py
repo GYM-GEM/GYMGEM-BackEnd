@@ -7,16 +7,20 @@ from .views import (
     AccountsCreateView,
     AccountsPasswordChangeView,
     AccountsManageStatusView,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
 )
 
 urlpatterns = [
     path('list', AccountsListView.as_view(), name='accounts-list'),
 
     #get , put , patch , delete account by id
-    path('detail/<int:account_id>', AccountsDetailView.as_view(), name='accounts-detail'),
+    path('detail', AccountsDetailView.as_view(), name='accounts-detail'),
     path('current', CurrentAccountView.as_view(), name='current-account'),
     path('create', AccountsCreateView.as_view(), name='accounts-create'),
     path('change-password', AccountsPasswordChangeView.as_view(), name='accounts-change-password'),
+    path('reset-password', PasswordResetConfirmView.as_view(), name='accounts-reset-password'),
+    path('reset-password-request', PasswordResetRequestView.as_view(), name='accounts-reset-password-request'),
     path('verify', AccountsVerifyView.as_view(), name='accounts-verify'),
     path('manage-status/<int:account_id>', AccountsManageStatusView.as_view(), name='accounts-manage-status'),
 ]
