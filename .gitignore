@@ -209,3 +209,10 @@ __marimo__/
 ORDERS_API_TESTING_GUIDE.md
 COMPLETE_STORE_API_TESTING_GUIDE.md
 STORE_ITEMS_API_TESTING_GUIDE.md
+
+
+seed_courses.py
+seed_community.py
+seed_utils.py
+seed_trainers.py
+seed_stores.py

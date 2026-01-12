@@ -12,7 +12,7 @@ class Course(models.Model):
     language = models.ForeignKey('utils.Language', on_delete=models.SET_NULL, null=True)
     price = models.DecimalField(max_digits=8, decimal_places=2)
     cover = models.URLField(blank=True, null=True)
-    status = models.CharField(max_length=20, choices=[('draft', 'Draft'), ('published', 'Published'),('pending', 'Pending')], default='draft')
+    status = models.CharField(max_length=20, choices=[('draft', 'Draft'), ('Request to publish', 'Request to publish')], default='draft')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     description = models.TextField()
