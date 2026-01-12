@@ -90,7 +90,7 @@ class StoreItem(models.Model):
     item_image = models.URLField(blank=True, null=True)
     
     price = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    category = models.CharField(max_length=100, choices=[('supplements', 'Supplements'), ('clothes', 'Clothes'),('foods', 'Foods')], blank=True, null=True)
+    category = models.CharField(max_length=100, choices=[('supplements', 'Supplements'), ('clothes', 'Clothes'),('foods', 'Foods'),('accessories', 'Accessories')], blank=True, null=True)
     status = models.CharField(max_length=20, choices=[('draft', 'Draft'), ('published', 'Published'),('pending', 'Pending')], default='draft')
 
     brand = models.CharField(max_length=100, blank=True, null=True)
