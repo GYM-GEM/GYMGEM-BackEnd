@@ -107,6 +107,7 @@ class AccountsCreateView(APIView):
 
 
 class AccountsVerifyView(APIView):
+    permission_classes = [AllowAny]
     @extend_schema(
         tags=["Accounts"],
         operation_id="accounts_verify",
