@@ -12,6 +12,7 @@ from .views import (
     PublicStoreBranchView,
     StoreBranchUpdateView,
     MyStoreItemListView,
+    ClientOrderListView,
 )
 
 urlpatterns = [
@@ -38,6 +39,7 @@ urlpatterns = [
     ),
     # Order
     path("orders", OrderListView.as_view(), name="order-list"),
+    path("my-orders", ClientOrderListView.as_view(), name="client-order-list"),
     path("orders/<int:order_id>", OrderDetailView.as_view(), name="order-detail"),
     path(
         "orders/<int:order_id>/items",
