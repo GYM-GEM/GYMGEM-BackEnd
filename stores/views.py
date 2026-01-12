@@ -780,6 +780,31 @@ class OrderDetailView(APIView):
         return is_store_owner or is_buyer
 
 
+
+class ClientOrderListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="List my orders",
+        description="Retrieve a list of orders placed by the authenticated user (client).",
+        responses={
+            200: OrderSerializer(many=True),
+            401: "Unauthorized - Authentication required",
+        },
+        tags=["Orders"],
+    )
+    def get(self, request):
+        profile_id = get_profile_id_from_token(request)
+        if not profile_id:
+            return Response(
+                {"detail": "Profile not found."}, status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        orders = Order.objects.filter(buyer_id=profile_id).order_by("-created_at")
+        serializer = OrderSerializer(orders, many=True, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 class OrderItemListView(APIView):
     permission_classes = [IsAuthenticated]
 
